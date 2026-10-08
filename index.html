@@ -2210,6 +2210,51 @@
             -webkit-text-fill-color: var(--plum);
         }
 
+        /* Zoom presets (.5× / 1× / 2×) — small frosted pills; active = plum */
+        #mob-zoom-presets {
+            gap: 6px;
+            bottom: 128px;
+        }
+
+        .mob-zoom-preset {
+            width: auto;
+            min-width: 34px;
+            height: 28px;
+            padding: 0 8px;
+            border-radius: var(--pill);
+            font-size: 11px;
+            font-weight: 700;
+            background: var(--fab-bg);
+            -webkit-backdrop-filter: var(--fab-blur);
+            backdrop-filter: var(--fab-blur);
+            color: var(--plum);
+            -webkit-text-fill-color: var(--plum);
+            text-shadow: none;
+            opacity: 1;
+        }
+
+        .mob-zoom-preset.active {
+            background: rgba(74, 57, 66, .82);
+            color: var(--cream);
+            -webkit-text-fill-color: var(--cream);
+        }
+
+        /* Pinch zoom dial: cream ticks/labels so it reads over the camera feed */
+        #mob-zoom-ticks-g line,
+        #mob-zoom-ticks-g path {
+            stroke: var(--cream);
+        }
+
+        #mob-zoom-ticks-g text {
+            fill: var(--cream);
+            font-family: 'Outfit', system-ui, sans-serif;
+            font-weight: 600;
+        }
+
+        #mob-zoom-dial-label {
+            font-weight: 800;
+        }
+
         /* Lens slider: a frosted capsule with a plum track and a round knob */
         #mob-side-slider-wrap {
             right: 12px;
@@ -2629,10 +2674,17 @@
     <!-- Gallery: shows the latest shot as a live thumbnail (an empty film frame until then) -->
     <button id="mob-gallery" aria-label="Gallery" type="button" style="display:none"><span class="gallery-empty-frame"></span></button>
     <button id="mob-download" aria-label="Save to gallery"></button>
-    <!-- No zoom presets row and no pinch-to-zoom dial (both inherited from the original app
-         and removed on request): the lens slider is the only way to change the framing. The
-         zoom-dial/preset JS is still there but inert — it's all guarded on these elements
-         existing. -->
+    <!-- Quick zoom presets — small taps for common levels, above the shutter (Live only). -->
+    <div id="mob-zoom-presets" style="display:none"></div>
+    <!-- Live Zoom: pinch with two fingers on the viewfinder (Live only) to reveal this
+         curved drag-to-zoom dial, like a phone camera — no visible button for it. -->
+    <div id="mob-zoom-pop" aria-hidden="true" style="display:none">
+        <svg id="mob-zoom-dial" viewBox="0 0 240 172" width="240" height="172" role="slider"
+            aria-label="Zoom level" aria-valuemin="1" aria-valuemax="2" aria-valuenow="1">
+            <g id="mob-zoom-ticks-g"></g>
+            <text id="mob-zoom-dial-label" x="120" y="150" text-anchor="middle">1×</text>
+        </svg>
+    </div>
 
     <!-- Gallery: every photo/video captured this session. Nothing here survives a reload —
          it's an in-memory session roll, not storage. -->
@@ -4546,9 +4598,11 @@ void main() {
                     liveState.mirror = (liveState.facingMode === 'user');
                     liveState.didSetMobileFacingDefault = true;
                 }
-                // Like the grid app: the camera opens at 0.5× (the widest the hardware allows)
-                // so the full-screen 9:16 frame doesn't feel zoomed-in. Applied to the
-                // hardware once the stream's zoom range is known (below).
+                if (isMobileLayout() && !liveState.didSetMobileZoomDefault) {
+                    // Set UI immediately; hardware zoom will be applied after stream starts.
+                    setZoomUIValue(0.5);
+                    liveState.didSetMobileZoomDefault = true;
+                }
                 // Sync Live ratio to breakpoint (single source of truth)
                 liveState.aspectRatio = getLiveTargetRatioKey();
                 liveCoverCanvas = null;
@@ -4578,16 +4632,28 @@ void main() {
                         computeLiveZoomRange();
                         renderZoomTicks();
                         renderZoomPresets();
-                        // Every (re)start — first launch, camera flip — opens as wide as this
-                        // camera's hardware zoom goes, down to 0.5× (the grid app's default and
-                        // its fix for "everything looks too close"); 1× where there's no zoom
-                        // range. There's no zoom UI, so this is the only zoom ever applied.
-                        const zc = __liveZoomCaps;
-                        const wide = (zc && typeof zc.min === 'number')
-                            ? Math.max(zc.min, Math.min(typeof zc.max === 'number' ? zc.max : zc.min, 0.5))
-                            : 1;
-                        liveState.userZoom = wide;
-                        applyHardwareZoomIfPossible(wide);
+                        try {
+                            // First launch opens at 0.5× (or the widest the hardware allows) —
+                            // the grid app's default, and its fix for "everything looks too
+                            // close" on a full-screen 9:16 frame. After that (camera flip,
+                            // ultra-wide swap) keep the user's zoom, re-applied to the new
+                            // stream so the hardware/software split is never stale.
+                            if (isMobileLayout() && !liveState.didApplyMobileHardwareZoomDefault && __liveZoomCaps && typeof __liveZoomCaps.min === 'number') {
+                                const pref = 0.5;
+                                const zmin = __liveZoomCaps.min;
+                                const zmax = (typeof __liveZoomCaps.max === 'number') ? __liveZoomCaps.max : zmin;
+                                const target = (pref >= zmin && pref <= zmax) ? pref : zmin;
+                                setZoomUIValue(target);
+                                applyHardwareZoomIfPossible(target);
+                                liveState.didApplyMobileHardwareZoomDefault = true;
+                            } else if (liveState.usingUltraWide) {
+                                markUltraWideActive();
+                                applyHardwareZoomIfPossible(1);
+                            } else {
+                                setZoomUIValue(liveState.userZoom || 1);
+                                applyHardwareZoomIfPossible(liveState.userZoom || 1);
+                            }
+                        } catch (_) { }
                         __liveTrackDebug = { settings: s, constraints: c, capabilities: cap };
                     } else {
                         __liveTrackDebug = null;
@@ -5601,7 +5667,7 @@ void main() {
         // PWA: register service worker for installability + reliable updates
         (function () {
             if (!('serviceWorker' in navigator)) return;
-            const __BUILD = 'v6';
+            const __BUILD = 'v7';
             try {
                 const bt = document.getElementById('build-tag');
                 if (bt) bt.textContent = __BUILD;
@@ -5635,7 +5701,7 @@ void main() {
             window.forceAppUpdate = resetServiceWorkerAndReload;
 
             // Versioned SW URL forces Safari to re-fetch updated sw.js
-            const __SW_URL = 'sw.js?v=6';
+            const __SW_URL = 'sw.js?v=7';
             navigator.serviceWorker.register(__SW_URL).then((reg) => {
                 function trySkipWaiting() {
                     if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });

@@ -32,9 +32,12 @@ Bump `CACHE` in `sw.js` (`film-camera-vN`) **and** `__BUILD` / `__SW_URL`'s `?v=
   highlights for long ones (`uDof`), round mask for the fisheye. No pincushion for tele lenses:
   keeping the full frame with pincushion needs pixels from outside the frame (smeared edges).
   A centered `#lens-toast` names the lens and its character while the slider moves.
-  There is **no other zoom control** — the original's zoom-presets row and pinch-to-zoom dial
-  markup were removed on request (their JS is still present but inert: it's all guarded on those
-  elements existing). Live base zoom is always 1×.
+  **Zoom is separate from the lens and must stay**: the grid app's zoom-presets row
+  (`.5×`/`1×`/`2×`, `.5×` = the physical ultra-wide on the back camera) and pinch-to-zoom dial
+  are part of the app. (They were once removed by mistake — a request that "only the lens"
+  be on the outside slider was misread as "no zoom"; the user never wanted zoom removed.)
+  Zoom = how close the frame is (hardware zoom first, software crop for the rest); lens = the
+  feel of the space. They stack independently.
   `FILM(...)` entries = chemistry (color, contrast, grain, halation, tone curve, split tone,
   B&W mix; instant films also carry their print frame). `CAMERA(...)` entries = optics/print
   (vignette, soft lens, leaks, fringing, frame, date stamp, grain multiplier) plus small color
@@ -57,7 +60,7 @@ Bump `CACHE` in `sw.js` (`film-camera-vN`) **and** `__BUILD` / `__SW_URL`'s `?v=
   9:16, front camera at its natural aspect (`getLiveVideoConstraints()` copied verbatim). The
   "too close" feeling is solved the grid app's way: every camera start opens at **0.5×** through
   the *hardware* zoom where the device's zoom range reaches it (else its minimum, else 1×) —
-  see the end of `startCamera()`. Tried instead (2026-10-08) and **rejected by the user**: a
+  see the end of `startCamera()` (first launch only; later restarts keep the user's zoom). Tried instead (2026-10-08) and **rejected by the user**: a
   contain-fit 3:4/4:3 frame showing the full sensor with bands above/below ("the canvas is wide
   and not good") — don't reintroduce it. Dropping the 0.5× default (when the zoom UI was
   removed) is what made it look zoomed-in on real phones.
