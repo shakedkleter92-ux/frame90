@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Film Camera logo = the shutter button as it looks over the camera feed: a frosted
+       warm-beige rounded square (the translucent cream ring) holding the VHS sunset stripe
+       run. Same proportions as #mob-shutter (64px, radius 22, inner inset 9 / radius 15). -->
+  <defs>
+    <linearGradient id="ring" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#bfa48f"/>
+      <stop offset="1" stop-color="#a88b77"/>
+    </linearGradient>
+    <clipPath id="inner">
+      <rect x="72" y="72" width="368" height="368" rx="120" ry="120"/>
+    </clipPath>
+  </defs>
+  <rect x="0" y="0" width="512" height="512" rx="176" ry="176" fill="url(#ring)"/>
+  <g clip-path="url(#inner)">
+    <rect x="72" y="72" width="368" height="46" fill="#d7df5a"/>
+    <rect x="72" y="118" width="368" height="46" fill="#f6d34a"/>
+    <rect x="72" y="164" width="368" height="46" fill="#f6a83c"/>
+    <rect x="72" y="210" width="368" height="46" fill="#f27f37"/>
+    <rect x="72" y="256" width="368" height="46" fill="#ec5a40"/>
+    <rect x="72" y="302" width="368" height="46" fill="#d9475a"/>
+    <rect x="72" y="348" width="368" height="46" fill="#a8406c"/>
+    <rect x="72" y="394" width="368" height="46" fill="#74385f"/>
+  </g>
+</svg>
