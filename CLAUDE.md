@@ -52,15 +52,15 @@ Bump `CACHE` in `sw.js` (`film-camera-vN`) **and** `__BUILD` / `__SW_URL`'s `?v=
   (Live: latest film frame, cover-fit; Upload: the filtered photo, contain-fit).
   `renderUpload` re-runs the film pass for the uploaded photo at preview size. Call
   `refreshView()` after any settings change.
-- **Live framing = full field of view, never cover-cropped.** Both cameras request the
-  sensor's native 4:3 (`getLiveVideoConstraints()`, no aspectRatio). The live frame takes the
-  camera's own shape — 3:4 for a phone (portrait buffer, or Android's rotated landscape one),
-  4:3 for a landscape laptop webcam (`getLiveTargetRatioKey()`) — and is **contain**-fit full
-  width, a bit above center, with the controls in the plum band below (`getLiveFrameRect()`),
-  like a phone camera's Photo mode. Photos are 1080×1440 / 1440×1080. This replaced the
-  original's 9:16 request + cover-fill, which on a real phone kept only ~60% of the sensor
-  width and was reported (twice) as "everything is much closer than it should be". Don't go
-  back to filling the screen.
+- **Live framing = the grid app's canvas, exactly.** A 9:16 frame cover-filling the whole
+  screen (`getLiveFrameRect()` = the grid app's `renderGrid()` math), back camera requested at
+  9:16, front camera at its natural aspect (`getLiveVideoConstraints()` copied verbatim). The
+  "too close" feeling is solved the grid app's way: every camera start opens at **0.5×** through
+  the *hardware* zoom where the device's zoom range reaches it (else its minimum, else 1×) —
+  see the end of `startCamera()`. Tried instead (2026-10-08) and **rejected by the user**: a
+  contain-fit 3:4/4:3 frame showing the full sensor with bands above/below ("the canvas is wide
+  and not good") — don't reintroduce it. Dropping the 0.5× default (when the zoom UI was
+  removed) is what made it look zoomed-in on real phones.
 - **LIVE CAMERA** — unchanged camera plumbing from the original (facing defaults, ultra-wide
   0.5×, zoom dial, Android rotation fix). `liveLoop()` renders the preview (long side capped by
   `LIVE_PREVIEW_MAX`); `liveCoverCanvas` *is* `film.canvas`. The shutter (`captureLivePhoto()`)
