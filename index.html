@@ -3385,6 +3385,7 @@ void main() {
             '4:5': { w: 1080, h: 1350 },
             '1:1': { w: 1080, h: 1080 },
             '3:4': { w: 1080, h: 1440 },
+            '4:3': { w: 1440, h: 1080 },
             '16:9': { w: 1920, h: 1080 }
         };
         // Live: the latest full-frame film render (target ratio, cover-fit onto the screen).
@@ -3400,17 +3401,19 @@ void main() {
 
         // Where the target-ratio Live frame sits on screen: COVER-fit into #main — fills the
         // screen completely, cropping any excess, so there's never a margin.
+        // Where the 3:4 Live frame sits on screen: CONTAIN-fit — the whole frame is
+        // always visible (never cover-cropped to fill the screen, which zoomed the view in),
+        // full width on a phone, sitting a little above center with the shutter controls in
+        // the plum band below it, like a phone camera's Photo mode.
         function getLiveFrameRect(W, H) {
-            let frameW = Math.max(1, W), frameH = Math.max(1, H), dx = 0, dy = 0;
-            let desiredAR = getLiveTargetRatioValue(); // width/height
-            if (desiredAR > 1) desiredAR = 1 / desiredAR;
-            if (frameW / frameH > desiredAR) {
-                frameH = Math.max(1, Math.round(frameW / desiredAR));
-                dy = Math.round((H - frameH) / 2);
-            } else {
-                frameW = Math.max(1, Math.round(frameH * desiredAR));
-                dx = Math.round((W - frameW) / 2);
+            const desiredAR = getLiveTargetRatioValue(); // width/height (3:4 or 4:3)
+            let frameW = Math.max(1, W), frameH = Math.max(1, Math.round(W / desiredAR));
+            if (frameH > H) {
+                frameH = Math.max(1, H);
+                frameW = Math.max(1, Math.round(H * desiredAR));
             }
+            const dx = Math.round((W - frameW) / 2);
+            const dy = Math.round((H - frameH) * 0.38);
             return { dx, dy, cw: frameW, ch: frameH };
         }
 
@@ -3973,7 +3976,7 @@ void main() {
             mirror: true,
             bgPixels: null, bgCols: 0, bgRows: 0, bgDiff: 30,
             facingMode: 'user',
-            aspectRatio: '9:16',
+            aspectRatio: '3:4',
             userZoom: 1, // user-controlled zoom (hardware if available, else software)
             userSetFacing: false,
             didSetMobileFacingDefault: false,
@@ -3991,10 +3994,15 @@ void main() {
         // - mobile: 9:16 (portrait)
         // - tablet: 3:4 (portrait-ish)
         // - desktop: 9:16 (portrait, per request; keeps behavior consistent across devices)
+        // The live frame takes the camera's own shape so the full field of view is always
+        // shown: 3:4 for a phone camera (portrait buffer, or Android's landscape buffer that
+        // getLiveSource() rotates upright), 4:3 for a landscape desktop/laptop webcam —
+        // squeezing a landscape webcam into 3:4 kept only ~56% of its width.
         function getLiveTargetRatioKey() {
-            const mode = getLayoutMode();
-            if (mode === 'tablet') return '3:4';
-            return '9:16';
+            const vw = liveVideo.videoWidth, vh = liveVideo.videoHeight;
+            const willRotate = isMobileDevice() && !isIOSWebKit() && window.innerHeight >= window.innerWidth;
+            if (vw && vh && vw > vh && !willRotate) return '4:3';
+            return '3:4';
         }
 
         function getLiveTargetRatioValue() {
@@ -4004,6 +4012,7 @@ void main() {
         function getAspectRatioValue(ratioKey) {
             if (ratioKey === '1:1') return 1;
             if (ratioKey === '3:4') return 3 / 4;
+            if (ratioKey === '4:3') return 4 / 3;
             if (ratioKey === '4:5') return 4 / 5;
             if (ratioKey === '16:9') return 16 / 9;
             return 9 / 16; // '9:16' default
@@ -4349,43 +4358,17 @@ void main() {
         }
 
         function getLiveVideoConstraints() {
-            const mode = getLayoutMode();
-            const idealLong = (mode === 'desktop') ? 1920 : (mode === 'tablet' ? 1440 : 1280);
-
-            // Front/selfie camera: don't ask the hardware for our narrow 9:16 target —
-            // many front-camera drivers satisfy a narrow aspectRatio request by digitally
-            // zooming into the sensor's center rather than just slicing off the sides,
-            // which is what made 1x look unnaturally tight on a face (the sensor itself was
-            // being told to pre-crop, before our own "cover" crop below ever saw the frame).
-            // Ask for the sensor's natural resolution with no aspect constraint instead, and
-            // let sampleLiveFrame()'s cover-fit do all the cropping down to 9:16 from that
-            // fuller capture — same idea as a real camera app keeping 1x at full native FOV.
-            if (liveState.facingMode === 'user') {
-                return { facingMode: 'user', width: { ideal: idealLong }, height: { ideal: idealLong } };
-            }
-
-            // Back camera: request a stream that matches our target ratio for this
-            // breakpoint. Browsers may ignore, but when honored it prevents "stuck 16:9"
-            // on mobile — the back camera's much higher native resolution means this
-            // narrower crop still keeps plenty of real detail/FOV, unlike the front one.
-            let desiredAR = getLiveTargetRatioValue(); // width/height, portrait < 1
-            if (desiredAR > 1) desiredAR = 1 / desiredAR;
-            const idealH = idealLong;
-            const idealW = Math.max(360, Math.round(idealLong * desiredAR));
-
-            const base = {
-                width: { ideal: idealW },
-                height: { ideal: idealH },
-                aspectRatio: { ideal: desiredAR },
-                advanced: [
-                    { width: idealW, height: idealH },
-                    { width: 720, height: 1280 },
-                    { width: 1080, height: 1920 },
-                ]
-            };
-            // 0.5x: a specific physical lens, not the zoom constraint — request it by
-            // deviceId instead of facingMode (mutually exclusive with facingMode).
-            if (liveState.usingUltraWide && liveState.ultraWideDeviceId) {
+            // Both cameras ask for the sensor's full native 4:3 frame — no aspectRatio, no
+            // narrow portrait target. Asking for 9:16 (what this used to do for the back
+            // camera) makes the phone crop ~25% of the sensor width before we ever see the
+            // frame, and filling a ~9:19.5 screen from that cropped another ~18%: only ~60%
+            // of the real field of view was left, reported as "everything is much closer
+            // than it should be". The live frame is now 3:4 and shown uncropped (see
+            // getLiveFrameRect()), like a phone camera's own Photo mode.
+            const base = { width: { ideal: 1920 }, height: { ideal: 1440 } };
+            // 0.5x: a specific physical lens, requested by deviceId instead of facingMode
+            // (mutually exclusive with facingMode). Unreachable without zoom UI; kept inert.
+            if (liveState.facingMode !== 'user' && liveState.usingUltraWide && liveState.ultraWideDeviceId) {
                 return Object.assign({ deviceId: { exact: liveState.ultraWideDeviceId } }, base);
             }
             return Object.assign({ facingMode: liveState.facingMode }, base);
@@ -4453,9 +4436,7 @@ void main() {
         function getLiveSource() {
             if (!liveVideo.videoWidth || liveVideo.readyState < 2) return null;
             const vw = liveVideo.videoWidth, vh = liveVideo.videoHeight;
-            let targetRatio = getLiveTargetRatioValue();
-            if (targetRatio > 1) targetRatio = 1 / targetRatio;
-            const wantPortraitUI = (targetRatio < 1) && (window.innerHeight >= window.innerWidth);
+            const wantPortraitUI = window.innerHeight >= window.innerWidth;
             // Any iOS browser (not just Safari — they all share the same WebKit engine)
             // already applies rotation metadata when drawing the <video> element. Rotating
             // again causes a 90° sideways preview. And this correction only makes sense on an
@@ -4935,7 +4916,7 @@ void main() {
                 return;
             }
             recordedChunks = [];
-            var recordRatio = liveState.aspectRatio;
+            var recordRatio = getLiveTargetRatioKey(); // the live frame's actual shape right now
             var dim = getLiveCoverDimensions(recordRatio);
             liveRecordCanvas = document.createElement('canvas');
             liveRecordCanvas.width = dim.w;
@@ -5592,7 +5573,7 @@ void main() {
         // PWA: register service worker for installability + reliable updates
         (function () {
             if (!('serviceWorker' in navigator)) return;
-            const __BUILD = 'v4';
+            const __BUILD = 'v5';
             try {
                 const bt = document.getElementById('build-tag');
                 if (bt) bt.textContent = __BUILD;
@@ -5626,7 +5607,7 @@ void main() {
             window.forceAppUpdate = resetServiceWorkerAndReload;
 
             // Versioned SW URL forces Safari to re-fetch updated sw.js
-            const __SW_URL = 'sw.js?v=4';
+            const __SW_URL = 'sw.js?v=5';
             navigator.serviceWorker.register(__SW_URL).then((reg) => {
                 function trySkipWaiting() {
                     if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
