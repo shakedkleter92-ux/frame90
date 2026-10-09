@@ -132,5 +132,5 @@ SVG in headless Chrome). When the logo changes, bump the `?v=` on every icon ref
 icon/apple-touch-icon/manifest links, `frame.html`, the `icons` in `manifest.json`) — iOS and
 Android cache home-screen icons hard. The 512 icon is `purpose: any`, not maskable (a circle
 mask would clip the viewfinder corners). Repo: `shakedkleter92-ux/frame90`, served by GitHub
-Pages at `https://shakedkleter92-ux.github.io/frame90/`. `icon_logo.svg` / `Asset 1.svg` are the user's earlier film-strip
-logo, no longer used.
+Pages at `https://shakedkleter92-ux.github.io/frame90/`.
+The earlier film-strip logo files (`icon_logo.svg`, `Asset 1.svg`) were deleted by the user.
