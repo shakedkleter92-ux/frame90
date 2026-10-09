@@ -2864,7 +2864,7 @@
     <button id="mob-shutter" aria-label="Capture"></button>
     <!-- Upload mode's equivalent of the shutter: always available (even once an image is
          already loaded) so there's a way to pick another one and replace it. -->
-    <button id="mob-upload-more" aria-label="Upload image" type="button" style="display:none">↑</button>
+    <button id="mob-upload-more" aria-label="Upload photo or video" type="button" style="display:none">↑</button>
     <!-- Lens: a persistent vertical slider on the right edge, shown in both Live and Upload.
          Snaps between LENSES (fisheye at the bottom → 135mm tele on top); each camera starts
          on the lens it shipped with. Tapping the LENS label steps to the next one. -->
@@ -2976,8 +2976,8 @@
             <!-- Upload (Image mode): tap/drop anywhere on the canvas to choose a photo -->
             <div id="upload-zone" style="display:none">
                 <div id="drop-zone">
-                    <input type="file" id="file-input" accept="image/*" class="dz-input" />
-                    <div class="dz-text">Drop photo here<br />or click to browse</div>
+                    <input type="file" id="file-input" accept="image/*,video/*" class="dz-input" />
+                    <div class="dz-text">Drop photo or video here<br />or click to browse</div>
                     <div id="file-name"></div>
                 </div>
             </div>
@@ -3025,6 +3025,9 @@
             // Upload: the decoded photo, redrawn onto a canvas (long side capped to what the
             // GPU can take as one texture) — the source every Upload render reads from.
             srcImage: null,
+            // Uploaded video: the playing <video> (muted loop preview); each new frame is
+            // copied into srcImage, so every photo path (crop, lens, compare) just works.
+            srcVideo: null,
             uploadSeed: 0,      // fixed grain/leak seed per uploaded photo, so tweaking a slider doesn't re-roll the grain
             uploadRect: null,   // where the Upload preview sits inside #main, CSS px
             bg: '#030503',
@@ -3098,6 +3101,7 @@
             chromaSub: [1, 1],        // color resolution divisor [x, y] (DV 4:1:1 = [4, 1])
             tape: 0,                  // analog tape: luma bandwidth + color smear + line wobble
             interlace: 0,             // 480i fields (combing on motion)
+            dropouts: 0,              // worn tape: share of scan lines with a dropout streak per frame
         };
 
         function hashKey(key) {
@@ -3171,6 +3175,15 @@
                 adj: { exposure: 4, contrast: 26, saturation: 20, warmth: -30, tint: 26, fade: 10, grain: 16 },
                 look: { soft: 1.4, chromaSub: [5, 1], tape: 1, sharpen: 1.1, interlace: 1, noiseType: 2, white: 0.92, gamma: [1.0, 1.05, 0.85], shadows: [0.04, 0.0, 0.1], highlights: [0.0, 0.02, 0.06] },
             },
+            vhsworn: { // the user's sunset-over-the-rails reference: a worn tape played back
+                px: [320, 240], jpegQ: 0.75, kbps: 600, audio: 'B', stereo: false, tapeFx: true,
+                adj: { exposure: 2, contrast: 24, saturation: 36, warmth: 34, tint: -4, grain: 14, halation: 16 },
+                look: {
+                    matrix: [[1.12, -0.06, -0.06], [0.02, 1.0, -0.02], [-0.02, 0.06, 0.96]],
+                    soft: 1.3, chromaSub: [6, 1], tape: 1, sharpen: 0.9, interlace: 1, noiseType: 2, white: 0.9, black: 0.06,
+                    gamma: [0.9, 1.0, 1.12], shadows: [0.04, 0.012, -0.01], halColor: [1, 0.55, 0.2], dropouts: 0.035,
+                },
+            },
             nightshot: { // Hi8 NightShot (infrared)
                 px: [400, 300], jpegQ: 0.92, kbps: 900, audio: 'B', stereo: true, tapeFx: true,
                 adj: { exposure: 8, contrast: 24, grain: 30, halation: 20 },
@@ -3234,6 +3247,8 @@
             { body: 'vhsCam', video: 'vhsc', date: 'cam92', dateOn: true, sound: 'camcorder' });
         CAMERA('vhsslp', 'VHS SLP', 'VHS tape, SLP long-play', 'Played-back tape: violet-blue cast, bleeding color.',
             { body: 'vhsCam', video: 'vhsslp', date: 'slp', dateOn: true, sound: 'camcorder' });
+        CAMERA('vhsworn', 'VHS Worn', 'Worn VHS tape, played back', 'Hot saturated color, red bleeding right, tape dropouts.',
+            { body: 'vhsCam', video: 'vhsworn', sound: 'camcorder' });
         CAMERA('nightshot', 'NightShot', 'Sony Hi8 NightShot (1998)', 'Infrared night mode: glowing green-white, noisy.',
             { body: 'nightshot', video: 'nightshot', date: 'osd', sound: 'camcorder' });
         CAMERA('quicktake', 'QuickTake', 'Apple QuickTake 100 (1994)', '640×480 consumer digital: muddy, soft, noisy.',
@@ -3373,7 +3388,7 @@ uniform float uAspect;
 uniform float uIntensity, uExposure, uContrast, uSaturation, uWarmth, uTint, uFade;
 uniform float uGrain, uGrainScale, uVignette, uHalation, uBlur, uChroma, uMono;
 uniform float uTime, uSeed, uDistort, uCircle;
-uniform float uSoft, uSharpen, uNoiseColor, uNoiseType, uTape, uInterlace, uDuo, uTapeFx;
+uniform float uSoft, uSharpen, uNoiseColor, uNoiseType, uTape, uInterlace, uDuo, uTapeFx, uDropouts;
 uniform float uShoulder, uWhite, uBlack;
 uniform float uFlash, uFlashReach;
 uniform mat3 uMatrix;
@@ -3585,6 +3600,18 @@ void main() {
         col += nv * uGrain * 0.2 * w;
     }
 
+    // ── 5b. Worn tape: oxide dropouts — short bright streaks along single scan lines,
+    // new ones every frame. Part of the look of a worn tape, not the optional layer below.
+    if (uDropouts > 0.001) {
+        float df = floor(uTime * 30.0);
+        float dl = floor(vUv.y * uNative.y);
+        if (hash(vec2(dl + 7.0, df)) < uDropouts) {
+            float x0 = hash(vec2(df, dl + 1.7)), len = 0.015 + 0.06 * hash(vec2(dl, df + 4.0));
+            float dx = (vUv.x - x0) / len;
+            if (dx > 0.0 && dx < 1.0) col = mix(col, vec3(0.92, 0.9, 0.95), 0.75 * (1.0 - dx * dx));
+        }
+    }
+
     // ── 6. Optional tape artifacts (off by default; intermittent, never continuous) ──
     if (uTapeFx > 0.5) {
         float tb = floor(uTime * 15.0);
@@ -3703,7 +3730,7 @@ void main() {
                 'uNoiseType', 'uTapeFx', 'uFlash', 'uFlashReach', 'uFlashColor', 'uIntensity', 'uExposure', 'uContrast', 'uSaturation', 'uWarmth', 'uTint', 'uFade',
                 'uGrain', 'uGrainScale', 'uVignette', 'uHalation', 'uBlur', 'uChroma', 'uMono', 'uTime', 'uSeed', 'uDistort', 'uCircle',
                 'uMix', 'uGamma', 'uShadows', 'uHighlights', 'uHalColor',
-                'uSoft', 'uSharpen', 'uNoiseColor', 'uTape', 'uInterlace', 'uDuo', 'uDuoLo', 'uDuoHi'
+                'uSoft', 'uSharpen', 'uNoiseColor', 'uTape', 'uInterlace', 'uDuo', 'uDuoLo', 'uDuoHi', 'uDropouts'
             ].forEach((n) => { U[n] = gl.getUniformLocation(prog, n); });
             gl.uniform1i(U.uTex, 0);
             gl.uniform1i(U.uPrev, 1);
@@ -3791,6 +3818,7 @@ void main() {
                 gl.uniform1f(U.uNoiseColor, L.noiseColor);
                 gl.uniform1f(U.uTape, L.tape);
                 gl.uniform1f(U.uInterlace, o.still ? 0 : L.interlace);
+                gl.uniform1f(U.uDropouts, L.dropouts || 0);
                 gl.uniform1f(U.uDuo, L.duo ? 1 : 0);
                 gl.uniform3fv(U.uDuoLo, L.duo ? L.duo[0] : [0, 0, 0]);
                 gl.uniform3fv(U.uDuoHi, L.duo ? L.duo[1] : [1, 1, 1]);
@@ -3948,7 +3976,7 @@ void main() {
         function livePreviewFrame() {
             return (liveJpeg && liveJpeg.width === liveComposite.width && liveJpeg.height === liveComposite.height) ? liveJpeg : liveComposite;
         }
-        let uploadJpeg = null, __uploadJpegSeq = 0;
+        let uploadJpeg = null, __uploadJpegSeq = 0, __uploadJpegBusy = false;
 
         // Theme colors the canvas paints with (read from the CSS variables, one source).
         const THEME = (function () {
@@ -4045,7 +4073,7 @@ void main() {
         function uploadFrame(src) {
             const cam = activeFilmSettings().camera;
             const land = src.width > src.height;
-            return Object.assign(cameraDims(cam, false, land), { aspect: cameraAspect(cam, land) });
+            return Object.assign(cameraDims(cam, !!state.srcVideo, land), { aspect: cameraAspect(cam, land) });
         }
         function renderUpload() {
             const src = state.srcImage;
@@ -4060,9 +4088,23 @@ void main() {
             const k = Math.min(1, (h * viewDpr()) / d.h);
             const outW = Math.max(2, Math.round(d.w * k)), outH = Math.max(2, Math.round(d.h * k));
             const s = activeFilmSettings();
-            film.render(src, { outW, outH, native: d, aspect: d.aspect, crop: uploadLensCrop(src, d.aspect), mirror: false, settings: s, time: state.uploadSeed, still: true });
+            const v = state.srcVideo;
+            film.render(src, { outW, outH, native: d, aspect: d.aspect, crop: uploadLensCrop(src, d.aspect), mirror: false, settings: s, time: state.uploadSeed + (v ? v.currentTime : 0), still: !v });
             composeWithOverlays(uploadPreview, film.canvas, s);
             renderView();
+            if (v) {
+                // Video: like Live's preview — one JPEG in flight, the newest one shown.
+                if (__uploadJpegBusy) return;
+                __uploadJpegBusy = true;
+                jpegBitmap(uploadPreview, s.camera.jpegQ).then((bmp) => {
+                    __uploadJpegBusy = false;
+                    if (!bmp || !state.srcVideo) return;
+                    if (uploadJpeg && uploadJpeg.close) uploadJpeg.close();
+                    uploadJpeg = bmp;
+                    renderView();
+                });
+                return;
+            }
             const seq = ++__uploadJpegSeq;
             jpegBitmap(uploadPreview, s.camera.jpegQ).then((bmp) => {
                 if (!bmp || seq !== __uploadJpegSeq) return;
@@ -4350,13 +4392,16 @@ void main() {
         }
         function updateUploadZoneVisibility() {
             const uz = document.getElementById('upload-zone');
-            if (uz) uz.style.display = (state.mode === 'image' && !state.srcImage) ? 'flex' : 'none';
+            if (uz) uz.style.display = (state.mode === 'image' && !state.srcImage && !state.srcVideo) ? 'flex' : 'none';
         }
         // Decodes the photo onto a canvas capped to the GPU's texture limit (and 4096 — more
         // than any export needs), so every later render is a plain texture upload.
         const UPLOAD_MAX_SIDE = 4096;
         function loadFile(file) {
-            if (!file || !file.type.startsWith('image/')) return;
+            if (!file) return;
+            if (file.type.startsWith('video/')) { loadVideoFile(file); return; }
+            if (!file.type.startsWith('image/')) return;
+            clearUploadVideo();
             const reader = new FileReader();
             reader.onload = ev => {
                 const img = new Image();
@@ -4376,6 +4421,155 @@ void main() {
                 img.src = ev.target.result;
             };
             reader.readAsDataURL(file);
+        }
+
+        // Uploaded video: plays muted on a loop as the preview. Frames are copied into a
+        // canvas capped at UPLOAD_VIDEO_MAX_SIDE (the cameras record far fewer pixels, the
+        // lens/zoom crop is what needs the headroom) and rendered like a photo.
+        const UPLOAD_VIDEO_MAX_SIDE = 1280;
+        function loadVideoFile(file) {
+            clearUploadVideo();
+            const v = document.createElement('video');
+            v.muted = true; v.loop = true; v.playsInline = true; v.preload = 'auto';
+            v.setAttribute('playsinline', ''); v.setAttribute('muted', '');
+            v.src = URL.createObjectURL(file);
+            v.addEventListener('loadeddata', () => {
+                if (state.srcVideo !== v) return;
+                const sc = Math.min(1, UPLOAD_VIDEO_MAX_SIDE / Math.max(v.videoWidth, v.videoHeight));
+                const c = document.createElement('canvas');
+                c.width = Math.max(2, Math.round(v.videoWidth * sc));
+                c.height = Math.max(2, Math.round(v.videoHeight * sc));
+                state.srcImage = c;
+                state.uploadSeed = Math.random() * 100;
+                __osdCounterStart = performance.now();
+                document.getElementById('file-name').textContent = file.name;
+                updateUploadZoneVisibility();
+                uploadVideoFrame();
+                v.play().catch(() => { });
+            }, { once: true });
+            v.addEventListener('error', () => { if (state.srcVideo === v) { clearUploadVideo(); alert("This video can't be played here."); } }, { once: true });
+            state.srcVideo = v;
+            state.srcImage = null;
+            updateUploadZoneVisibility();
+            // New frames → re-render (requestVideoFrameCallback where available, else rAF).
+            const tick = () => {
+                if (state.srcVideo !== v) return;
+                if (!uploadExport && !v.paused && state.srcImage) uploadVideoFrame();
+                if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(tick); else requestAnimationFrame(tick);
+            };
+            if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(tick); else requestAnimationFrame(tick);
+        }
+        function uploadVideoFrame() {
+            const v = state.srcVideo, c = state.srcImage;
+            if (!v || !c || v.readyState < 2) return;
+            c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+            renderUpload();
+        }
+        function clearUploadVideo() {
+            cancelUploadExport();
+            const v = state.srcVideo;
+            if (!v) return;
+            state.srcVideo = null;
+            state.srcImage = null;
+            try { v.pause(); } catch (_) { }
+            URL.revokeObjectURL(v.src);
+            v.removeAttribute('src');
+            v.load();
+        }
+
+        // Saving an uploaded video = re-shooting it through the camera, in real time (the
+        // way Live records): a second copy of the clip plays from the start with sound, each
+        // frame is rendered at the camera's video size with its OSD, enlarged by a whole
+        // factor and recorded at the camera's bitrate; the sound goes through the preset's
+        // audio chain (film presets keep the original). Tap save again to cancel.
+        let uploadExport = null;
+        function exportUploadVideo() {
+            if (uploadExport) { cancelUploadExport(); return; }
+            const pv = state.srcVideo;
+            if (!pv || !state.srcImage) return;
+            const s = activeFilmSettings();
+            const v = document.createElement('video');
+            v.playsInline = true; v.setAttribute('playsinline', '');
+            v.src = pv.src;
+            const frame = state.srcImage;
+            const d = uploadFrame(frame);
+            const upk = Math.max(1, Math.ceil(900 / Math.max(d.w, d.h)));
+            const rec = document.createElement('canvas');
+            rec.height = d.h * upk;
+            rec.width = Math.round(d.h * upk * d.aspect); // displayed shape (DV is anamorphic)
+            const rctx = rec.getContext('2d');
+            const comp = document.createElement('canvas');
+            const job = { v, rec, chunks: [], recorder: null, audio: null, cancelled: false };
+            uploadExport = job;
+            pv.pause();
+            document.body.classList.add('recording');
+            const timer = document.getElementById('mob-rec-timer');
+            if (timer) { timer.textContent = '0%'; timer.style.display = 'flex'; }
+
+            // Must start inside the tap (iOS): the audio context, and play().
+            job.audio = buildAudioGraph(s.camera, (ac) => ac.createMediaElementSource(v), true);
+            const draw = () => {
+                const fc = frame.getContext('2d');
+                fc.drawImage(v, 0, 0, frame.width, frame.height);
+                film.render(frame, { outW: d.w, outH: d.h, native: d, aspect: d.aspect, crop: uploadLensCrop(frame, d.aspect), mirror: false, settings: s, time: state.uploadSeed + v.currentTime, still: false });
+                composeWithOverlays(comp, film.canvas, s);
+                rctx.imageSmoothingEnabled = true;
+                rctx.drawImage(comp, 0, 0, rec.width, rec.height);
+                if (timer && v.duration) timer.textContent = Math.min(99, Math.floor(v.currentTime / v.duration * 100)) + '%';
+            };
+            const tick = () => {
+                if (uploadExport !== job || v.ended) return;
+                if (v.readyState >= 2) draw();
+                if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(tick); else requestAnimationFrame(tick);
+            };
+            v.addEventListener('loadeddata', () => {
+                if (uploadExport !== job) return;
+                draw();
+                __osdCounterStart = performance.now();
+                let mime = 'video/webm';
+                if (MediaRecorder.isTypeSupported('video/mp4')) mime = 'video/mp4';
+                else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) mime = 'video/webm;codecs=vp9';
+                const vs = rec.captureStream(LIVE_RECORD_FPS);
+                const tracks = vs.getVideoTracks().concat(job.audio ? job.audio.tracks : []);
+                const stream = new MediaStream(tracks);
+                try { job.recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: s.camera.kbps * 1000 }); }
+                catch (_) { job.recorder = new MediaRecorder(stream); }
+                job.recorder.ondataavailable = (e) => { if (e.data.size) job.chunks.push(e.data); };
+                job.recorder.onstop = () => finishUploadExport(job);
+                job.recorder.start(1000 / LIVE_RECORD_FPS);
+                if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(tick); else requestAnimationFrame(tick);
+            }, { once: true });
+            v.addEventListener('ended', () => {
+                if (uploadExport !== job) return;
+                draw();
+                if (job.recorder && job.recorder.state === 'recording') job.recorder.stop();
+            }, { once: true });
+            v.addEventListener('error', () => { if (uploadExport === job) cancelUploadExport(); }, { once: true });
+            v.play().catch(() => { if (uploadExport === job) cancelUploadExport(); });
+        }
+        function endUploadExportUi(job) {
+            if (uploadExport === job) uploadExport = null;
+            if (job.audio) { job.audio.close(); job.audio = null; }
+            try { job.v.pause(); } catch (_) { }
+            document.body.classList.remove('recording');
+            const timer = document.getElementById('mob-rec-timer');
+            if (timer) timer.style.display = 'none';
+            if (state.srcVideo) state.srcVideo.play().catch(() => { });
+        }
+        function finishUploadExport(job) {
+            endUploadExportUi(job);
+            if (job.cancelled || !job.chunks.length) return;
+            const mimeType = job.recorder.mimeType || 'video/webm';
+            const ext = mimeType.indexOf('mp4') !== -1 ? 'mp4' : 'webm';
+            addToGallery({ type: 'video', blob: new Blob(job.chunks, { type: mimeType }), mimeType, fileName: filmFileName('video', ext), poster: makeThumbDataURL(job.rec) });
+            flashShutter();
+        }
+        function cancelUploadExport() {
+            const job = uploadExport;
+            if (!job) return;
+            job.cancelled = true;
+            if (job.recorder && job.recorder.state === 'recording') job.recorder.stop(); // → finish, which skips saving
+            else endUploadExportUi(job);
         }
 
         // ═══════════════════════════════════════════════════
@@ -4608,6 +4802,7 @@ void main() {
         // Upload mode's floating Download FAB sends the edited result to the gallery
         // instead — same as Live's shutter — rather than downloading straight away.
         function saveUploadResultToGallery() {
+            if (state.srcVideo) { exportUploadVideo(); return; }
             if (!state.srcImage) return;
             addToGallery({ type: 'image', canvas: buildDownloadCanvas(), jpegQ: activeFilmSettings().camera.jpegQ, fileName: filmFileName('', 'jpg') });
             flashShutter();
@@ -5292,6 +5487,7 @@ void main() {
             }
             // Leaving Upload: clear the loaded photo so Upload starts fresh next time
             if (isSwitch && prevMode === 'image') {
+                clearUploadVideo();
                 state.srcImage = null;
                 state.uploadRect = null;
                 const fn = document.getElementById('file-name');
@@ -5633,14 +5829,27 @@ void main() {
         // what didn't already clip; the context runs at the device's own rate (no forced
         // resampling). Returns { tracks, close } or null to record the original sound.
         function buildRecordAudio(audioTracks, cam) {
-            if (!audioTracks.length || !cam.audio || CONTROLS.sound === 'original') return null;
+            if (!audioTracks.length) return null;
+            return buildAudioGraph(cam, (ac) => ac.createMediaStreamSource(new MediaStream(audioTracks)), false);
+        }
+        // makeSource(ac) → the input node. passthrough: when the preset keeps the original
+        // sound, still route it (an uploaded video's sound only reaches the recorder this
+        // way) instead of returning null.
+        function buildAudioGraph(cam, makeSource, passthrough) {
+            const process = !!cam.audio && CONTROLS.sound !== 'original';
+            if (!process && !passthrough) return null;
             const AC = window.AudioContext || window.webkitAudioContext;
             if (!AC) return null;
             try {
-                const prof = AUDIO_PROFILES[(cam.audio === 'C' && CONTROLS.sound === '32k') ? 'C32' : cam.audio];
                 const ac = new AC();
-                const srcNode = ac.createMediaStreamSource(new MediaStream(audioTracks));
-                let node = srcNode;
+                let node = makeSource(ac);
+                if (!process) {
+                    const dest = ac.createMediaStreamDestination();
+                    node.connect(dest);
+                    if (ac.state === 'suspended') ac.resume().catch(() => { });
+                    return { tracks: dest.stream.getAudioTracks(), close: () => { try { ac.close(); } catch (_) { } } };
+                }
+                const prof = AUDIO_PROFILES[(cam.audio === 'C' && CONTROLS.sound === '32k') ? 'C32' : cam.audio];
                 const chain = (n) => { node.connect(n); node = n; };
                 const hp = ac.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = prof.hp; chain(hp);
                 prof.eq.forEach((e) => { const f = ac.createBiquadFilter(); f.type = 'peaking'; f.frequency.value = e.f; f.gain.value = e.g; f.Q.value = e.q; chain(f); });
@@ -6381,7 +6590,7 @@ void main() {
         // PWA: register service worker for installability + reliable updates
         (function () {
             if (!('serviceWorker' in navigator)) return;
-            const __BUILD = 'v16';
+            const __BUILD = 'v17';
             try {
                 const bt = document.getElementById('build-tag');
                 if (bt) bt.textContent = __BUILD;
@@ -6415,7 +6624,7 @@ void main() {
             window.forceAppUpdate = resetServiceWorkerAndReload;
 
             // Versioned SW URL forces Safari to re-fetch updated sw.js
-            const __SW_URL = 'sw.js?v=16';
+            const __SW_URL = 'sw.js?v=17';
             navigator.serviceWorker.register(__SW_URL).then((reg) => {
                 function trySkipWaiting() {
                     if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });

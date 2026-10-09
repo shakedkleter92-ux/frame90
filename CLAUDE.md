@@ -30,8 +30,12 @@ Bump `CACHE` in `sw.js` (`90frame-vN`) **and** `__BUILD` / `__SW_URL`'s `?v=` ne
   `white`/`black`, sensor noise, `sharpen`, `jpegQ`) or `VIDEO_FORMATS` (tape bandwidth,
   chroma, `interlace`, analog noise, optional `tapeFx`, `kbps`, `audio`). `AUDIO_PROFILES`
   A/B/C(/C32) drive `buildRecordAudio()` (Web Audio chain on the mic for video only; film
-  presets keep the original sound). Presets now (8, two rows): FunSaver, Video8, Hi8, MiniDV,
-  the user's VHS references (`vhs92`, `vhsslp`), NightShot, QuickTake. **Removed by the user
+  presets keep the original sound). Presets now (9, three rows): FunSaver, Video8, Hi8, MiniDV,
+  the user's VHS references (`vhs92`, `vhsslp`, `vhsworn`), NightShot, QuickTake. `vhsworn` (VHS
+  Worn, 2026-10-08, from a sunset-over-rails clip) = hot saturated warm tape, long red bleed and
+  constant oxide dropouts (look param `dropouts`, shader stage 5b — part of that preset's look,
+  separate from the optional `tapeFx` layer); no OSD. The user's "CAMERA1 / PLAY / SOURCE IPHONE"
+  references are the same filter as `vhs92` — not added again. **Removed by the user
   as too sharp (2026-10-08): Mavica FD5, DC290, Gold 200, Superia 400**. **Rule from the
   user: nothing in the app may look sharp — a preset that renders crisp doesn't belong here**
   (Hi8/Video8/MiniDV were softened for this: Video8 320×240, Hi8 400×300, MiniDV soft 1.2;
@@ -79,6 +83,13 @@ Bump `CACHE` in `sw.js` (`90frame-vN`) **and** `__BUILD` / `__SW_URL`'s `?v=` ne
   requested at 3:4 so the stream is the whole sensor. First launch opens at 1× zoom (the old
   0.5× default only existed to undo the 9:16 crop of the sensor). An earlier *landscape*
   4:3 contain-fit frame was rejected as "wide" — keep it upright.
+- **UPLOAD VIDEO** (user, 2026-10-08) — Upload accepts photos *and* videos. A video plays
+  muted on a loop (`state.srcVideo`); each new frame is copied into the `state.srcImage`
+  canvas (≤1280px), so every photo path (crop, lens, compare, camera switch) works unchanged,
+  rendered at the camera's *video* size (`uploadFrame()`). The save FAB re-shoots the whole
+  clip in real time like Live recording (`exportUploadVideo()`: second `<video>` with sound →
+  native frame + OSD → enlarged → MediaRecorder at `kbps`; sound via `buildAudioGraph()` with
+  passthrough for film presets); progress % in `#mob-rec-timer`, tap save again to cancel.
 - **LIVE CAMERA** — unchanged camera plumbing from the original (facing defaults, ultra-wide
   0.5×, zoom dial, Android rotation fix). `liveLoop()` renders the preview at the camera's
   native size (video size in Video mode, still size in Photo; big still sensors capped by
