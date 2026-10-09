@@ -28,15 +28,47 @@ Bump `CACHE` in `sw.js` (`90frame-vN`) **and** `__BUILD` / `__SW_URL`'s `?v=` ne
   and exactly one of `FILMS` (organic grain, color `matrix`, highlight `shoulder`; scanned at
   `FILM_SCAN` = Kodak Picture CD 1536×1024, 3:2), `SENSORS` (native `px`, matrix, hard clip
   `white`/`black`, sensor noise, `sharpen`, `jpegQ`) or `VIDEO_FORMATS` (tape bandwidth,
-  chroma, `interlace`, analog noise, optional `tapeFx`, `kbps`, `audio`). `AUDIO_PROFILES`
-  A/B/C(/C32) drive `buildRecordAudio()` (Web Audio chain on the mic for video only; film
-  presets keep the original sound). **Two lists (user, 2026-10-09)** — `CAMERA_LISTS`: **Photo** =
-  old digital (DC20, QV-10, Cyber-shot DSC-F1, QuickCam, QuickTake) then film stills (FunSaver,
-  Polaroid, Holga X-Pro); **Video** = Super 8, Video8, Hi8, MiniDV, the user's VHS references
-  (`vhs92`, `vhsslp`, `vhsworn`), NightShot. The picker shows the current tab's list
-  (`activeCameraList()`: Live → capture mode; Upload → a loaded video = Video, else Photo);
-  each list remembers its own pick (`ACTIVE_IN_LIST`, synced by `syncCameraList()` on tab
-  change / upload load / clear). QuickCam uses look param `levels` (16 grays, shader 5a). Added 2026-10-08: `polaroid` (600 instant film, 1:1, flash on, no
+  chroma, `interlace`, analog noise, optional `tapeFx`, `kbps`, `audio`). **Sound (user, 2026-10-09: "authentic
+  to the camera")** — `AUDIO_PROFILES` per recording format, assigned by each video format's
+  `audio`: `afmStereo` (Hi8: TR2000E, TRV87, Hi8, NightShot), `afmMono` (Video8, Canon
+  UC-X10Hi — "Hi-Fi monaural" per Canon), `vhsLinear` (VHS-C/S-VHS-C linear mono SP ≈100 Hz–
+  10 kHz: PV-L859, GR-SZ7, VHS '92), `vhsLinearSLP` (≈5 kHz), `vhsWorn`, `dv16` (16-bit 48 kHz:
+  VX1000, XL1, TRV900, GL1), `dv12` (12-bit 32 kHz, consumer: GR-DV1, PC1, TRV110, MiniDV),
+  `super8` (stripe ≈75 Hz–10 kHz, 18 Hz claw). `buildAudioChain(ac, input, prof, stop)` (works
+  on Offline contexts too) = camera mic (hp/eq/lp, mono or narrow stereo) → motor whir
+  (pre-AGC) → AGC compressor + makeup → format: wow/flutter delay, noise floor, bandwidth,
+  12-bit → limiter → soft clip. `buildAudioGraph()` wraps it for Live recording and uploaded-
+  video export (film presets pass sound through). The Live mic is requested **raw**
+  (echoCancellation / noiseSuppression / autoGainControl false, channelCount ideal 2) — the
+  phone's processing made it sound modern. **24-camera library (user's spec, 2026-10-09)** —
+  `CAMERA_LISTS`: **Photo** (12) = Nikon F90 · Superia 200, Canon EOS 5 · Portra 160NC, EOS 500 ·
+  Royal Gold 100, Contax G1 · Reala 100, Leica Minilux · Portra 400VC, Olympus mju-II · Superia
+  400, Kodak Gold 200 (35mm compact), FunSaver · Gold 400, Instax Mini 10, Kodak DC25, Sony
+  Mavica MVC-FD5, Kodak DC290; **Video** (12) = Sony CCD-TR2000E (Hi8 PAL, 1994–95), Canon
+  UC-X10Hi (Hi8, 1997), Sony CCD-TRV87 (Hi8 XR, 1999), JVC GR-SZ7 (S-VHS-C, 1994), Panasonic
+  PV-L859 (VHS-C, 1999), Sony DCR-VX1000 / JVC GR-DV1 / Sony DCR-PC1 (1998) / Canon XL1 /
+  Sony DCR-TRV900 / Canon GL1 (MiniDV), Sony DCR-TRV110 (Digital8). Years/formats checked;
+  unverifiable spec models were swapped for documented ones (GR-DVX → VX1000; unnamed VHS-C /
+  S-VHS-C / Canon Hi8 → PV-L859 / GR-SZ7 / UC-X10Hi). Spec rules: restrained and believable,
+  keep detail (**the user dropped the earlier "nothing may look sharp" rule for this**), no
+  film grain on digital, no tape noise on DV, flash / timestamps / borders / tape FX off by
+  default, no intensity slider (user: keep UI as is). Film = Kodak Photo CD scan 3072×2048
+  (`FILM_SCAN`); analog tape at full SD (640×480 / PAL 768×576) limited by `tape` bandwidth +
+  `chromaSub` smear; DV 720×480 anamorphic. The earlier presets are **back** (user, 2026-10-09:
+  "I like the old filters"), after the 12 new ones in each list — Photo: Polaroid, Holga X-Pro,
+  DC20, QV-10, Cyber-shot, QuickCam, QuickTake (19 in all); Video: VHS '92, VHS SLP, VHS Worn,
+  Super 8, Video8, Hi8, MiniDV, NightShot (20). The picker scrolls. The picker shows the current
+  tab's list (`activeCameraList()`: Live → capture mode; Upload → a loaded video = Video, else
+  Photo); each list remembers its pick (`ACTIVE_IN_LIST`, `syncCameraList()`).
+  **Flash button** `#mob-flash` — top row, left of the menu button (user: aligned to the top,
+  not under the menu), on **every tab and camera**: a camera's own flash, else
+  `FLASH.external` (clip-on/hot-shoe) for stills, `FLASH.videoLight` (continuous halogen)
+  for camcorders. Toggles `PRESET_TOGGLES[key].flash`; in Live it drives the phone's torch
+  where `getCapabilities().torch` exists (Android Chrome; never iOS): fired for the shot in
+  Photo, kept on in Video (`syncVideoTorch()`). **Back camera** = torch (tried even when
+  `getCapabilities()` doesn't list it — iOS 17.5+/18 Safari can switch it but reports it
+  unreliably); **front camera** = the screen: `#screen-flash` (whole screen warm white for the
+  shot, frame taken 300 ms in) / `#screen-ring` (white ring around the live frame in Video). Added 2026-10-08: `polaroid` (600 instant film, 1:1, flash on, no
   forced white border), `holga` (cross-processed slide film, 1:1, plastic-lens corners),
   `super8` (Kodachrome 40 cine film, 18 fps frame hold via `fps`, film grain, gate `weave` +
   `flicker` look params, audio `S8`). A film may set its own `px`/`formats` (instant and
@@ -44,12 +76,9 @@ Bump `CACHE` in `sw.js` (`90frame-vN`) **and** `__BUILD` / `__SW_URL`'s `?v=` ne
   Worn, 2026-10-08, from a sunset-over-rails clip) = hot saturated warm tape, long red bleed and
   constant oxide dropouts (look param `dropouts`, shader stage 5b — part of that preset's look,
   separate from the optional `tapeFx` layer); no OSD. The user's "CAMERA1 / PLAY / SOURCE IPHONE"
-  references are the same filter as `vhs92` — not added again. **Removed by the user
-  as too sharp (2026-10-08): Mavica FD5, DC290, Gold 200, Superia 400**. **Rule from the
-  user: nothing in the app may look sharp — a preset that renders crisp doesn't belong here**
-  (Hi8/Video8/MiniDV were softened for this: Video8 320×240, Hi8 400×300, MiniDV soft 1.2;
-  Video8 stays the softest, Hi8 between).  — and the 2000s models
-  before that. One picker, titled **CAMERA TYPE** (no number), showing the current tab's list — the
+  references are the same filter as `vhs92` — not added again. (History: on 2026-10-08 the user removed Mavica FD5, DC290, Gold 200 and Superia 400 as
+  too sharp and ruled "nothing may look sharp"; on 2026-10-09 their 24-camera spec brought
+  those back and replaced that rule with "realistic, keep detail".) One picker, titled **CAMERA TYPE** (no number), showing the current tab's list — the
   panel has nothing else. **The 02 Adjust tab was removed on the user's request (2026-10-08)**: no
   sliders/toggles in the UI; `CONTROLS` / `PRESET_TOGGLES` remain only as fixed defaults that
   `combineLook()` reads (effect 100, grain 100, color 100, WB auto, tape FX off, camera sound;
@@ -121,8 +150,19 @@ Bump `CACHE` in `sw.js` (`90frame-vN`) **and** `__BUILD` / `__SW_URL`'s `?v=` ne
   entry per mechanism (SLR, Leica, compact, disposable, toy, Polaroid eject, Hasselblad…),
   mapped from camera keys in `CAMERA_SOUND` (unlisted → SLR) and loudness-matched by
   `PROFILE_GAIN` (measured from offline renders; Leica deliberately quietest). Played only for
-  Live photo captures. Each preset names its sound (`sound`: `mavica`, `digicam`, `compact`, `disposable`,
-  `camcorder`, `earlydigi`; unlisted → `digicam`); the film-camera profiles are
+  Live photo captures. All effects are deliberately gentle (user, 2026-10-09): master `out`
+  gain 0.15 (was 0.85; 0.38 was still too loud) + a −5 dB high shelf at 3.5 kHz and a 9 kHz low-pass. Each preset names its sound (`sound`; unlisted → `digicam`); the 24-camera library has
+  its own mechanisms (user, 2026-10-09: "authentic sound for each button"): `nikonf90`
+  (mirror + metal curtain + built-in winder), `eos5` (Canon AF double beep, quiet damped
+  mirror), `eos500` (beeps, plasticky mirror, louder winder), `contaxg1` (buzzy lens AF, crisp
+  metal shutter), `minilux`, `mju2` (AF, leaf tick, motor wind); FunSaver/Instax/Mavica/DC25/
+  DC290 use `disposable`/`instax`/`mavica`/`earlydigi`/`digicam`. **REC button sounds**
+  `shutterSound.rec(key, start)` (start/stop of Live video recording), by format: `8mm` (beep,
+  pinch roller, capstan spin-up; 2 beeps on stop), `vhsc` (heavier clunk), `dv` (soft click),
+  `super8` (motor spin-up / wind-down); beep pitch by brand (approximate). **They never reach the recording** (user,
+  2026-10-09 — the raw mic heard the speaker): the record graph always exists (passthrough
+  for presets without a profile) and has a gate — start = `hold(sound length + 0.3 s)` then a
+  50 ms fade-in; stop = `mute()` before the stop sound plays; the film-camera profiles are
   still there, unused. `shutterSound.unlock()` runs on the splash tap — iOS only lets an
   AudioContext start inside a user gesture. On iPhone the ringer/silent switch can mute it.
   **Volume-UP = shutter** (keydown `AudioVolumeUp`/`VolumeUp`/175/24, Live only, key-repeat

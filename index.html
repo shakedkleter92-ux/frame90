@@ -2968,6 +2968,70 @@
             text-shadow: var(--glow);
             animation: xp-blink 1.2s steps(1) infinite;
         }
+
+        /* Flash: top row, next to the menu button. Off = outline; on = inverted (solid
+           green), like every selected control. */
+        #mob-flash {
+            position: fixed;
+            top: 20px;
+            right: 68px; /* the top row, left of the 40px menu button (right: 20px) + 8px gap */
+            z-index: 86;
+            height: 40px;
+            box-sizing: border-box;
+            padding: 0 8px;
+            align-items: center;
+            gap: 4px;
+            border-radius: 0;
+            background: transparent;
+            border: var(--line) solid var(--hud-mid);
+            box-shadow: 0 0 6px rgba(70, 242, 122, .18), inset 0 0 6px rgba(70, 242, 122, .1);
+            color: var(--hud);
+            -webkit-text-fill-color: var(--hud);
+            text-shadow: var(--glow);
+            font-family: var(--font-ui);
+            font-size: 18px;
+            letter-spacing: .06em;
+            cursor: pointer;
+        }
+
+        #mob-flash.on {
+            background: var(--hud);
+            color: var(--void);
+            -webkit-text-fill-color: var(--void);
+            text-shadow: none;
+        }
+
+        #mob-flash.on svg path {
+            fill: var(--void);
+        }
+
+        body.panel-open #mob-flash,
+        body.zoom-dial-active #mob-flash,
+        body.recording #mob-flash {
+            display: none !important;
+        }
+
+        /* Front-camera light. Warm white, above the picture, below the controls. */
+        #screen-flash {
+            position: fixed;
+            inset: 0;
+            z-index: 84;
+            background: #fffaf0;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .06s;
+        }
+
+        #screen-flash.on {
+            opacity: 1;
+        }
+
+        #screen-ring {
+            position: fixed;
+            z-index: 1;
+            pointer-events: none;
+            box-shadow: 0 0 0 200vmax #fffaf0;
+        }
 </style>
 </head>
 
@@ -3005,6 +3069,9 @@
     </div>
     <!-- Lens name + character, shown briefly while the lens slider moves -->
     <div id="lens-toast" aria-live="polite"></div>
+    <!-- Front-camera light: the whole screen (photo) / a ring around the picture (video) -->
+    <div id="screen-flash" aria-hidden="true"></div>
+    <div id="screen-ring" aria-hidden="true" style="display:none"></div>
     <!-- White flash over the viewfinder when a photo is taken -->
     <div id="shutter-flash" aria-hidden="true"></div>
     <!-- Menu toggle -->
@@ -3032,6 +3099,11 @@
     <div id="compare-tag">ORIGINAL</div>
     <!-- Frame format pill (top center): only for cameras that really shot more than one
          format (e.g. Handycam 16:9 / 4:3); tapping cycles them. -->
+    <!-- Flash (Photo) / video light (Video): every tab, off by default. -->
+    <button id="mob-flash" aria-label="Flash" aria-pressed="false" type="button" style="display:none">
+        <svg viewBox="0 0 16 16" width="18" height="18" aria-hidden="true"><path d="M9.5 1 3 9h4.2L6 15l7-8.4H8.6L9.5 1z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="miter" /></svg>
+        <span id="mob-flash-label">OFF</span>
+    </button>
     <button id="mob-ratio" aria-label="Frame format" type="button" style="display:none"><span id="mob-ratio-label">4:3</span></button>
     <!-- Camera flip -->
     <button id="mob-flip" aria-label="Flip camera" style="display:none">
@@ -3269,10 +3341,24 @@
             return h / 37;
         }
 
+        // Built-in flash units (direct, on-axis; off by default — the flash button turns them on).
+        const FLASH = {
+            popup: { power: 0.75, reach: 0.85, color: [1, 0.98, 0.96] },
+            compact: { power: 0.8, reach: 0.75, color: [1, 0.98, 0.97] },
+            instax: { power: 0.85, reach: 0.75, color: [1, 0.99, 1.0] },
+            digicam: { power: 0.7, reach: 0.65, color: [0.98, 0.99, 1.03] },
+            // Cameras without a built-in flash take a clip-on / hot-shoe unit (the F90's
+            // Speedlights, the G1's TLA140…).
+            external: { power: 0.8, reach: 0.9, color: [1, 0.98, 0.96] },
+            // Camcorders: a continuous halogen video light — weaker, warmer, on every frame.
+            videoLight: { power: 0.45, reach: 0.8, color: [1, 0.93, 0.82] },
+        };
         // ── Bodies: optics + flash ──
         // flash: { power, reach (falloff radius, frame heights), color }
         const BODIES = {
-            funsaver: { adj: { vignette: 16, blur: 16, chroma: 8 }, soft: 0.4, flash: { power: 1, reach: 0.75, color: [1, 0.97, 1.0] } },
+            // Kodak FunSaver: one-element plastic lens — softer toward the edges, mild fall-off
+            // (restrained: no chromatic aberration by default).
+            funsaver: { adj: { vignette: 12, blur: 10 }, soft: 0.5, flash: { power: 0.9, reach: 0.7, color: [1, 0.97, 1.0] } },
             quicktake: { adj: { vignette: 8, blur: 6 }, soft: 0.6, flash: { power: 0.8, reach: 0.8, color: [1, 0.98, 1.02] } },
             handycam: { adj: { vignette: 4 }, soft: 0, flash: null },
             handycamDV: { adj: { vignette: 3 }, soft: 0, flash: null },
@@ -3282,6 +3368,21 @@
             polaroid600: { adj: { vignette: 14, blur: 14 }, soft: 0.6, flash: { power: 0.9, reach: 0.8, color: [1, 0.98, 0.94] } },
             // Holga 120: plastic meniscus lens — heavy fall-off, soft and fringed edges.
             holga: { adj: { vignette: 44, blur: 36, chroma: 14 }, soft: 0.5, flash: null },
+            // ── The 24-camera library (user's spec, 2026-10-09) ──
+            // SLRs with good zooms: near-clean optics, a little corner fall-off.
+            nikonf90: { adj: { vignette: 4 }, soft: 0, flash: null },                 // Nikon F90/N90 — no built-in flash
+            eos5: { adj: { vignette: 5 }, soft: 0, flash: FLASH.popup },              // Canon EOS 5/A2 — pop-up flash
+            eos500: { adj: { vignette: 7, blur: 4 }, soft: 0.2, flash: FLASH.popup }, // Canon EOS 500 — kit EF 35-80 zoom, softer corners
+            contaxg1: { adj: { vignette: 6, contrast: 4 }, soft: 0, flash: null },    // Contax G1 — Zeiss micro-contrast, no built-in flash
+            minilux: { adj: { vignette: 8 }, soft: 0, flash: FLASH.compact },         // Leica Minilux — 40mm Summarit
+            mju2: { adj: { vignette: 8, blur: 4 }, soft: 0.1, flash: FLASH.compact }, // Olympus mju-II — 35mm f/2.8
+            compact35: { adj: { vignette: 10, blur: 8 }, soft: 0.4, flash: FLASH.compact }, // a typical 90s 35mm point-and-shoot
+            instaxmini10: { adj: { vignette: 10, blur: 6 }, soft: 0.6, flash: FLASH.instax }, // Fujifilm Instax Mini 10
+            dc25: { adj: { vignette: 6, blur: 6 }, soft: 0.4, flash: FLASH.digicam },  // Kodak DC25
+            mavicafd5: { adj: { vignette: 4 }, soft: 0.2, flash: FLASH.digicam },      // Sony Mavica MVC-FD5 — fixed 47mm-equiv. lens
+            dc290: { adj: { vignette: 3 }, soft: 0, flash: FLASH.digicam },            // Kodak DC290 — 3x zoom
+            camcorder: { adj: { vignette: 3 }, soft: 0, flash: null },                 // consumer single-CCD camcorder
+            camcorder3ccd: { adj: { vignette: 2 }, soft: 0, flash: null },             // 3-CCD (VX1000, XL1, TRV900, GL1)
             // Early digicams: small fixed-focus lenses in front of tiny CCDs.
             qv10: { adj: { vignette: 6, blur: 6 }, soft: 0.4, flash: null },          // Casio QV-10 (no flash)
             dc20: { adj: { vignette: 10, blur: 10 }, soft: 0.5, flash: null },        // Kodak DC20 (no flash)
@@ -3292,13 +3393,71 @@
         };
 
         // ── Film stocks (+ the lab scan) ──
-        const FILM_SCAN = { px: [1536, 1024], jpegQ: 0.85 }; // Kodak Picture CD, the 90s scan
+        // Kodak Photo CD (1992) Base×16 scan: 3072×2048, 3:2 — the 90s lab scan. (Picture CD
+        // at 1536×1024 only arrived in 2000.) Grain sizes are in these scan pixels.
+        const FILM_SCAN = { px: [3072, 2048], jpegQ: 0.9 };
+        // Film stocks — independent of the camera body. Restrained: each stock's own color
+        // and tone, grain that matches its speed, nothing pushed.
         const FILMS = {
             gold400: { // what a 90s FunSaver came loaded with
-                adj: { contrast: 10, saturation: 12, warmth: 10, grain: 20 },
+                adj: { contrast: 8, saturation: 10, warmth: 8, grain: 16 },
                 look: {
                     matrix: [[1.05, -0.01, -0.04], [0.0, 1.02, -0.02], [-0.03, 0.01, 1.02]],
-                    shoulder: 0.4, gamma: [0.97, 1.0, 1.04], highlights: [0.02, 0.012, -0.015], grainSize: 1.25,
+                    shoulder: 0.4, gamma: [0.97, 1.0, 1.04], highlights: [0.02, 0.012, -0.015], grainSize: 2.0,
+                },
+            },
+            gold200: { // Kodak Gold 200 — warm, friendly consumer color
+                adj: { contrast: 6, saturation: 8, warmth: 9, grain: 12 },
+                look: {
+                    matrix: [[1.05, -0.01, -0.04], [0.0, 1.02, -0.02], [-0.03, 0.01, 1.02]],
+                    shoulder: 0.4, gamma: [0.98, 1.0, 1.03], highlights: [0.015, 0.01, -0.012], grainSize: 1.6,
+                },
+            },
+            superia200: { // Fujicolor Superia 200 (1998) — cooler, clean greens
+                adj: { contrast: 6, saturation: 6, warmth: -3, tint: -2, grain: 10 },
+                look: {
+                    matrix: [[1.03, -0.01, -0.02], [-0.01, 1.04, -0.03], [-0.01, 0.0, 1.01]],
+                    shoulder: 0.45, gamma: [1.0, 0.985, 1.0], shadows: [0.0, 0.008, 0.012], grainSize: 1.5,
+                },
+            },
+            superia400: { // Fujicolor Superia 400 (1998) — the mju-II's everyday film
+                adj: { contrast: 8, saturation: 8, warmth: -2, tint: -3, grain: 15 },
+                look: {
+                    matrix: [[1.03, -0.01, -0.02], [-0.01, 1.05, -0.04], [-0.01, 0.0, 1.01]],
+                    shoulder: 0.45, gamma: [1.0, 0.98, 0.99], shadows: [-0.004, 0.01, 0.014], grainSize: 1.8,
+                },
+            },
+            portra160nc: { // Kodak Portra 160NC (1998) — natural color, gentle contrast, skin first
+                adj: { contrast: -6, saturation: -8, warmth: 4, grain: 7 },
+                look: {
+                    matrix: [[1.0, 0.01, -0.01], [0.0, 1.0, 0.0], [0.0, 0.01, 0.99]],
+                    shoulder: 0.6, highlights: [0.01, 0.006, -0.004], grainSize: 1.3,
+                },
+            },
+            portra400vc: { // Kodak Portra 400VC (1998) — the "vivid color" Portra
+                adj: { contrast: 6, saturation: 10, warmth: 3, grain: 13 },
+                look: {
+                    matrix: [[1.03, -0.01, -0.02], [0.0, 1.03, -0.03], [-0.01, 0.0, 1.01]],
+                    shoulder: 0.5, highlights: [0.01, 0.006, -0.004], grainSize: 1.7,
+                },
+            },
+            reala100: { // Fujicolor Reala 100 — neutral, accurate, very fine grain
+                adj: { contrast: 2, saturation: 2, grain: 5 },
+                look: { shoulder: 0.45, grainSize: 1.2 },
+            },
+            royalgold100: { // Kodak Royal Gold 100 — warm, saturated, fine grain
+                adj: { contrast: 6, saturation: 9, warmth: 7, grain: 7 },
+                look: {
+                    matrix: [[1.04, -0.01, -0.03], [0.01, 1.01, -0.02], [-0.02, 0.01, 1.0]],
+                    shoulder: 0.4, highlights: [0.01, 0.006, -0.008], grainSize: 1.25,
+                },
+            },
+            instaxmini: { // Instax Mini film (62×46mm, shown upright) — crisp, slightly cool, highlights go early
+                px: [1240, 930], formats: ['4:3'],
+                adj: { contrast: 10, saturation: 6, warmth: -4, grain: 4 },
+                look: {
+                    matrix: [[1.02, 0.0, -0.02], [-0.01, 1.03, -0.02], [-0.01, 0.01, 1.0]],
+                    shoulder: 0.3, shadows: [-0.01, 0.005, 0.02], highlights: [-0.008, 0.0, 0.01], grainSize: 1, soft: 0.4,
                 },
             },
             polaroid600: { // integral instant film: creamy, low contrast, lifted blacks, cool shadows
@@ -3322,6 +3481,27 @@
         // ── Digital still sensors ──
         // All soft on purpose (the user's rule): tiny early CCDs, heavy JPEG, little detail.
         const SENSORS = {
+            dc25: { // Kodak DC25 · 1996 · 493×373 CCD, CompactFlash — warm Kodak color, little range
+                px: [493, 373], jpegQ: 0.6,
+                adj: { exposure: 2, contrast: 6, saturation: -4, warmth: 8, grain: 6 },
+                look: {
+                    matrix: [[0.96, 0.06, -0.02], [0.03, 0.95, 0.02], [0.0, 0.06, 0.94]],
+                    white: 0.88, black: 0.04, noiseType: 1, noiseColor: 0.5, soft: 0.8, sharpen: 0.2, chromaSub: [2, 2],
+                },
+            },
+            mavicafd5: { // Sony Mavica MVC-FD5 · 1997 · 640×480 JPEG on a floppy disk
+                px: [640, 480], jpegQ: 0.7,
+                adj: { contrast: 6, saturation: -2, warmth: -3, grain: 5 },
+                look: {
+                    matrix: [[0.98, 0.04, -0.02], [0.02, 0.98, 0.0], [0.0, 0.04, 0.96]],
+                    white: 0.9, black: 0.03, noiseType: 1, noiseColor: 0.4, soft: 0.5, sharpen: 0.35, chromaSub: [2, 2],
+                },
+            },
+            dc290: { // Kodak DC290 · 1999 · 2.1 MP (1792×1200), good color, a touch warm
+                px: [1792, 1200], jpegQ: 0.85,
+                adj: { contrast: 4, saturation: 4, warmth: 3, grain: 3 },
+                look: { white: 0.95, black: 0.02, noiseType: 1, noiseColor: 0.3, soft: 0.3, sharpen: 0.25, chromaSub: [2, 2] },
+            },
             qv10: { // Casio QV-10 · 1995 · 320×240, the first consumer digicam with a screen
                 px: [320, 240], jpegQ: 0.5,
                 adj: { exposure: 2, contrast: -6, saturation: -24, warmth: -10, fade: 8, grain: 18 },
@@ -3365,34 +3545,100 @@
         // px = stored frame; anamorphic = stored pixels aren't square (DV's 720×480 shows as
         // 4:3 or 16:9). jpegQ = per-frame quality for stills/preview: analog formats have
         // no block compression of their own (0.92), DV is intra-frame DCT (≈0.85).
+        // Analog tape (Hi8, Hi8 XR, S-VHS-C, VHS-C) is stored at full SD size (NTSC 640×480 /
+        // PAL 768×576 square pixels) and limited the way the format was: luma bandwidth
+        // (`tape`: VHS ≈240 lines, Hi8/S-VHS ≈400), low color bandwidth smearing right,
+        // interlaced fields, restrained analog noise. MiniDV/Digital8: 720×480 DV (4:1:1),
+        // clean — sensor noise only, no tape artifacts. Single-CCD vs 3-CCD differ in noise
+        // and color separation. Timestamps and tape artifacts are off by default.
         const VIDEO_FORMATS = {
+            tr2000e: { // Sony CCD-TR2000E · Hi8 · PAL · 1994–95 · 1/3" CCD
+                px: [768, 576], jpegQ: 0.92, kbps: 2500, audio: 'afmStereo', stereo: true, tapeFx: true,
+                adj: { contrast: 2, saturation: -4, warmth: 2, grain: 6 },
+                look: { tape: 0.55, chromaSub: [4, 1], interlace: 1, noiseType: 2, white: 0.95, black: 0.02, sharpen: 0.25, soft: 0.3 },
+            },
+            ucx10hi: { // Canon UC-X10Hi · Hi8 · 1997 · 1/4" CCD, 22x stabilized zoom
+                px: [640, 480], jpegQ: 0.92, kbps: 2500, audio: 'afmMono', stereo: true, tapeFx: true,
+                adj: { contrast: 2, saturation: -6, warmth: -2, grain: 8 },
+                look: { tape: 0.6, chromaSub: [4, 1], interlace: 1, noiseType: 2, white: 0.94, black: 0.03, sharpen: 0.3, soft: 0.4 },
+            },
+            trv87: { // Sony CCD-TRV87 · Hi8 XR (≈440 lines) · 1999
+                px: [640, 480], jpegQ: 0.92, kbps: 2500, audio: 'afmStereo', stereo: true, tapeFx: true,
+                adj: { contrast: 3, saturation: -2, warmth: 2, grain: 5 },
+                look: { tape: 0.5, chromaSub: [4, 1], interlace: 1, noiseType: 2, white: 0.95, black: 0.02, sharpen: 0.25, soft: 0.2 },
+            },
+            grsz7: { // JVC GR-SZ7 · S-VHS-C · 1994 · 570k-pixel CCD, f/1.2 (S-VHS luma, VHS color)
+                px: [640, 480], jpegQ: 0.92, kbps: 2500, audio: 'vhsLinear', stereo: false, tapeFx: true,
+                adj: { contrast: 4, saturation: -4, grain: 6 },
+                look: { tape: 0.55, chromaSub: [5, 1], interlace: 1, noiseType: 2, white: 0.94, black: 0.025, sharpen: 0.3, soft: 0.3 },
+            },
+            pvl859: { // Panasonic Palmcorder PV-L859 · VHS-C · 1999 (≈240 lines)
+                px: [640, 480], jpegQ: 0.92, kbps: 2000, audio: 'vhsLinear', stereo: false, tapeFx: true,
+                adj: { contrast: 4, saturation: -6, warmth: 3, grain: 9 },
+                look: { tape: 1.1, chromaSub: [5, 1], interlace: 1, noiseType: 2, white: 0.93, black: 0.03, sharpen: 0.35, soft: 0.6 },
+            },
+            vx1000: { // Sony DCR-VX1000 · MiniDV · 1995 · 3-CCD
+                px: [720, 480], anamorphic: true, formats: ['4:3'], jpegQ: 0.85, kbps: 3500, audio: 'dv16', stereo: true, tapeFx: false,
+                adj: { contrast: 4, saturation: 4, grain: 2 },
+                look: { noiseType: 1, noiseColor: 0.2, sharpen: 0.25, chromaSub: [4, 1], interlace: 1, white: 0.96, black: 0.015, soft: 0.3 },
+            },
+            grdv1: { // JVC GR-DV1 · MiniDV · 1995 (Japan) / 1996 · the first consumer DV camcorder, single CCD
+                px: [720, 480], anamorphic: true, formats: ['4:3'], jpegQ: 0.85, kbps: 3500, audio: 'dv12', stereo: true, tapeFx: false,
+                adj: { contrast: 6, saturation: 2, warmth: 2, grain: 4 },
+                look: { noiseType: 1, noiseColor: 0.5, sharpen: 0.35, chromaSub: [4, 1], interlace: 1, white: 0.94, black: 0.02, soft: 0.5 },
+            },
+            pc1: { // Sony DCR-PC1 · MiniDV · 1998 · palm-size, single CCD
+                px: [720, 480], anamorphic: true, formats: ['4:3', '16:9'], jpegQ: 0.85, kbps: 3500, audio: 'dv12', stereo: true, tapeFx: false,
+                adj: { contrast: 4, saturation: 0, warmth: 2, grain: 4 },
+                look: { noiseType: 1, noiseColor: 0.5, sharpen: 0.3, chromaSub: [4, 1], interlace: 1, white: 0.94, black: 0.02, soft: 0.5 },
+            },
+            xl1: { // Canon XL1 · MiniDV · 1997 · 3-CCD, interchangeable lenses
+                px: [720, 480], anamorphic: true, formats: ['4:3', '16:9'], jpegQ: 0.85, kbps: 3500, audio: 'dv16', stereo: true, tapeFx: false,
+                adj: { contrast: 4, saturation: 6, warmth: -2, grain: 2 },
+                look: { noiseType: 1, noiseColor: 0.2, sharpen: 0.3, chromaSub: [4, 1], interlace: 1, white: 0.96, black: 0.015, soft: 0.2 },
+            },
+            trv900: { // Sony DCR-TRV900 · MiniDV · 1998 · 3-CCD
+                px: [720, 480], anamorphic: true, formats: ['4:3', '16:9'], jpegQ: 0.85, kbps: 3500, audio: 'dv16', stereo: true, tapeFx: false,
+                adj: { contrast: 3, saturation: 4, warmth: 1, grain: 2 },
+                look: { noiseType: 1, noiseColor: 0.2, sharpen: 0.25, chromaSub: [4, 1], interlace: 1, white: 0.96, black: 0.015, soft: 0.25 },
+            },
+            gl1: { // Canon GL1 · MiniDV · 1999 · 3-CCD, fluorite lens
+                px: [720, 480], anamorphic: true, formats: ['4:3', '16:9'], jpegQ: 0.85, kbps: 3500, audio: 'dv16', stereo: true, tapeFx: false,
+                adj: { contrast: 4, saturation: 5, warmth: -2, grain: 2 },
+                look: { noiseType: 1, noiseColor: 0.2, sharpen: 0.3, chromaSub: [4, 1], interlace: 1, white: 0.96, black: 0.015, soft: 0.2 },
+            },
+            trv110: { // Sony DCR-TRV110 · Digital8 (DV on 8mm tape) · 1999 · single CCD
+                px: [720, 480], anamorphic: true, formats: ['4:3'], jpegQ: 0.85, kbps: 3500, audio: 'dv12', stereo: true, tapeFx: false,
+                adj: { contrast: 5, saturation: 0, warmth: 2, grain: 5 },
+                look: { noiseType: 1, noiseColor: 0.5, sharpen: 0.3, chromaSub: [4, 1], interlace: 1, white: 0.94, black: 0.02, soft: 0.5 },
+            },
             video8: {
-                px: [320, 240], jpegQ: 0.85, kbps: 700, audio: 'B', stereo: false, tapeFx: true,
+                px: [320, 240], jpegQ: 0.85, kbps: 700, audio: 'afmMono', stereo: false, tapeFx: true,
                 adj: { contrast: 4, saturation: -8, warmth: 4, grain: 12 },
                 look: { tape: 1, chromaSub: [4, 1], interlace: 1, noiseType: 2, white: 0.92, black: 0.03, sharpen: 0.3, soft: 1.1 },
             },
             hi8: {
-                px: [400, 300], jpegQ: 0.85, kbps: 800, audio: 'B', stereo: true, tapeFx: true,
+                px: [400, 300], jpegQ: 0.85, kbps: 800, audio: 'afmStereo', stereo: true, tapeFx: true,
                 adj: { contrast: 4, saturation: -4, warmth: 2, grain: 10 },
                 look: { tape: 0.75, chromaSub: [4, 1], interlace: 1, noiseType: 2, white: 0.93, black: 0.02, sharpen: 0.3, soft: 0.9 },
             },
             minidv: {
-                px: [720, 480], anamorphic: true, formats: ['4:3', '16:9'], jpegQ: 0.7, kbps: 1500, audio: 'C', stereo: true, tapeFx: false,
+                px: [720, 480], anamorphic: true, formats: ['4:3', '16:9'], jpegQ: 0.7, kbps: 1500, audio: 'dv12', stereo: true, tapeFx: false,
                 adj: { contrast: 8, saturation: 2, warmth: -3, grain: 5 },
                 look: { noiseType: 1, noiseColor: 0.3, sharpen: 0.3, chromaSub: [4, 1], white: 0.94, black: 0.01, soft: 1.2 },
             },
             vhsc: { // the user's VHS-filter reference clips
-                px: [320, 240], jpegQ: 0.75, kbps: 700, audio: 'B', stereo: false, tapeFx: true,
+                px: [320, 240], jpegQ: 0.75, kbps: 700, audio: 'vhsLinear', stereo: false, tapeFx: true,
                 adj: { exposure: 6, contrast: 14, saturation: 18, warmth: 2, tint: 24, fade: 14, grain: 12 },
                 look: { soft: 1, chromaSub: [4, 1], tape: 0.8, sharpen: 1, interlace: 1, noiseType: 2, white: 0.93, shadows: [0.05, 0.0, 0.08], highlights: [0.05, 0.0, 0.05] },
             },
             vhsslp: { // the user's "PLAY Ch 01 … SLP" reference clip
-                px: [280, 210], jpegQ: 0.7, kbps: 500, audio: 'B', stereo: false, tapeFx: true,
+                px: [280, 210], jpegQ: 0.7, kbps: 500, audio: 'vhsLinearSLP', stereo: false, tapeFx: true,
                 adj: { exposure: 4, contrast: 26, saturation: 20, warmth: -30, tint: 26, fade: 10, grain: 16 },
                 look: { soft: 1.4, chromaSub: [5, 1], tape: 1, sharpen: 1.1, interlace: 1, noiseType: 2, white: 0.92, gamma: [1.0, 1.05, 0.85], shadows: [0.04, 0.0, 0.1], highlights: [0.0, 0.02, 0.06] },
             },
             vhsworn: { // the user's sunset-over-the-rails reference: a worn tape played back
-                px: [320, 240], jpegQ: 0.75, kbps: 600, audio: 'B', stereo: false, tapeFx: true,
+                px: [320, 240], jpegQ: 0.75, kbps: 600, audio: 'vhsWorn', stereo: false, tapeFx: true,
                 adj: { exposure: 2, contrast: 24, saturation: 36, warmth: 34, tint: -4, grain: 14, halation: 16 },
                 look: {
                     matrix: [[1.12, -0.06, -0.06], [0.02, 1.0, -0.02], [-0.02, 0.06, 0.96]],
@@ -3401,7 +3647,7 @@
                 },
             },
             super8: { // Kodachrome 40 Super 8 — real film, 18 fps, no tape and no fields
-                px: [400, 300], fps: 18, jpegQ: 0.85, kbps: 900, audio: 'S8', stereo: false, tapeFx: false,
+                px: [400, 300], fps: 18, jpegQ: 0.85, kbps: 900, audio: 'super8', stereo: false, tapeFx: false,
                 adj: { contrast: 18, saturation: 14, warmth: 12, grain: 30 },
                 look: {
                     matrix: [[1.1, -0.06, -0.04], [-0.02, 1.04, -0.02], [-0.02, -0.04, 1.06]],
@@ -3409,23 +3655,81 @@
                 },
             },
             nightshot: { // Hi8 NightShot (infrared)
-                px: [400, 300], jpegQ: 0.92, kbps: 900, audio: 'B', stereo: true, tapeFx: true,
+                px: [400, 300], jpegQ: 0.92, kbps: 900, audio: 'afmStereo', stereo: true, tapeFx: true,
                 adj: { exposure: 8, contrast: 24, grain: 30, halation: 20 },
                 look: { soft: 0.8, mono: 1, sharpen: 0.4, interlace: 1, tape: 0.4, chromaSub: [3, 1], noiseType: 2, halColor: [0.9, 1, 0.9], duo: [[0.0, 0.05, 0.0], [0.82, 1.0, 0.78]] },
             },
         };
 
-        // ── Audio (video recording only) ──
-        // A: built-in mic of a consumer digital camera · B: Video8/Hi8 home video ·
-        // C: MiniDV digital (48 kHz/16-bit, or the 32 kHz/12-bit mode).
-        // hp/lp: high-/low-pass Hz · eq: peaking filters · hiss: tape hiss (only with the
-        // optional tape-artifacts layer) · crush: 12-bit quantization.
+        // ── Audio (video recording only) — what each format really recorded (2026-10-09) ──
+        // The chain follows the camera: built-in mic → the camera's automatic gain control
+        // (AGC: lifts quiet passages — and with them the tape-motor whir the mic picks up
+        // through the body; that "breathing" is the home-video sound) → the recording format
+        // (its bandwidth, wow & flutter, its own noise floor, DV's 12-bit quantization).
+        // The phone's own processing (noise suppression, echo cancellation, AGC) is switched
+        // off at the mic so the camera's chain gets the real room sound.
+        //   mic: hp/lp Hz + peaking eq; channels 1|2, width = stereo spread of two close mics
+        //   agc: DynamicsCompressor threshold dB / ratio / release s, makeup dB
+        //   motor: whir level picked up by the mic (pre-AGC); motorAM: claw rate (Super 8)
+        //   tape: format hp/lp Hz, noise = noise floor (amplitude), wow/flutter = depth s @ Hz
+        //   bits: 12 → DV 12-bit/32 kHz quantization
+        // Sources: VHS linear ≈100 Hz–10 kHz SP, ≈5 kHz SLP, S/N ≈42–45 dB; 8mm AFM mono
+        // (Video8) / stereo (Hi8), clean, limited by the mic; DV 16-bit/48 kHz or 12-bit/32 kHz
+        // (Sony consumer models often 32 kHz); Super 8 magnetic stripe ≈75 Hz–10 kHz at 18 fps.
         const AUDIO_PROFILES = {
-            A: { hp: 150, lp: 8000, eq: [{ f: 2500, g: 2, q: 1 }], hiss: 0 },
-            B: { hp: 100, lp: 12000, eq: [{ f: 220, g: 1.5, q: 0.8 }, { f: 4000, g: -2, q: 0.9 }], hiss: 0.0025 },
-            C: { hp: 60, lp: 15500, eq: [{ f: 3000, g: 1, q: 1 }], hiss: 0 },
-            C32: { hp: 60, lp: 14500, eq: [{ f: 3000, g: 1, q: 1 }], hiss: 0, crush: 12 },
-            S8: { hp: 220, lp: 6500, eq: [{ f: 1500, g: 2, q: 0.9 }], hiss: 0 }, // Super 8 magnetic sound stripe
+            // 8mm AFM (Hi8, stereo mics): clean FM sound; the camera's small mics set the limit.
+            afmStereo: {
+                mic: { hp: 90, lp: 13000, eq: [{ f: 180, g: 1.5, q: 0.8 }, { f: 3500, g: 2, q: 1 }], channels: 2, width: 0.45 },
+                agc: { threshold: -26, ratio: 6, release: 0.8, makeup: 5 }, motor: 0.0025,
+                tape: { hp: 30, lp: 15000, noise: 0.0006, wow: 0.00004, wowHz: 0.6 },
+            },
+            // 8mm AFM mono (Video8, Canon UC-X10Hi "Hi-Fi monaural", one electret mic).
+            afmMono: {
+                mic: { hp: 100, lp: 12000, eq: [{ f: 200, g: 1.5, q: 0.8 }, { f: 3200, g: 2.5, q: 1 }], channels: 1 },
+                agc: { threshold: -26, ratio: 6, release: 0.8, makeup: 5 }, motor: 0.003,
+                tape: { hp: 30, lp: 15000, noise: 0.0007, wow: 0.00004, wowHz: 0.6 },
+            },
+            // VHS / VHS-C / S-VHS-C linear mono track, SP speed: ≈100 Hz–10 kHz, audible hiss.
+            vhsLinear: {
+                mic: { hp: 100, lp: 12000, eq: [{ f: 250, g: 1.5, q: 0.8 }, { f: 3000, g: 2.5, q: 1 }], channels: 1 },
+                agc: { threshold: -24, ratio: 8, release: 1.0, makeup: 6 }, motor: 0.003,
+                tape: { hp: 100, lp: 10000, noise: 0.006, wow: 0.00025, wowHz: 0.7, flutter: 0.00006, flutterHz: 9 },
+            },
+            // Linear track at SLP (3× slower): ≈5 kHz, more hiss and wow.
+            vhsLinearSLP: {
+                mic: { hp: 100, lp: 12000, eq: [{ f: 250, g: 1.5, q: 0.8 }, { f: 3000, g: 2.5, q: 1 }], channels: 1 },
+                agc: { threshold: -24, ratio: 8, release: 1.0, makeup: 6 }, motor: 0.003,
+                tape: { hp: 120, lp: 5000, noise: 0.009, wow: 0.0004, wowHz: 0.6, flutter: 0.0001, flutterHz: 8 },
+            },
+            // A worn, much-played linear track (VHS Worn): duller, hissier, wobblier.
+            vhsWorn: {
+                mic: { hp: 110, lp: 11000, eq: [{ f: 250, g: 1.5, q: 0.8 }, { f: 3000, g: 2, q: 1 }], channels: 1 },
+                agc: { threshold: -24, ratio: 8, release: 1.0, makeup: 6 }, motor: 0.003,
+                tape: { hp: 140, lp: 4500, noise: 0.012, wow: 0.0006, wowHz: 0.5, flutter: 0.00012, flutterHz: 7 },
+            },
+            // MiniDV / Digital8, 16-bit 48 kHz (the 3-CCD prosumer cameras): clean, gentler AGC.
+            dv16: {
+                mic: { hp: 70, lp: 18000, eq: [{ f: 3000, g: 1, q: 1 }], channels: 2, width: 0.5 },
+                agc: { threshold: -22, ratio: 4, release: 0.5, makeup: 2 }, motor: 0.0012,
+                tape: { hp: 20, lp: 20000, noise: 0 },
+            },
+            // MiniDV / Digital8, 12-bit 32 kHz (consumer models' usual setting): <16 kHz, coarser.
+            dv12: {
+                mic: { hp: 90, lp: 14000, eq: [{ f: 3000, g: 1.5, q: 1 }], channels: 2, width: 0.45 },
+                agc: { threshold: -24, ratio: 6, release: 0.7, makeup: 4 }, motor: 0.0018,
+                tape: { hp: 20, lp: 14500, noise: 0 }, bits: 12,
+            },
+            // Super 8 sound camera, magnetic stripe at 18 fps: ≈75 Hz–10 kHz, the claw's clatter.
+            super8: {
+                mic: { hp: 120, lp: 9000, eq: [{ f: 1500, g: 2, q: 0.9 }], channels: 1 },
+                agc: { threshold: -24, ratio: 6, release: 1.0, makeup: 4 }, motor: 0.004, motorAM: 18,
+                tape: { hp: 75, lp: 10000, noise: 0.006, wow: 0.0005, wowHz: 0.5, flutter: 0.0001, flutterHz: 18 },
+            },
+            // A digital still camera's movie mode (not used by the video list).
+            A: {
+                mic: { hp: 150, lp: 8000, eq: [{ f: 2500, g: 2, q: 1 }], channels: 1 },
+                agc: { threshold: -24, ratio: 6, release: 0.6, makeup: 2 }, motor: 0, tape: { hp: 150, lp: 8000, noise: 0 },
+            },
         };
 
         // ── Presets ──
@@ -3454,15 +3758,17 @@
                 audio: kind === 'video' ? medium.audio : kind === 'digital' ? 'A' : null,
                 stereo: kind === 'video' ? !!medium.stereo : false,
                 tapeFx: kind === 'video' && !!medium.tapeFx,
-                flash: body.flash, flashOn: !!parts.flashOn,
+                // Every camera can light the scene (the flash button): its own flash, else a
+                // camcorder video light or an external flash unit.
+                flash: body.flash || (kind === 'video' ? FLASH.videoLight : FLASH.external), flashOn: !!parts.flashOn,
                 date: parts.date || false, dateOn: !!parts.dateOn,
                 sound: parts.sound,
             };
             CAMERA_ORDER.push(key);
         }
 
-        CAMERA('funsaver', 'FunSaver', 'Kodak FunSaver single-use (90s)', 'Plastic fixed-focus lens and direct flash on Kodak 400 film.',
-            { body: 'funsaver', film: 'gold400', flashOn: true, sound: 'disposable' });
+        CAMERA('funsaver', 'FunSaver', 'Kodak FunSaver single-use (90s) · Kodak Gold 400', 'Simple plastic lens on Kodak 400 film; its direct flash is one tap away.',
+            { body: 'funsaver', film: 'gold400', sound: 'disposable' });
         CAMERA('polaroid', 'Polaroid', 'Polaroid 600 instant (90s)', 'Creamy instant film: soft, faded blacks, cool shadows, flash.',
             { body: 'polaroid600', film: 'polaroid600', flashOn: true, sound: 'onestep' });
         CAMERA('holga', 'Holga X-Pro', 'Holga 120 · cross-processed slide film', 'Plastic lens and dark corners; yellow-green highlights, cyan shadows.',
@@ -3483,6 +3789,59 @@
             { body: 'vhsCam', video: 'vhsworn', sound: 'camcorder' });
         CAMERA('nightshot', 'NightShot', 'Sony Hi8 NightShot (1998)', 'Infrared night mode: glowing green-white, noisy.',
             { body: 'nightshot', video: 'nightshot', date: 'osd', sound: 'camcorder' });
+        // The 24-camera library (user's spec, 2026-10-09). Models and years checked against
+        // documented sources; where the spec's model couldn't be verified it was replaced by a
+        // documented 1990s one (JVC GR-DVX → Sony DCR-VX1000; unnamed VHS-C / S-VHS-C / Canon
+        // Hi8 → Panasonic PV-L859, JVC GR-SZ7, Canon UC-X10Hi). Corrected years: DCR-PC1 1998,
+        // CCD-TRV87 1999. Flash is off by default everywhere (the flash button turns it on).
+        CAMERA('f90', 'F90', 'Nikon F90 / N90 (1992) · Fujicolor Superia 200', 'Pro-grade SLR and lens: clean detail, cool clean greens, fine grain.',
+            { body: 'nikonf90', film: 'superia200', sound: 'nikonf90' });
+        CAMERA('eos5', 'EOS 5', 'Canon EOS 5 / A2 (1992) · Kodak Portra 160NC', 'SLR with natural Portra color: gentle contrast, true skin tones.',
+            { body: 'eos5', film: 'portra160nc', sound: 'eos5' });
+        CAMERA('eos500', 'EOS 500', 'Canon EOS 500 / Rebel XS (1993) · Kodak Royal Gold 100', 'Entry SLR with its kit zoom: warm, saturated, fine grain.',
+            { body: 'eos500', film: 'royalgold100', sound: 'eos500' });
+        CAMERA('contaxg1', 'Contax G1', 'Contax G1 (1994) · Fujicolor Reala 100', 'Zeiss rangefinder lenses: crisp micro-contrast, neutral color.',
+            { body: 'contaxg1', film: 'reala100', sound: 'contaxg1' });
+        CAMERA('minilux', 'Minilux', 'Leica Minilux (1995) · Kodak Portra 400VC', 'Premium compact, 40mm Summarit: rich but natural color.',
+            { body: 'minilux', film: 'portra400vc', sound: 'minilux' });
+        CAMERA('mju2', 'mju-II', 'Olympus mju-II / Stylus Epic (1997) · Fujicolor Superia 400', '35mm f/2.8 compact: sharp center, cool Fuji greens, visible grain.',
+            { body: 'mju2', film: 'superia400', sound: 'mju2' });
+        CAMERA('gold200', 'Gold 200', 'Kodak Gold 200 · 35mm point-and-shoot', 'The everyday 90s print film: warm, friendly color, moderate grain.',
+            { body: 'compact35', film: 'gold200', sound: 'compact' });
+        CAMERA('instax', 'Instax', 'Fujifilm Instax Mini 10 (1998) · Instax Mini film', 'Instant print: crisp, slightly cool, highlights go early.',
+            { body: 'instaxmini10', film: 'instaxmini', sound: 'instax' });
+        CAMERA('dc25', 'DC25', 'Kodak DC25 (1996)', '493×373 digicam: warm Kodak color, little highlight and shadow detail.',
+            { body: 'dc25', sensor: 'dc25', sound: 'earlydigi' });
+        CAMERA('mavica', 'Mavica', 'Sony Mavica MVC-FD5 (1997)', '640×480 JPEG on a floppy disk: neutral color, clipped highlights.',
+            { body: 'mavicafd5', sensor: 'mavicafd5', sound: 'mavica' });
+        CAMERA('dc290', 'DC290', 'Kodak DC290 (1999)', '2.1-megapixel late-90s digicam: good color, a touch warm.',
+            { body: 'dc290', sensor: 'dc290', sound: 'digicam' });
+        CAMERA('tr2000', 'TR2000', 'Sony CCD-TR2000E Handycam (1994–95) · Hi8 PAL', 'Hi8 on a 1/3" CCD: soft color detail, restrained analog noise.',
+            { body: 'camcorder', video: 'tr2000e', date: 'osd', sound: 'camcorder' });
+        CAMERA('ucx10', 'UC-X10', 'Canon UC-X10Hi (1997) · Hi8', 'Hi8 on a smaller 1/4" CCD: a little noisier, cooler color.',
+            { body: 'camcorder', video: 'ucx10hi', date: 'osd', sound: 'camcorder' });
+        CAMERA('trv87', 'TRV87', 'Sony CCD-TRV87 Handycam (1999) · Hi8 XR', 'The last word in Hi8: Hi8 XR detail, clean analog color.',
+            { body: 'camcorder', video: 'trv87', date: 'osd', sound: 'camcorder' });
+        CAMERA('grsz7', 'GR-SZ7', 'JVC GR-SZ7 (1994) · S-VHS-C', 'S-VHS-C: sharper luma than VHS, but VHS-soft color.',
+            { body: 'camcorder', video: 'grsz7', date: 'osd', sound: 'camcorder' });
+        CAMERA('pvl859', 'PV-L859', 'Panasonic Palmcorder PV-L859 (1999) · VHS-C', 'VHS-C: the softest here, color bleeding right, more tape noise.',
+            { body: 'camcorder', video: 'pvl859', date: 'osd', sound: 'camcorder' });
+        CAMERA('vx1000', 'VX1000', 'Sony DCR-VX1000 (1995) · MiniDV · 3-CCD', 'The first MiniDV camcorder: clean 3-CCD color, DV detail.',
+            { body: 'camcorder3ccd', video: 'vx1000', date: 'osd', sound: 'camcorder' });
+        CAMERA('grdv1', 'GR-DV1', 'JVC GR-DV1 (1995–96) · MiniDV', 'The first consumer DV camcorder: clean DV, small single CCD.',
+            { body: 'camcorder', video: 'grdv1', date: 'osd', sound: 'camcorder' });
+        CAMERA('pc1', 'PC1', 'Sony DCR-PC1 (1998) · MiniDV', 'Palm-size DV: clean digital video, single-CCD noise in low light.',
+            { body: 'camcorder', video: 'pc1', date: 'osd', sound: 'camcorder' });
+        CAMERA('xl1', 'XL1', 'Canon XL1 (1997) · MiniDV · 3-CCD', 'Pro-style 3-CCD DV: crisp, cool-neutral color.',
+            { body: 'camcorder3ccd', video: 'xl1', date: 'osd', sound: 'camcorder' });
+        CAMERA('trv900', 'TRV900', 'Sony DCR-TRV900 (1998) · MiniDV · 3-CCD', '3-CCD consumer DV: accurate color, clean shadows.',
+            { body: 'camcorder3ccd', video: 'trv900', date: 'osd', sound: 'camcorder' });
+        CAMERA('gl1', 'GL1', 'Canon GL1 (1999) · MiniDV · 3-CCD', '3-CCD DV with a fluorite lens: clean, slightly cool.',
+            { body: 'camcorder3ccd', video: 'gl1', date: 'osd', sound: 'camcorder' });
+        CAMERA('trv110', 'TRV110', 'Sony DCR-TRV110 (1999) · Digital8', 'DV recorded on 8mm tape: clean digital, single-CCD.',
+            { body: 'camcorder', video: 'trv110', date: 'osd', sound: 'camcorder' });
+
+        // ── The earlier presets (on hold for a day, then back in the lists on the user's request) ──
         CAMERA('dc20', 'DC20', 'Kodak DC20 (1996)', 'Tiny fixed-focus digicam: warm Kodak color, blown highlights, heavy JPEG.',
             { body: 'dc20', sensor: 'dc20', sound: 'earlydigi' });
         CAMERA('qv10', 'QV-10', 'Casio QV-10 (1995)', 'The first digicam with a screen: 320×240, muddy, washed out, cool.',
@@ -3533,10 +3892,13 @@
         // and in Upload, the one for what's loaded (a video → Video, a photo → Photo). Each
         // list remembers its own pick.
         const CAMERA_LISTS = {
-            photo: ['dc20', 'qv10', 'cyberf1', 'quickcam', 'quicktake', 'funsaver', 'polaroid', 'holga'],
-            video: ['super8', 'video8', 'hi8', 'minidv', 'vhs92', 'vhsslp', 'vhsworn', 'nightshot'],
+            // The 24-camera library, then the earlier presets (back on the user's request, 2026-10-09).
+            photo: ['f90', 'eos5', 'eos500', 'contaxg1', 'minilux', 'mju2', 'gold200', 'funsaver', 'instax', 'dc25', 'mavica', 'dc290',
+                'polaroid', 'holga', 'dc20', 'qv10', 'cyberf1', 'quickcam', 'quicktake'],
+            video: ['tr2000', 'ucx10', 'trv87', 'grsz7', 'pvl859', 'vx1000', 'grdv1', 'pc1', 'xl1', 'trv900', 'gl1', 'trv110',
+                'vhs92', 'vhsslp', 'vhsworn', 'super8', 'video8', 'hi8', 'minidv', 'nightshot'],
         };
-        const ACTIVE_IN_LIST = { photo: 'dc20', video: 'vhs92' };
+        const ACTIVE_IN_LIST = { photo: 'mju2', video: 'tr2000' };
         const DEFAULT_CAMERA_KEY = ACTIVE_IN_LIST.photo;
         let ACTIVE_CAMERA_KEY = DEFAULT_CAMERA_KEY;
         function activeCameraList() {
@@ -4574,6 +4936,7 @@ void main() {
             setText('camera-info', cam.name + ' — ' + cam.desc);
             setText('mob-film-badge-label', cam.label);
             try { updateFormatPill(); } catch (_) { } // (not yet defined during early init)
+            try { updateFlashButton(); syncVideoTorch(); } catch (_) { }
         }
 
         function syncLensSlider() {
@@ -5784,15 +6147,19 @@ void main() {
 
                 try {
                     // Ask for mic audio too (used by video recording); camera still works without it.
+                    // Raw mic: the phone's own noise suppression / echo cancellation / AGC would
+                    // make it sound modern — the camera preset's chain does the processing.
                     liveState.stream = await navigator.mediaDevices.getUserMedia({
-                        video: getLiveVideoConstraints(), audio: true
-                    });
+                        video: getLiveVideoConstraints(),
+                        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: { ideal: 2 } }
+                    }).catch(() => navigator.mediaDevices.getUserMedia({ video: getLiveVideoConstraints(), audio: true }));
                 } catch (_) {
                     liveState.stream = await navigator.mediaDevices.getUserMedia({
                         video: getLiveVideoConstraints(), audio: false
                     });
                 }
                 liveVideo.srcObject = liveState.stream;
+                try { __torchOn = false; syncVideoTorch(); } catch (_) { } // Video with the light on → phone light on
                 await liveVideo.play();
                 try {
                     const vt = liveState.stream && liveState.stream.getVideoTracks ? liveState.stream.getVideoTracks()[0] : null;
@@ -5842,6 +6209,7 @@ void main() {
         function stopCamera() {
             if (liveState.rafId) { cancelAnimationFrame(liveState.rafId); liveState.rafId = null; }
             if (liveState.stream) { liveState.stream.getTracks().forEach(t => t.stop()); liveState.stream = null; }
+            try { __torchOn = false; } catch (_) { }
             liveVideo.srcObject = null;
         }
 
@@ -5916,6 +6284,7 @@ void main() {
                 if (zoomPresets) zoomPresets.style.display = 'none';
                 if (sideSliderWrap) sideSliderWrap.style.display = 'none';
                 if (filmBadge) filmBadge.style.display = 'none';
+                if (mobFlash) mobFlash.style.display = 'none';
                 return;
             }
 
@@ -5923,6 +6292,7 @@ void main() {
             // always shown, same as the gallery FAB.
             if (sideSliderWrap) sideSliderWrap.style.display = 'flex';
             if (filmBadge) filmBadge.style.display = 'flex';
+            updateFlashButton();
 
             // The panel now opens downward from the top bar, so it no longer overlaps the
             // bottom controls — no need to hide them while it's open (unlike before, when
@@ -6052,6 +6422,77 @@ void main() {
         }
         if (mobRatio) mobRatio.addEventListener('click', cycleCameraFormat);
 
+        // ── Flash button ──
+        // Every tab: Photo = the camera's flash (built-in, or an external unit), Video = a
+        // camcorder's video light. It switches the simulated light; in Live it also drives
+        // the phone's own light where the browser allows it (torch — Android Chrome; iPhone
+        // browsers can't control it): fired for the shot in Photo, kept on in Video.
+        const mobFlash = document.getElementById('mob-flash');
+        function flashButtonVisible() {
+            const cam = CAMERAS[ACTIVE_CAMERA_KEY];
+            return !!(cam && cam.flash && isMobileLayout());
+        }
+        function updateFlashButton() {
+            if (!mobFlash) return;
+            const show = flashButtonVisible();
+            mobFlash.style.display = show ? 'flex' : 'none';
+            if (!show) return;
+            const on = presetToggle(CAMERAS[ACTIVE_CAMERA_KEY], 'flash');
+            mobFlash.classList.toggle('on', !!on);
+            mobFlash.setAttribute('aria-pressed', on ? 'true' : 'false');
+            document.getElementById('mob-flash-label').textContent = on ? 'ON' : 'OFF';
+        }
+        if (mobFlash) mobFlash.addEventListener('click', () => {
+            const cam = CAMERAS[ACTIVE_CAMERA_KEY];
+            if (!cam || !cam.flash) return;
+            PRESET_TOGGLES[cam.key] = Object.assign({}, PRESET_TOGGLES[cam.key], { flash: !presetToggle(cam, 'flash') });
+            __filmSettingsCache = null;
+            updateFlashButton();
+            syncVideoTorch();
+            refreshView();
+        });
+        // Video + light on → the phone's light stays on; anything else → off.
+        let __torchOn = false;
+        function syncVideoTorch() {
+            syncScreenRing();
+            const cam = CAMERAS[ACTIVE_CAMERA_KEY];
+            const want = state.mode === 'live' && state.captureMode === 'video' && liveState.facingMode !== 'user' && !!liveState.stream && !!cam && presetToggle(cam, 'flash');
+            if (want === __torchOn) return;
+            __torchOn = want;
+            liveTorch(want);
+        }
+        // The phone's light for the shot: on, a moment for exposure to settle, then off.
+        // Resolves false where there's no controllable light.
+        // Back camera only. iOS Safari (17.5+/18) can switch the light but doesn't reliably
+        // list `torch` in getCapabilities(), so it's simply tried unless the capabilities
+        // say there's none; a rejection means no controllable light.
+        function liveTorch(on) {
+            const track = liveState.stream && liveState.stream.getVideoTracks()[0];
+            if (!track || liveState.facingMode === 'user') return Promise.resolve(false);
+            const caps = track.getCapabilities ? track.getCapabilities() : null;
+            if (caps && caps.torch === false) return Promise.resolve(false);
+            return track.applyConstraints({ advanced: [{ torch: !!on }] }).then(() => true, () => false);
+        }
+        // Front camera: the screen is the light. A photo = the whole screen white for the
+        // shot (like a phone's front "flash"); video = a white ring around the picture so
+        // the preview stays visible.
+        function screenFlash(on) {
+            const el = document.getElementById('screen-flash');
+            if (el) el.classList.toggle('on', !!on);
+        }
+        function syncScreenRing() {
+            const el = document.getElementById('screen-ring');
+            if (!el) return;
+            const cam = CAMERAS[ACTIVE_CAMERA_KEY];
+            const want = state.mode === 'live' && state.captureMode === 'video' && liveState.facingMode === 'user' && !!cam && presetToggle(cam, 'flash');
+            el.style.display = want ? 'block' : 'none';
+            if (!want) return;
+            const m = document.getElementById('main'), mr = m.getBoundingClientRect();
+            const r = getLiveFrameRect(Math.max(1, m.clientWidth), Math.max(1, m.clientHeight));
+            el.style.left = (mr.left + r.dx) + 'px'; el.style.top = (mr.top + r.dy) + 'px';
+            el.style.width = r.cw + 'px'; el.style.height = r.ch + 'px';
+        }
+
         var mobCaptureModeBtn = document.getElementById('mob-capture-mode');
         function updateModeRowActive() {
             if (!mobCaptureModeBtn) return;
@@ -6069,6 +6510,7 @@ void main() {
             state.captureMode = (mode === 'video') ? 'video' : 'image';
             if (mobShutter) mobShutter.classList.toggle('mode-video', state.captureMode === 'video');
             try { syncCameraList(); } catch (_) { } // (not yet defined during early init)
+            try { updateFlashButton(); syncVideoTorch(); } catch (_) { }
             updateModeRowActive();
             // Defensive: Photo and Video share one zoom-presets row (there's only one
             // camera stream underneath both), but re-render on every switch so it can
@@ -6201,52 +6643,136 @@ void main() {
         // resampling). Returns { tracks, close } or null to record the original sound.
         function buildRecordAudio(audioTracks, cam) {
             if (!audioTracks.length) return null;
-            return buildAudioGraph(cam, (ac) => ac.createMediaStreamSource(new MediaStream(audioTracks)), false);
+            // Always through the graph (passthrough when the preset keeps the original sound),
+            // so the REC button's own sound can be kept out of the recording (hold / mute).
+            return buildAudioGraph(cam, (ac) => ac.createMediaStreamSource(new MediaStream(audioTracks)), true);
         }
         // makeSource(ac) → the input node. passthrough: when the preset keeps the original
         // sound, still route it (an uploaded video's sound only reaches the recorder this
         // way) instead of returning null.
         function buildAudioGraph(cam, makeSource, passthrough) {
-            const process = !!cam.audio && CONTROLS.sound !== 'original';
+            const prof = cam.audio && AUDIO_PROFILES[cam.audio];
+            const process = !!prof && CONTROLS.sound !== 'original';
             if (!process && !passthrough) return null;
             const AC = window.AudioContext || window.webkitAudioContext;
             if (!AC) return null;
             try {
                 const ac = new AC();
-                let node = makeSource(ac);
-                if (!process) {
-                    const dest = ac.createMediaStreamDestination();
-                    node.connect(dest);
-                    if (ac.state === 'suspended') ac.resume().catch(() => { });
-                    return { tracks: dest.stream.getAudioTracks(), close: () => { try { ac.close(); } catch (_) { } } };
-                }
-                const prof = AUDIO_PROFILES[(cam.audio === 'C' && CONTROLS.sound === '32k') ? 'C32' : cam.audio];
-                const chain = (n) => { node.connect(n); node = n; };
-                const hp = ac.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = prof.hp; chain(hp);
-                prof.eq.forEach((e) => { const f = ac.createBiquadFilter(); f.type = 'peaking'; f.frequency.value = e.f; f.gain.value = e.g; f.Q.value = e.q; chain(f); });
-                const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = Math.min(prof.lp, ac.sampleRate / 2 - 100); chain(lp);
-                if (prof.crush) {
-                    const steps = Math.pow(2, prof.crush - 1), n = 4096, curve = new Float32Array(n);
-                    for (let i = 0; i < n; i++) { const x = i / (n - 1) * 2 - 1; curve[i] = Math.round(x * steps) / steps; }
-                    const ws = ac.createWaveShaper(); ws.curve = curve; chain(ws);
-                }
                 const dest = ac.createMediaStreamDestination();
-                const stereo = cam.stereo && cam.audio !== 'A';
-                dest.channelCount = stereo ? 2 : 1;
-                dest.channelCountMode = 'explicit';
-                node.connect(dest);
-                if (prof.hiss && CONTROLS.tapeFx && cam.tapeFx) {
-                    const buf = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate), d = buf.getChannelData(0);
-                    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-                    const ns = ac.createBufferSource(); ns.buffer = buf; ns.loop = true;
-                    const nf = ac.createBiquadFilter(); nf.type = 'highpass'; nf.frequency.value = 3000;
-                    const ng = ac.createGain(); ng.gain.value = prof.hiss;
-                    ns.connect(nf).connect(ng).connect(dest);
-                    ns.start();
+                const stop = [];
+                // Gate: silences the recording while the camera's own REC sound plays from the
+                // speaker (the raw mic would otherwise record it).
+                const gate = ac.createGain();
+                if (process) {
+                    const out = buildAudioChain(ac, makeSource(ac), prof, stop);
+                    dest.channelCount = prof.mic.channels;
+                    dest.channelCountMode = 'explicit';
+                    out.connect(gate).connect(dest);
+                } else {
+                    makeSource(ac).connect(gate).connect(dest);
                 }
                 if (ac.state === 'suspended') ac.resume().catch(() => { });
-                return { tracks: dest.stream.getAudioTracks(), close: () => { try { ac.close(); } catch (_) { } } };
+                return {
+                    tracks: dest.stream.getAudioTracks(),
+                    // Silent for `sec`, then the room fades in over 50 ms.
+                    hold(sec) {
+                        const t = ac.currentTime;
+                        gate.gain.cancelScheduledValues(t);
+                        gate.gain.setValueAtTime(0, t);
+                        gate.gain.setValueAtTime(0, t + sec);
+                        gate.gain.linearRampToValueAtTime(1, t + sec + 0.05);
+                    },
+                    mute() { gate.gain.cancelScheduledValues(ac.currentTime); gate.gain.setValueAtTime(0, ac.currentTime); },
+                    close: () => { stop.forEach((n) => { try { n.stop(); } catch (_) { } }); try { ac.close(); } catch (_) { } },
+                };
             } catch (_) { return null; }
+        }
+
+        // The camera's sound chain on any AudioContext (live or offline): input → output node.
+        // `stop` collects the sources (noise, LFOs) to stop when the recording ends.
+        function buildAudioChain(ac, input, prof, stop) {
+            const m = prof.mic, t = prof.tape, nyq = ac.sampleRate / 2 - 100;
+            const filt = (type, f, q, g) => { const b = ac.createBiquadFilter(); b.type = type; b.frequency.value = Math.min(f, nyq); if (q != null) b.Q.value = q; if (g != null) b.gain.value = g; return b; };
+            const noiseSrc = () => {
+                const buf = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate), d = buf.getChannelData(0);
+                for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+                const n = ac.createBufferSource(); n.buffer = buf; n.loop = true; n.start(); stop.push(n); return n;
+            };
+            const lfo = (hz, depth, target) => {
+                const o = ac.createOscillator(); o.frequency.value = hz;
+                const g = ac.createGain(); g.gain.value = depth;
+                o.connect(g).connect(target); o.start(); stop.push(o);
+            };
+            let node = input;
+            const chain = (n) => { node.connect(n); node = n; return n; };
+
+            // 1. The built-in mic. Stereo = two close capsules: a narrow spread (a mono phone
+            // mic is spread to both sides first, so the mix stays centered).
+            if (m.channels === 2) {
+                const up = ac.createGain(); up.channelCount = 2; up.channelCountMode = 'explicit'; up.channelInterpretation = 'speakers';
+                chain(up);
+                const split = ac.createChannelSplitter(2), merge = ac.createChannelMerger(2);
+                const a = (1 + m.width) / 2, b = (1 - m.width) / 2;
+                const g = (v) => { const x = ac.createGain(); x.gain.value = v; return x; };
+                const ll = g(a), lr = g(b), rl = g(b), rr = g(a);
+                up.connect(split);
+                split.connect(ll, 0); split.connect(lr, 0); split.connect(rl, 1); split.connect(rr, 1);
+                ll.connect(merge, 0, 0); rl.connect(merge, 0, 0); lr.connect(merge, 0, 1); rr.connect(merge, 0, 1);
+                node = merge;
+            }
+            chain(filt('highpass', m.hp, 0.7));
+            m.eq.forEach((e) => chain(filt('peaking', e.f, e.q, e.g)));
+            chain(filt('lowpass', m.lp, 0.7));
+
+            // 2. Motor/transport whir reaching the mic through the body — before the AGC, so
+            // quiet scenes bring it up exactly as on the real camera.
+            const preAgc = chain(ac.createGain());
+            if (prof.motor) {
+                const whir = ac.createGain(); whir.gain.value = prof.motor;
+                noiseSrc().connect(filt('bandpass', 650, 0.8)).connect(filt('lowpass', 3000, 0.7)).connect(whir);
+                if (prof.motorAM) { // Super 8: the pull-down claw, 18 times a second
+                    const am = ac.createGain(); am.gain.value = 0.5;
+                    whir.connect(am); lfo(prof.motorAM, 0.5, am.gain); am.connect(preAgc);
+                } else whir.connect(preAgc);
+            }
+
+            // 3. AGC: fast attack, slow release, then makeup gain.
+            const agc = ac.createDynamicsCompressor();
+            agc.threshold.value = prof.agc.threshold; agc.knee.value = 10; agc.ratio.value = prof.agc.ratio;
+            agc.attack.value = 0.004; agc.release.value = prof.agc.release;
+            chain(agc);
+            const makeup = chain(ac.createGain()); makeup.gain.value = Math.pow(10, prof.agc.makeup / 20);
+
+            // 4. The recording format. Wow & flutter = a slowly wobbling delay (analog tape/film).
+            if (t.wow || t.flutter) {
+                const dl = ac.createDelay(0.05); dl.delayTime.value = 0.012;
+                chain(dl);
+                if (t.wow) lfo(t.wowHz, t.wow, dl.delayTime);
+                if (t.flutter) lfo(t.flutterHz, t.flutter, dl.delayTime);
+            }
+            const fmt = chain(ac.createGain());
+            if (t.noise) { // the format's own noise floor (hiss), recorded with everything else
+                const hiss = ac.createGain(); hiss.gain.value = t.noise;
+                noiseSrc().connect(filt('highpass', 1200, 0.7)).connect(hiss).connect(fmt);
+            }
+            chain(filt('highpass', t.hp, 0.7));
+            chain(filt('lowpass', t.lp, 0.7));
+            chain(filt('lowpass', t.lp * 1.15, 0.7)); // steeper edge, like the format's real cutoff
+            if (prof.bits) { // DV 12-bit
+                const steps = Math.pow(2, prof.bits - 1), n = 16384, curve = new Float32Array(n);
+                for (let i = 0; i < n; i++) { const x = i / (n - 1) * 2 - 1; curve[i] = Math.round(x * steps) / steps; }
+                const ws = ac.createWaveShaper(); ws.curve = curve; chain(ws);
+            }
+            // 5. A limiter so the makeup gain never clips.
+            const lim = ac.createDynamicsCompressor();
+            lim.threshold.value = -2; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.001; lim.release.value = 0.1;
+            chain(lim);
+            // …and a soft clip for the transients the limiter's attack lets through: the
+            // output never goes past full scale.
+            const clip = ac.createWaveShaper(), cn = 4096, cc = new Float32Array(cn);
+            for (let i = 0; i < cn; i++) { const x = i / (cn - 1) * 2 - 1; cc[i] = Math.abs(x) < 0.8 ? x : Math.sign(x) * (0.8 + 0.2 * Math.tanh((Math.abs(x) - 0.8) / 0.2)); }
+            clip.curve = cc; chain(clip);
+            return node;
         }
         var liveRecordAudio = null;
 
@@ -6254,6 +6780,9 @@ void main() {
         function toggleVideoRecording() {
             if (!liveState.stream) return;
             if (liveVideoRecorder && liveVideoRecorder.state === 'recording') {
+                // Silence the recording first, then the stop sound — it never reaches the file.
+                if (liveRecordAudio && liveRecordAudio.mute) liveRecordAudio.mute();
+                shutterSound.rec(ACTIVE_CAMERA_KEY, false);
                 stopRecordInterval();
                 // The last recorded frame becomes the video's still thumbnail (gallery FAB +
                 // grid) — a <video> element as a thumbnail shows black on iOS until played.
@@ -6267,6 +6796,9 @@ void main() {
                 return;
             }
             recordedChunks = [];
+            // The REC sound plays from the speaker; the recording stays silent through it
+            // (plus a little for the room's echo) — see hold() below.
+            var recSoundLen = shutterSound.rec(ACTIVE_CAMERA_KEY, true);
             // The camera's own video size (SD for camcorders), enlarged by a whole factor to
             // ~900px+ so it plays at a sensible size — the low bitrate below keeps it as
             // compressed as the original tape/MPEG.
@@ -6286,7 +6818,7 @@ void main() {
             var canvasStream = liveRecordCanvas.captureStream(LIVE_RECORD_FPS);
             var audioTracks = (liveState.stream && liveState.stream.getAudioTracks) ? liveState.stream.getAudioTracks() : [];
             liveRecordAudio = buildRecordAudio(audioTracks, activeFilmSettings().camera);
-            if (liveRecordAudio) audioTracks = liveRecordAudio.tracks;
+            if (liveRecordAudio) { audioTracks = liveRecordAudio.tracks; liveRecordAudio.hold(recSoundLen + 0.3); } // + the phone speaker's output delay and the room's echo
             var stream = audioTracks.length
                 ? new MediaStream([].concat(canvasStream.getVideoTracks(), audioTracks))
                 : canvasStream;
@@ -6651,9 +7183,16 @@ void main() {
                         const comp = ctx.createDynamicsCompressor();
                         comp.threshold.value = -10;
                         comp.ratio.value = 6;
+                        // Gentle on purpose (user, 2026-10-09: "more gentle, less loud, all of
+                        // them" — then "still too loud"): about a fifth of the original level,
+                        // and the sharp top softened (high shelf + low-pass).
                         out = ctx.createGain();
-                        out.gain.value = 0.85;
-                        out.connect(comp).connect(ctx.destination);
+                        out.gain.value = 0.15;
+                        const soft = ctx.createBiquadFilter();
+                        soft.type = 'highshelf'; soft.frequency.value = 3500; soft.gain.value = -5;
+                        const lp = ctx.createBiquadFilter();
+                        lp.type = 'lowpass'; lp.frequency.value = 9000; lp.Q.value = 0.5;
+                        out.connect(soft).connect(lp).connect(comp).connect(ctx.destination);
                     }
                     if (ctx.state === 'suspended') ctx.resume().catch(() => { });
                     return ctx;
@@ -6876,7 +7415,82 @@ void main() {
                     whir(c, t, 90, 0.55, 0.12, 600);
                     ratchet(c, t + 0.02, 10, 1 / 18, 2400, 0.3);
                 },
+                // ── The 24-camera library (2026-10-09), synthesized from each mechanism ──
+                // Nikon F90: mirror slap + vertical metal curtain, mirror return, then the
+                // built-in motor winding one frame (~2 fps class winder).
+                nikonf90(c, t) {
+                    burst(c, t, 2600, 0.03, 0.9, 1.2); thump(c, t, 120, 0.08, 0.5);
+                    burst(c, t + 0.035, 4200, 0.018, 0.65, 1.6);
+                    burst(c, t + 0.075, 1900, 0.04, 0.7, 1.1); thump(c, t + 0.075, 90, 0.09, 0.4);
+                    whir(c, t + 0.13, 260, 0.36, 0.12, 1500);
+                },
+                // Canon EOS 5: the focus-confirm double beep, then a famously quiet, damped
+                // mirror and a soft motor wind.
+                eos5(c, t) {
+                    beep(c, t, 2900, 0.04, 0.08); beep(c, t + 0.06, 2900, 0.04, 0.08);
+                    burst(c, t + 0.16, 2000, 0.03, 0.55, 1); thump(c, t + 0.16, 140, 0.07, 0.3);
+                    burst(c, t + 0.22, 1700, 0.035, 0.4, 1);
+                    whir(c, t + 0.27, 230, 0.32, 0.07, 1100);
+                },
+                // Canon EOS 500: beep-beep, a plasticky mirror clack and a louder, higher winder.
+                eos500(c, t) {
+                    beep(c, t, 2900, 0.04, 0.08); beep(c, t + 0.06, 2900, 0.04, 0.08);
+                    burst(c, t + 0.16, 2700, 0.032, 0.85, 1.4); thump(c, t + 0.16, 150, 0.06, 0.35);
+                    burst(c, t + 0.215, 2100, 0.035, 0.6, 1.3);
+                    whir(c, t + 0.27, 320, 0.42, 0.12, 1700);
+                },
+                // Contax G1: the lens's buzzy autofocus, a crisp metal focal-plane shutter, wind.
+                contaxg1(c, t) {
+                    whir(c, t, 420, 0.16, 0.05, 2400);
+                    burst(c, t + 0.19, 4600, 0.016, 0.75, 2); thump(c, t + 0.19, 230, 0.04, 0.2);
+                    whir(c, t + 0.26, 280, 0.34, 0.09, 1400);
+                },
+                // Leica Minilux: lens focus whir, a near-silent leaf shutter, quiet motor wind.
+                minilux(c, t) {
+                    whir(c, t, 360, 0.1, 0.03, 2000);
+                    burst(c, t + 0.13, 4800, 0.012, 0.45, 2.2);
+                    whir(c, t + 0.2, 200, 0.4, 0.07, 1000);
+                },
+                // Olympus mju-II: AF, leaf-shutter tick, the compact's busy little winder.
+                mju2(c, t) {
+                    whir(c, t, 400, 0.08, 0.035, 2200);
+                    burst(c, t + 0.1, 4400, 0.015, 0.55, 2);
+                    whir(c, t + 0.17, 210, 0.48, 0.1, 1200);
+                },
             };
+
+            // Camcorder REC button (start / stop), by mechanism. Beep tones per brand are
+            // approximations; the mechanics follow the formats.
+            //   8mm (Video8/Hi8): beep, pinch roller engages, capstan spins up; stop = 2 beeps.
+            //   vhsc: a bigger VHS-C transport — heavier clunk.  dv: soft click.
+            //   super8: the film motor spinning up (start) / winding down (stop).
+            const REC = {
+                '8mm'(c, t, start, hz) {
+                    beep(c, t, hz, 0.08, 0.1, 'sine');
+                    if (!start) beep(c, t + 0.12, hz, 0.08, 0.1, 'sine');
+                    burst(c, t + (start ? 0.12 : 0.24), 2200, 0.025, 0.45, 1.6); thump(c, t + (start ? 0.12 : 0.24), 170, 0.05, 0.2);
+                    if (start) whir(c, t + 0.15, 140, 0.3, 0.03, 700);
+                },
+                vhsc(c, t, start, hz) {
+                    beep(c, t, hz, 0.08, 0.1, 'sine');
+                    if (!start) beep(c, t + 0.12, hz, 0.08, 0.1, 'sine');
+                    const k = t + (start ? 0.12 : 0.24);
+                    burst(c, k, 1500, 0.045, 0.7, 1.2); thump(c, k, 110, 0.09, 0.4);
+                    if (start) whir(c, k + 0.05, 110, 0.35, 0.04, 600);
+                },
+                dv(c, t, start, hz) {
+                    beep(c, t, hz, 0.07, 0.1, 'sine');
+                    if (!start) beep(c, t + 0.11, hz, 0.07, 0.1, 'sine');
+                    burst(c, t + (start ? 0.1 : 0.22), 3000, 0.015, 0.3, 2);
+                },
+                super8(c, t, start) {
+                    if (start) { whir(c, t, 90, 0.5, 0.12, 600); ratchet(c, t + 0.05, 8, 1 / 18, 2400, 0.25); }
+                    else { whir(c, t, 75, 0.35, 0.1, 500); ratchet(c, t, 5, 1 / 14, 2200, 0.2); burst(c, t + 0.36, 1600, 0.03, 0.4, 1.4); }
+                },
+            };
+            const REC_GAIN = { '8mm': 2.4, vhsc: 2.4, dv: 2.4, super8: 2.2 };
+            // How long each REC sound rings (s), so the recording can stay silent through it.
+            const REC_LEN = { '8mm': [0.5, 0.4], vhsc: [0.6, 0.4], dv: [0.2, 0.3], super8: [0.6, 0.45] };
 
             // Which sound each preset makes: its `sound` (unlisted → a digicam beep).
 
@@ -6888,6 +7502,7 @@ void main() {
                 slr: 1, leica: 2.5, compact: 2.6, halfframe: 5, disposable: 4, lomo: 5.5,
                 toy: 3.4, instamatic: 4.5, sx70: 1.6, onestep: 1.7, instax: 2.4,
                 hasselblad: 0.85, rollei: 4.5, super8: 2.2,
+                nikonf90: 1, eos5: 1.3, eos500: 1.1, contaxg1: 1.6, minilux: 2.4, mju2: 2.4,
                 digicam: 2.2, camcorder: 2.4, earlydigi: 2.6, mavica: 2.4, phone: 3,
             };
 
@@ -6906,9 +7521,27 @@ void main() {
                         PROFILES[name](c, c.currentTime + 0.01);
                     } catch (_) { }
                 },
+                // The REC button: start (true) / stop (false), by the camera's format.
+                // Returns the sound's length in seconds (0 if nothing played).
+                rec(cameraKey, start) {
+                    const c = ac(), cam = CAMERAS[cameraKey];
+                    if (!c || !cam) return 0;
+                    const a = cam.audio || '';
+                    const kind = a === 'super8' ? 'super8' : a.indexOf('vhs') === 0 ? 'vhsc' : a.indexOf('dv') === 0 ? 'dv' : '8mm';
+                    // Brand beep pitch (approximate): Sony, Canon, JVC/Panasonic.
+                    const hz = /^(xl1|gl1|ucx10)$/.test(cameraKey) ? 2600 : /^(grsz7|grdv1|pvl859|vhs92|vhsslp|vhsworn)$/.test(cameraKey) ? 3100 : 2200;
+                    try {
+                        bus = c.createGain();
+                        bus.gain.value = REC_GAIN[kind];
+                        bus.connect(out);
+                        REC[kind](c, c.currentTime + 0.01, start, hz);
+                        return REC_LEN[kind][start ? 0 : 1] + 0.01;
+                    } catch (_) { return 0; }
+                },
             };
         })();
 
+        let __flashBusy = false;
         // Shutter: in live mode → snapshot (image) or start/stop video; only visible in Live
         if (mobShutter) mobShutter.addEventListener('click', () => {
             if (state.mode !== 'live') return;
@@ -6916,11 +7549,31 @@ void main() {
                 toggleVideoRecording();
                 return;
             }
-            const cnv = captureLivePhoto();
-            if (!cnv) return;
-            shutterSound.play(ACTIVE_CAMERA_KEY);
-            flashShutter();
-            addToGallery({ type: 'image', canvas: cnv, jpegQ: activeFilmSettings().camera.jpegQ, fileName: filmFileName('shot', 'jpg') });
+            const shoot = () => {
+                const cnv = captureLivePhoto();
+                if (!cnv) return;
+                shutterSound.play(ACTIVE_CAMERA_KEY);
+                flashShutter();
+                addToGallery({ type: 'image', canvas: cnv, jpegQ: activeFilmSettings().camera.jpegQ, fileName: filmFileName('shot', 'jpg') });
+            };
+            // Flash on: fire the phone's light too (where possible) and give the sensor a
+            // moment to expose for it before taking the frame.
+            if (activeFilmSettings().flash) {
+                if (__flashBusy) return;
+                __flashBusy = true;
+                if (liveState.facingMode === 'user') {
+                    // Front: the screen goes white, the face is lit, then the frame is taken.
+                    screenFlash(true);
+                    setTimeout(() => { shoot(); setTimeout(() => { screenFlash(false); __flashBusy = false; }, 120); }, 300);
+                    return;
+                }
+                liveTorch(true).then((lit) => {
+                    if (!lit) { __flashBusy = false; shoot(); return; }
+                    setTimeout(() => { shoot(); liveTorch(false); __flashBusy = false; }, 350);
+                });
+                return;
+            }
+            shoot();
             // Stay in Live after capture (don't stop camera / don't switch modes)
         });
 
@@ -6962,7 +7615,7 @@ void main() {
         // PWA: register service worker for installability + reliable updates
         (function () {
             if (!('serviceWorker' in navigator)) return;
-            const __BUILD = 'v20';
+            const __BUILD = 'v21';
             try {
                 const bt = document.getElementById('build-tag');
                 if (bt) bt.textContent = __BUILD;
@@ -6996,7 +7649,7 @@ void main() {
             window.forceAppUpdate = resetServiceWorkerAndReload;
 
             // Versioned SW URL forces Safari to re-fetch updated sw.js
-            const __SW_URL = 'sw.js?v=20';
+            const __SW_URL = 'sw.js?v=21';
             navigator.serviceWorker.register(__SW_URL).then((reg) => {
                 function trySkipWaiting() {
                     if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
@@ -7142,7 +7795,7 @@ void main() {
             if (logo) logo.style.visibility = 'hidden';
             title.textContent = '';
             if (boot) {
-                boot.textContent = '90FRAME BIOS v1.0  (C)1997\nMEMORY TEST ...... 640K OK\nCAMERAS ........... ' + String(CAMERA_ORDER.length).padStart(2, '0') + ' FOUND\nLOADING';
+                boot.textContent = '90FRAME BIOS v1.0  (C)1997\nMEMORY TEST ...... 640K OK\nCAMERAS ........... ' + String(CAMERA_LISTS.photo.length + CAMERA_LISTS.video.length).padStart(2, '0') + ' FOUND\nLOADING';
                 typewrite(boot, { maxMs: 1100, keepCaret: true });
             }
             setTimeout(() => {
