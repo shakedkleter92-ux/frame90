@@ -30,8 +30,13 @@ Bump `CACHE` in `sw.js` (`90frame-vN`) **and** `__BUILD` / `__SW_URL`'s `?v=` ne
   `white`/`black`, sensor noise, `sharpen`, `jpegQ`) or `VIDEO_FORMATS` (tape bandwidth,
   chroma, `interlace`, analog noise, optional `tapeFx`, `kbps`, `audio`). `AUDIO_PROFILES`
   A/B/C(/C32) drive `buildRecordAudio()` (Web Audio chain on the mic for video only; film
-  presets keep the original sound). Presets now (9, three rows): FunSaver, Video8, Hi8, MiniDV,
-  the user's VHS references (`vhs92`, `vhsslp`, `vhsworn`), NightShot, QuickTake. `vhsworn` (VHS
+  presets keep the original sound). Presets now (12, three rows): FunSaver, Polaroid, Holga X-Pro,
+  Super 8, Video8, Hi8, MiniDV, the user's VHS references (`vhs92`, `vhsslp`, `vhsworn`),
+  NightShot, QuickTake. Added 2026-10-08: `polaroid` (600 instant film, 1:1, flash on, no
+  forced white border), `holga` (cross-processed slide film, 1:1, plastic-lens corners),
+  `super8` (Kodachrome 40 cine film, 18 fps frame hold via `fps`, film grain, gate `weave` +
+  `flicker` look params, audio `S8`). A film may set its own `px`/`formats` (instant and
+  120 aren't Picture CD scans of 35mm); `FORMAT_RATIO` has `1:1`. `vhsworn` (VHS
   Worn, 2026-10-08, from a sunset-over-rails clip) = hot saturated warm tape, long red bleed and
   constant oxide dropouts (look param `dropouts`, shader stage 5b — part of that preset's look,
   separate from the optional `tapeFx` layer); no OSD. The user's "CAMERA1 / PLAY / SOURCE IPHONE"
@@ -76,8 +81,8 @@ Bump `CACHE` in `sw.js` (`90frame-vN`) **and** `__BUILD` / `__SW_URL`'s `?v=` ne
   frame shape (landscape/upright following the photo) and the lens. Call `refreshView()`
   after any settings change.
 - **Live framing = the camera's own frame**, not full screen (user, 2026-10-08: "the picture
-  being full screen is weird"; this replaces the earlier full-screen 9:16 canvas). All
-  cameras are 4:3, shown upright as 3:4 (`getLiveTargetRatioValue()` from the camera's
+  being full screen is weird"; this replaces the earlier full-screen 9:16 canvas). Tape/digital
+  cameras are 4:3, shown upright as 3:4 (Polaroid/Holga are square) (`getLiveTargetRatioValue()` from the camera's
   `px`/`vpx`), contain-fit between the top buttons and the bottom controls
   (`getLiveFrameRect()`, `LIVE_FRAME_TOP/BOTTOM`) on a dark surround. The back camera is
   requested at 3:4 so the stream is the whole sensor. First launch opens at 1× zoom (the old
@@ -89,7 +94,8 @@ Bump `CACHE` in `sw.js` (`90frame-vN`) **and** `__BUILD` / `__SW_URL`'s `?v=` ne
   rendered at the camera's *video* size (`uploadFrame()`). The save FAB re-shoots the whole
   clip in real time like Live recording (`exportUploadVideo()`: second `<video>` with sound →
   native frame + OSD → enlarged → MediaRecorder at `kbps`; sound via `buildAudioGraph()` with
-  passthrough for film presets); progress % in `#mob-rec-timer`, tap save again to cancel.
+  passthrough for film presets); progress in the centered `#export-progress` panel (REC, big %, bar, "please wait" — user asked
+  for it mid-screen so it's obvious), tap save again to cancel.
 - **LIVE CAMERA** — unchanged camera plumbing from the original (facing defaults, ultra-wide
   0.5×, zoom dial, Android rotation fix). `liveLoop()` renders the preview at the camera's
   native size (video size in Video mode, still size in Photo; big still sensors capped by
@@ -111,6 +117,9 @@ Bump `CACHE` in `sw.js` (`90frame-vN`) **and** `__BUILD` / `__SW_URL`'s `?v=` ne
   ignored; Down is left alone). Works only where a browser forwards volume keys to pages (some
   Android); **never on iOS** — WebKit doesn't expose them to web content at all, so that would
   need a native wrapper.
+- **SAVING FILES** — `isMobile` is by device, not width (the desktop iframe is narrow and its
+  share sheet can't open there); shared files use `baseMime()` (no `;codecs=`, iOS refuses it);
+  `frame.html`'s iframe allows `web-share`.
 - **GALLERY** — photos stored as JPEG. The gallery FAB always shows a still preview of the
   latest capture (never a generic icon once something exists; an empty film-frame square before
   that) and "pops" when a new shot lands. Videos get a still `poster` (JPEG data URL grabbed

@@ -2674,6 +2674,55 @@
             -webkit-text-fill-color: var(--void);
         }
 
+        /* Close: a square the height of the Select button, the X drawn as two lines through
+           its exact center (the ✕ glyph isn't in VT323, and its fallback sat off-center). */
+        #gallery-select-toggle {
+            box-sizing: border-box;
+            height: 32px;
+            line-height: 1;
+        }
+
+        .hud-x {
+            position: relative;
+            box-sizing: border-box;
+            flex: 0 0 auto;
+            width: 32px !important;
+            height: 32px !important;
+            padding: 0 !important;
+            border-radius: 0;
+            border: var(--line) solid var(--hud-mid);
+            background: transparent;
+            cursor: pointer;
+        }
+
+        .hud-x::before,
+        .hud-x::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 16px;
+            height: 1.5px;
+            background: var(--hud);
+            box-shadow: 0 0 4px rgba(70, 242, 122, .6);
+            transform: translate(-50%, -50%) rotate(45deg);
+        }
+
+        .hud-x::after {
+            transform: translate(-50%, -50%) rotate(-45deg);
+        }
+
+        #gallery-count,
+        #gallery-viewer-count {
+            font-family: var(--font-ui);
+            font-size: 18px;
+            text-transform: uppercase;
+            letter-spacing: .1em;
+            color: var(--hud-mid);
+            -webkit-text-fill-color: var(--hud-mid);
+            text-shadow: var(--glow);
+        }
+
         /* ── Export modal ── */
         .export-modal-card {
             border-radius: 0;
@@ -2822,6 +2871,81 @@
         body.comparing #compare-tag {
             display: block;
         }
+
+        /* Saving an uploaded video: a centered panel over a dimmed screen (taps pass
+           through, so the save button still cancels). */
+        #export-progress {
+            position: fixed;
+            inset: 0;
+            z-index: 140;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            background: rgba(0, 0, 0, .6);
+            pointer-events: none;
+            font-family: var(--font-ui);
+            color: var(--hud);
+            -webkit-text-fill-color: var(--hud);
+            text-shadow: var(--glow);
+            text-align: center;
+        }
+
+        #export-progress .xp-rec {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 24px;
+            letter-spacing: .1em;
+            color: var(--rec);
+            -webkit-text-fill-color: var(--rec);
+            text-shadow: 0 0 6px var(--rec);
+            animation: xp-blink 1s steps(1) infinite;
+        }
+
+        #export-progress .xp-rec::before {
+            content: '';
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--rec);
+            box-shadow: 0 0 6px var(--rec);
+        }
+
+        #export-progress .xp-pct {
+            font-size: 64px;
+            line-height: 1;
+        }
+
+        #export-progress .xp-bar {
+            width: 200px;
+            height: 12px;
+            border: var(--line) solid var(--hud);
+            box-shadow: 0 0 6px rgba(70, 242, 122, .4);
+        }
+
+        #export-progress-fill {
+            width: 0;
+            height: 100%;
+            background: var(--hud);
+        }
+
+        #export-progress .xp-msg {
+            font-size: 22px;
+            letter-spacing: .1em;
+            line-height: 1.2;
+        }
+
+        #export-progress .xp-hint {
+            font-size: 15px;
+            color: var(--hud-mid);
+            -webkit-text-fill-color: var(--hud-mid);
+        }
+
+        @keyframes xp-blink {
+            50% { opacity: .25; }
+        }
 </style>
 </head>
 
@@ -2847,6 +2971,14 @@
     </div>
     <!-- Recording timer — shown only while actively recording video -->
     <div id="mob-rec-timer" aria-hidden="true">00:00</div>
+    <!-- Saving an uploaded video: centered, so it's obvious something is happening -->
+    <div id="export-progress" role="status" aria-live="polite" style="display:none">
+        <div class="xp-rec">REC</div>
+        <div class="xp-pct" id="export-progress-pct">0%</div>
+        <div class="xp-bar"><div id="export-progress-fill"></div></div>
+        <div class="xp-msg">SAVING VIDEO<br />PLEASE WAIT</div>
+        <div class="xp-hint">TAP SAVE AGAIN TO CANCEL</div>
+    </div>
     <!-- Lens name + character, shown briefly while the lens slider moves -->
     <div id="lens-toast" aria-live="polite"></div>
     <!-- White flash over the viewfinder when a photo is taken -->
@@ -2907,7 +3039,7 @@
          it's an in-memory session roll, not storage. -->
     <div id="gallery-screen" aria-hidden="true" style="display:none">
         <div id="gallery-header">
-            <button type="button" id="gallery-close" aria-label="Close gallery">✕</button>
+            <button type="button" id="gallery-close" class="hud-x" aria-label="Close gallery"></button>
             <span id="gallery-title">ROLL</span>
             <span id="gallery-count"></span>
             <button type="button" id="gallery-select-toggle">Select</button>
@@ -2924,7 +3056,7 @@
          captures. -->
     <div id="gallery-viewer" aria-hidden="true" style="display:none">
         <div id="gallery-viewer-header">
-            <button type="button" id="gallery-viewer-close" aria-label="Close">✕</button>
+            <button type="button" id="gallery-viewer-close" class="hud-x" aria-label="Close"></button>
             <span id="gallery-viewer-count"></span>
         </div>
         <div id="gallery-viewer-stage"></div>
@@ -3102,6 +3234,8 @@
             tape: 0,                  // analog tape: luma bandwidth + color smear + line wobble
             interlace: 0,             // 480i fields (combing on motion)
             dropouts: 0,              // worn tape: share of scan lines with a dropout streak per frame
+            weave: 0,                 // cine film: gate weave, native px of frame-to-frame jitter
+            flicker: 0,               // cine film: frame-to-frame exposure flicker (0..1)
         };
 
         function hashKey(key) {
@@ -3119,6 +3253,12 @@
             handycamDV: { adj: { vignette: 3 }, soft: 0, flash: null },
             vhsCam: { adj: { vignette: 6 }, soft: 0, flash: null },
             nightshot: { adj: { vignette: 22 }, soft: 0, flash: null },
+            // Polaroid 600 box camera: plastic lens, flash on every shot.
+            polaroid600: { adj: { vignette: 14, blur: 14 }, soft: 0.6, flash: { power: 0.9, reach: 0.8, color: [1, 0.98, 0.94] } },
+            // Holga 120: plastic meniscus lens — heavy fall-off, soft and fringed edges.
+            holga: { adj: { vignette: 44, blur: 36, chroma: 14 }, soft: 0.5, flash: null },
+            // Super 8 home-movie camera: zoom lens, the gate's rounded corners.
+            super8cam: { adj: { vignette: 24, blur: 10 }, soft: 0.3, flash: null },
         };
 
         // ── Film stocks (+ the lab scan) ──
@@ -3129,6 +3269,22 @@
                 look: {
                     matrix: [[1.05, -0.01, -0.04], [0.0, 1.02, -0.02], [-0.03, 0.01, 1.02]],
                     shoulder: 0.4, gamma: [0.97, 1.0, 1.04], highlights: [0.02, 0.012, -0.015], grainSize: 1.25,
+                },
+            },
+            polaroid600: { // integral instant film: creamy, low contrast, lifted blacks, cool shadows
+                px: [880, 880], formats: ['1:1'],
+                adj: { exposure: 4, contrast: -16, saturation: -16, warmth: 8, fade: 24, grain: 6 },
+                look: {
+                    matrix: [[0.94, 0.08, -0.02], [0.03, 0.95, 0.02], [0.0, 0.08, 0.92]],
+                    shoulder: 0.65, gamma: [0.98, 0.97, 1.02], shadows: [-0.015, 0.025, 0.04], highlights: [0.04, 0.025, -0.03], soft: 1.4, grainSize: 1,
+                },
+            },
+            xpro: { // slide film (E-6) cross-processed in C-41: yellow-green highlights, cyan shadows
+                px: [1000, 1000], formats: ['1:1'],
+                adj: { contrast: 32, saturation: 28, warmth: 4, tint: -12, grain: 22 },
+                look: {
+                    matrix: [[1.08, -0.02, -0.06], [0.02, 1.06, -0.08], [-0.06, 0.06, 1.0]],
+                    shoulder: 0.3, black: 0.03, gamma: [1.06, 0.94, 1.2], shadows: [-0.03, 0.01, 0.06], highlights: [0.03, 0.05, -0.08], soft: 1.5, grainSize: 1.4,
                 },
             },
         };
@@ -3184,6 +3340,14 @@
                     gamma: [0.9, 1.0, 1.12], shadows: [0.04, 0.012, -0.01], halColor: [1, 0.55, 0.2], dropouts: 0.035,
                 },
             },
+            super8: { // Kodachrome 40 Super 8 — real film, 18 fps, no tape and no fields
+                px: [400, 300], fps: 18, jpegQ: 0.85, kbps: 900, audio: 'S8', stereo: false, tapeFx: false,
+                adj: { contrast: 18, saturation: 14, warmth: 12, grain: 30 },
+                look: {
+                    matrix: [[1.1, -0.06, -0.04], [-0.02, 1.04, -0.02], [-0.02, -0.04, 1.06]],
+                    shoulder: 0.5, black: 0.03, gamma: [0.96, 1.0, 1.04], highlights: [0.03, 0.015, -0.02], noiseType: 0, grainSize: 1.7, soft: 1.4, weave: 0.8, flicker: 0.05,
+                },
+            },
             nightshot: { // Hi8 NightShot (infrared)
                 px: [400, 300], jpegQ: 0.92, kbps: 900, audio: 'B', stereo: true, tapeFx: true,
                 adj: { exposure: 8, contrast: 24, grain: 30, halation: 20 },
@@ -3201,6 +3365,7 @@
             B: { hp: 100, lp: 12000, eq: [{ f: 220, g: 1.5, q: 0.8 }, { f: 4000, g: -2, q: 0.9 }], hiss: 0.0025 },
             C: { hp: 60, lp: 15500, eq: [{ f: 3000, g: 1, q: 1 }], hiss: 0 },
             C32: { hp: 60, lp: 14500, eq: [{ f: 3000, g: 1, q: 1 }], hiss: 0, crush: 12 },
+            S8: { hp: 220, lp: 6500, eq: [{ f: 1500, g: 2, q: 0.9 }], hiss: 0 }, // Super 8 magnetic sound stripe
         };
 
         // ── Presets ──
@@ -3215,10 +3380,11 @@
             Object.keys(body.adj).forEach((k) => { adj[k] = (adj[k] || 0) + body.adj[k]; });
             const look = Object.assign({}, LOOK_DEFAULTS, medium.look);
             look.soft = (look.soft || 0) + body.soft;
-            const px = kind === 'film' ? FILM_SCAN.px : medium.px;
+            const px = kind === 'film' ? (medium.px || FILM_SCAN.px) : medium.px;
             CAMERAS[key] = {
                 key, label, name, desc, kind, adj, look, body, parts,
-                px, vpx: kind === 'film' ? [960, 640] : px,
+                px, vpx: kind === 'film' ? (medium.px ? [960, 960] : [960, 640]) : px,
+                fps: medium.fps || 0, // 0 = the device's rate; Super 8 runs at 18
                 anamorphic: !!medium.anamorphic,
                 formats: parts.formats || medium.formats || [kind === 'film' ? '3:2' : (Math.abs(px[0] / px[1] - 1.5) < 0.02 ? '3:2' : '4:3')],
                 jpegQ: kind === 'film' ? FILM_SCAN.jpegQ : medium.jpegQ,
@@ -3237,6 +3403,12 @@
 
         CAMERA('funsaver', 'FunSaver', 'Kodak FunSaver single-use (90s)', 'Plastic fixed-focus lens and direct flash on Kodak 400 film.',
             { body: 'funsaver', film: 'gold400', flashOn: true, sound: 'disposable' });
+        CAMERA('polaroid', 'Polaroid', 'Polaroid 600 instant (90s)', 'Creamy instant film: soft, faded blacks, cool shadows, flash.',
+            { body: 'polaroid600', film: 'polaroid600', flashOn: true, sound: 'onestep' });
+        CAMERA('holga', 'Holga X-Pro', 'Holga 120 · cross-processed slide film', 'Plastic lens and dark corners; yellow-green highlights, cyan shadows.',
+            { body: 'holga', film: 'xpro', sound: 'toy' });
+        CAMERA('super8', 'Super 8', 'Super 8 home movie · Kodachrome 40', 'Real film at 18 fps: organic grain, gate weave, warm Kodachrome.',
+            { body: 'super8cam', video: 'super8', sound: 'super8' });
         CAMERA('video8', 'Video8', 'Sony Handycam · Video8', 'Soft analog home video, low color resolution, interlaced.',
             { body: 'handycam', video: 'video8', date: 'osd', sound: 'camcorder' });
         CAMERA('hi8', 'Hi8', 'Sony Handycam · Hi8', 'More detail than Video8, soft analog color, restrained bleed.',
@@ -3305,7 +3477,7 @@
 
         // Each camera's chosen frame format (from its own formats list; remembered per
         // camera). The format pill cycles it.
-        const FORMAT_RATIO = { '4:3': 4 / 3, '3:2': 3 / 2, '16:9': 16 / 9 };
+        const FORMAT_RATIO = { '4:3': 4 / 3, '3:2': 3 / 2, '16:9': 16 / 9, '1:1': 1 };
         const ACTIVE_FORMATS = {};
         function cameraFormat(cam) {
             const f = ACTIVE_FORMATS[cam.key];
@@ -3388,7 +3560,7 @@ uniform float uAspect;
 uniform float uIntensity, uExposure, uContrast, uSaturation, uWarmth, uTint, uFade;
 uniform float uGrain, uGrainScale, uVignette, uHalation, uBlur, uChroma, uMono;
 uniform float uTime, uSeed, uDistort, uCircle;
-uniform float uSoft, uSharpen, uNoiseColor, uNoiseType, uTape, uInterlace, uDuo, uTapeFx, uDropouts;
+uniform float uSoft, uSharpen, uNoiseColor, uNoiseType, uTape, uInterlace, uDuo, uTapeFx, uDropouts, uWeave, uFlicker;
 uniform float uShoulder, uWhite, uBlack;
 uniform float uFlash, uFlashReach;
 uniform mat3 uMatrix;
@@ -3458,6 +3630,9 @@ void main() {
     vec2 px = 1.0 / uNative;
     // Tape timebase error: each scan line lands a fraction of a pixel off.
     if (uTape > 0.001) uv.x += (hash(vec2(floor(vUv.y * uNative.y), floor(uTime * 30.0))) - 0.5) * px.x * 1.2 * uTape;
+    // Cine film: each frame sits slightly differently in the gate (weave, mostly vertical).
+    float cineF = floor(uTime * 18.0);
+    if (uWeave > 0.001) uv += (vec2(hash(vec2(cineF, 1.3)), hash(vec2(cineF, 7.7))) - 0.5) * px * uWeave * vec2(0.6, 1.0);
     vec3 orig = src(uv);
 
     // ── 1. Resolution / optics ──
@@ -3542,6 +3717,7 @@ void main() {
 
     // ── 3. Color ──
     col *= uExposure;
+    if (uFlicker > 0.001) col *= 1.0 + (hash(vec2(cineF, 3.1)) - 0.5) * uFlicker;
     col = uMatrix * col;
     if (uMono > 0.5) col = vec3(dot(col, uMix));
     float l = dot(col, LUMA);
@@ -3730,7 +3906,7 @@ void main() {
                 'uNoiseType', 'uTapeFx', 'uFlash', 'uFlashReach', 'uFlashColor', 'uIntensity', 'uExposure', 'uContrast', 'uSaturation', 'uWarmth', 'uTint', 'uFade',
                 'uGrain', 'uGrainScale', 'uVignette', 'uHalation', 'uBlur', 'uChroma', 'uMono', 'uTime', 'uSeed', 'uDistort', 'uCircle',
                 'uMix', 'uGamma', 'uShadows', 'uHighlights', 'uHalColor',
-                'uSoft', 'uSharpen', 'uNoiseColor', 'uTape', 'uInterlace', 'uDuo', 'uDuoLo', 'uDuoHi', 'uDropouts'
+                'uSoft', 'uSharpen', 'uNoiseColor', 'uTape', 'uInterlace', 'uDuo', 'uDuoLo', 'uDuoHi', 'uDropouts', 'uWeave', 'uFlicker'
             ].forEach((n) => { U[n] = gl.getUniformLocation(prog, n); });
             gl.uniform1i(U.uTex, 0);
             gl.uniform1i(U.uPrev, 1);
@@ -3819,6 +3995,8 @@ void main() {
                 gl.uniform1f(U.uTape, L.tape);
                 gl.uniform1f(U.uInterlace, o.still ? 0 : L.interlace);
                 gl.uniform1f(U.uDropouts, L.dropouts || 0);
+                gl.uniform1f(U.uWeave, L.weave || 0);
+                gl.uniform1f(U.uFlicker, L.flicker || 0);
                 gl.uniform1f(U.uDuo, L.duo ? 1 : 0);
                 gl.uniform3fv(U.uDuoLo, L.duo ? L.duo[0] : [0, 0, 0]);
                 gl.uniform3fv(U.uDuoHi, L.duo ? L.duo[1] : [1, 1, 1]);
@@ -4444,7 +4622,7 @@ void main() {
                 __osdCounterStart = performance.now();
                 document.getElementById('file-name').textContent = file.name;
                 updateUploadZoneVisibility();
-                uploadVideoFrame();
+                uploadVideoFrame(true);
                 v.play().catch(() => { });
             }, { once: true });
             v.addEventListener('error', () => { if (state.srcVideo === v) { clearUploadVideo(); alert("This video can't be played here."); } }, { once: true });
@@ -4459,9 +4637,16 @@ void main() {
             };
             if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(tick); else requestAnimationFrame(tick);
         }
-        function uploadVideoFrame() {
+        let __uploadSlot = -1;
+        function uploadVideoFrame(force) {
             const v = state.srcVideo, c = state.srcImage;
             if (!v || !c || v.readyState < 2) return;
+            const fps = activeFilmSettings().camera.fps;
+            if (fps && !force) {
+                const slot = Math.floor(v.currentTime * fps);
+                if (slot === __uploadSlot) return;
+                __uploadSlot = slot;
+            }
             c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
             renderUpload();
         }
@@ -4503,19 +4688,26 @@ void main() {
             uploadExport = job;
             pv.pause();
             document.body.classList.add('recording');
-            const timer = document.getElementById('mob-rec-timer');
-            if (timer) { timer.textContent = '0%'; timer.style.display = 'flex'; }
+            showExportProgress(0);
 
             // Must start inside the tap (iOS): the audio context, and play().
             job.audio = buildAudioGraph(s.camera, (ac) => ac.createMediaElementSource(v), true);
-            const draw = () => {
+            let lastSlot = -1;
+            const draw = (force) => {
+                // Super 8 (fps 18): a new picture only every 1/18 s of the clip; the
+                // recorder repeats it in between, the judder of real 18 fps film.
+                if (s.camera.fps) {
+                    const slot = Math.floor(v.currentTime * s.camera.fps);
+                    if (slot === lastSlot && !force) return;
+                    lastSlot = slot;
+                }
                 const fc = frame.getContext('2d');
                 fc.drawImage(v, 0, 0, frame.width, frame.height);
                 film.render(frame, { outW: d.w, outH: d.h, native: d, aspect: d.aspect, crop: uploadLensCrop(frame, d.aspect), mirror: false, settings: s, time: state.uploadSeed + v.currentTime, still: false });
                 composeWithOverlays(comp, film.canvas, s);
                 rctx.imageSmoothingEnabled = true;
                 rctx.drawImage(comp, 0, 0, rec.width, rec.height);
-                if (timer && v.duration) timer.textContent = Math.min(99, Math.floor(v.currentTime / v.duration * 100)) + '%';
+                if (v.duration) showExportProgress(v.currentTime / v.duration);
             };
             const tick = () => {
                 if (uploadExport !== job || v.ended) return;
@@ -4524,7 +4716,7 @@ void main() {
             };
             v.addEventListener('loadeddata', () => {
                 if (uploadExport !== job) return;
-                draw();
+                draw(true);
                 __osdCounterStart = performance.now();
                 let mime = 'video/webm';
                 if (MediaRecorder.isTypeSupported('video/mp4')) mime = 'video/mp4';
@@ -4541,7 +4733,7 @@ void main() {
             }, { once: true });
             v.addEventListener('ended', () => {
                 if (uploadExport !== job) return;
-                draw();
+                draw(true);
                 if (job.recorder && job.recorder.state === 'recording') job.recorder.stop();
             }, { once: true });
             v.addEventListener('error', () => { if (uploadExport === job) cancelUploadExport(); }, { once: true });
@@ -4552,9 +4744,18 @@ void main() {
             if (job.audio) { job.audio.close(); job.audio = null; }
             try { job.v.pause(); } catch (_) { }
             document.body.classList.remove('recording');
-            const timer = document.getElementById('mob-rec-timer');
-            if (timer) timer.style.display = 'none';
+            showExportProgress(null);
             if (state.srcVideo) state.srcVideo.play().catch(() => { });
+        }
+        // Centered progress panel (null hides it).
+        function showExportProgress(f) {
+            const el = document.getElementById('export-progress');
+            if (!el) return;
+            if (f == null) { el.style.display = 'none'; return; }
+            const pct = Math.max(0, Math.min(99, Math.floor(f * 100)));
+            el.style.display = 'flex';
+            document.getElementById('export-progress-pct').textContent = pct + '%';
+            document.getElementById('export-progress-fill').style.width = pct + '%';
         }
         function finishUploadExport(job) {
             endUploadExportUi(job);
@@ -4577,7 +4778,13 @@ void main() {
         // ═══════════════════════════════════════════════════
         const EXPORT_MIN_PX = 2400;
 
-        const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth <= 700;
+        // A real phone/tablet (by device, not width: on a computer the app runs in
+        // frame.html's narrow iframe, which used to count as "mobile" and sent saves to a
+        // share sheet that a desktop iframe can't open). iPadOS reports itself as a Mac.
+        const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+        // The plain type for a saved file: MediaRecorder's "video/mp4;codecs=avc1,opus" is
+        // refused by some share sheets (iOS).
+        function baseMime(t) { return (t || '').split(';')[0].trim(); }
 
         // Shared by every "save this file" path in the app (direct downloads, gallery
         // batch/single-item downloads). On mobile — iOS Safari especially — a plain
@@ -4593,9 +4800,10 @@ void main() {
             if (!blob) return;
             if (isMobile && navigator.canShare) {
                 try {
-                    const file = new File([blob], name, { type: mimeType || blob.type });
+                    const file = new File([blob], name, { type: baseMime(mimeType || blob.type) });
                     if (navigator.canShare({ files: [file] })) {
-                        navigator.share({ files: [file], title: name }).catch(() => {
+                        navigator.share({ files: [file], title: name }).catch((err) => {
+                            if (err && err.name === 'AbortError') return; // the user closed the sheet
                             // Share sheet cancelled/failed — open it full-screen so there's
                             // still a way to save it manually, rather than silently falling
                             // into the same <a download> page-navigation this was meant to
@@ -4853,7 +5061,7 @@ void main() {
         }
         function getLiveTargetRatioKey() {
             const ar = getLiveTargetRatioValue();
-            return Math.abs(ar - 0.75) < 0.01 ? '3:4' : (ar < 1 ? '9:16' : '4:3');
+            return (Math.abs(ar - 0.75) < 0.01 || Math.abs(ar - 1) < 0.01) ? '3:4' : (ar < 1 ? '9:16' : '4:3');
         }
         // The camera's native frame for what the shutter will make: video size in Video
         // mode, still size in Photo.
@@ -5359,8 +5567,14 @@ void main() {
             });
         }
 
+        let __liveSlot = -1;
         function liveLoop() {
             const src = getLiveSource();
+            const fps = activeFilmSettings().camera.fps;
+            // Super 8: hold each picture for 1/18 s (the recorder repeats the held frame).
+            const slot = fps ? Math.floor(performance.now() / 1000 * fps) : -1;
+            if (src && fps && slot === __liveSlot) { liveState.rafId = requestAnimationFrame(liveLoop); return; }
+            __liveSlot = slot;
             if (src) {
                 // Rendered at the camera's own resolution (scaled up on screen, which is the
                 // point) — only big still-camera sensors are capped to what the screen shows.
@@ -6075,7 +6289,7 @@ void main() {
                 });
             }
             const selCount = galleryItems.filter((i) => i.selected).length;
-            if (countEl) countEl.textContent = galleryItems.length ? (selCount ? selCount + ' selected' : galleryItems.length + ' items') : '';
+            if (countEl) countEl.textContent = galleryItems.length ? (selCount ? selCount + ' selected' : galleryItems.length + (galleryItems.length === 1 ? ' item' : ' items')) : '';
             if (delBtn) delBtn.disabled = selCount === 0;
             if (dlBtn) dlBtn.disabled = selCount === 0;
         }
@@ -6159,9 +6373,10 @@ void main() {
             // can't share multiple files together.
             if (isMobile && navigator.canShare) {
                 try {
-                    const files = selected.map((item) => new File([item.blob], item.fileName, { type: item.mimeType || item.blob.type }));
+                    const files = selected.map((item) => new File([item.blob], item.fileName, { type: baseMime(item.mimeType || item.blob.type) }));
                     if (navigator.canShare({ files })) {
-                        navigator.share({ files }).catch(() => {
+                        navigator.share({ files }).catch((err) => {
+                            if (err && err.name === 'AbortError') return;
                             selected.forEach((item, i) => setTimeout(() => downloadBlobDirect(item.blob, item.fileName), i * 300));
                         });
                         return;
@@ -6590,7 +6805,7 @@ void main() {
         // PWA: register service worker for installability + reliable updates
         (function () {
             if (!('serviceWorker' in navigator)) return;
-            const __BUILD = 'v17';
+            const __BUILD = 'v18';
             try {
                 const bt = document.getElementById('build-tag');
                 if (bt) bt.textContent = __BUILD;
@@ -6624,7 +6839,7 @@ void main() {
             window.forceAppUpdate = resetServiceWorkerAndReload;
 
             // Versioned SW URL forces Safari to re-fetch updated sw.js
-            const __SW_URL = 'sw.js?v=17';
+            const __SW_URL = 'sw.js?v=18';
             navigator.serviceWorker.register(__SW_URL).then((reg) => {
                 function trySkipWaiting() {
                     if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
