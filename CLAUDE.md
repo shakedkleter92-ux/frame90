@@ -96,6 +96,14 @@ Bump `CACHE` in `sw.js` (`90frame-vN`) **and** `__BUILD` / `__SW_URL`'s `?v=` ne
   native frame + OSD → enlarged → MediaRecorder at `kbps`; sound via `buildAudioGraph()` with
   passthrough for film presets); progress in the centered `#export-progress` panel (REC, big %, bar, "please wait" — user asked
   for it mid-screen so it's obvious), tap save again to cancel.
+  **iPhone (2026-10-09, user couldn't upload a video from the phone)**: iOS Safari loads nothing
+  until `play()`, Low Power Mode refuses even muted autoplay, and a detached `<video>` may not
+  render — so `loadVideoFile()` puts the video in the page (hidden), calls `play()` at once,
+  readies on any of loadeddata/canplay/seeked/playing, forces a frame with a tiny seek, retries
+  the draw while paused (WebKit reports a frame before it's drawable), renders a paused frame as
+  a still (no interlace with an empty previous frame), shows `#video-tap-hint` (TAP TO PLAY)
+  when autoplay is refused, and gives a message after `UPLOAD_VIDEO_TIMEOUT`. Tested in
+  Playwright WebKit with iPhone emulation, incl. a refused-autoplay run — not on a real iPhone.
 - **LIVE CAMERA** — unchanged camera plumbing from the original (facing defaults, ultra-wide
   0.5×, zoom dial, Android rotation fix). `liveLoop()` renders the preview at the camera's
   native size (video size in Video mode, still size in Photo; big still sensors capped by

@@ -2946,6 +2946,28 @@
         @keyframes xp-blink {
             50% { opacity: .25; }
         }
+
+        /* Uploaded video waiting for a tap (autoplay refused): centered on the picture;
+           the tap itself lands on the canvas below. */
+        #video-tap-hint {
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 135;
+            align-items: center;
+            padding: 6px 14px;
+            border: var(--line) solid var(--hud);
+            background: rgba(0, 0, 0, .55);
+            pointer-events: none;
+            font-family: var(--font-ui);
+            font-size: 24px;
+            letter-spacing: .1em;
+            color: var(--hud);
+            -webkit-text-fill-color: var(--hud);
+            text-shadow: var(--glow);
+            animation: xp-blink 1.2s steps(1) infinite;
+        }
 </style>
 </head>
 
@@ -2971,6 +2993,8 @@
     </div>
     <!-- Recording timer — shown only while actively recording video -->
     <div id="mob-rec-timer" aria-hidden="true">00:00</div>
+    <!-- Uploaded video that the phone wouldn't autoplay (iPhone Low Power Mode) -->
+    <div id="video-tap-hint" style="display:none">&#9654; TAP TO PLAY</div>
     <!-- Saving an uploaded video: centered, so it's obvious something is happening -->
     <div id="export-progress" role="status" aria-live="polite" style="display:none">
         <div class="xp-rec">REC</div>
@@ -4267,7 +4291,7 @@ void main() {
             const outW = Math.max(2, Math.round(d.w * k)), outH = Math.max(2, Math.round(d.h * k));
             const s = activeFilmSettings();
             const v = state.srcVideo;
-            film.render(src, { outW, outH, native: d, aspect: d.aspect, crop: uploadLensCrop(src, d.aspect), mirror: false, settings: s, time: state.uploadSeed + (v ? v.currentTime : 0), still: !v });
+            film.render(src, { outW, outH, native: d, aspect: d.aspect, crop: uploadLensCrop(src, d.aspect), mirror: false, settings: s, time: state.uploadSeed + (v ? v.currentTime : 0), still: !v || v.paused }); // paused = one picture, no fields
             composeWithOverlays(uploadPreview, film.canvas, s);
             renderView();
             if (v) {
@@ -4605,14 +4629,32 @@ void main() {
         // canvas capped at UPLOAD_VIDEO_MAX_SIDE (the cameras record far fewer pixels, the
         // lens/zoom crop is what needs the headroom) and rendered like a photo.
         const UPLOAD_VIDEO_MAX_SIDE = 1280;
+        // iPhone (iOS Safari): a video loads nothing until it's told to play, Low Power Mode
+        // refuses even a muted autoplay, and a video that isn't in the page may not render —
+        // so it goes into the page (hidden, like the camera's), play() is called right away,
+        // the first frame is forced by a tiny seek, and if playing is refused the first frame
+        // shows with TAP TO PLAY. Nothing within UPLOAD_VIDEO_TIMEOUT → a message, not silence.
+        const UPLOAD_VIDEO_TIMEOUT = 15000;
         function loadVideoFile(file) {
             clearUploadVideo();
             const v = document.createElement('video');
             v.muted = true; v.loop = true; v.playsInline = true; v.preload = 'auto';
-            v.setAttribute('playsinline', ''); v.setAttribute('muted', '');
+            v.setAttribute('playsinline', ''); v.setAttribute('muted', ''); v.setAttribute('webkit-playsinline', '');
+            v.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none';
+            document.body.appendChild(v);
             v.src = URL.createObjectURL(file);
-            v.addEventListener('loadeddata', () => {
-                if (state.srcVideo !== v) return;
+            state.srcVideo = v;
+            state.srcImage = null;
+            state.videoNeedsTap = false;
+            updateUploadZoneVisibility();
+            const fail = (msg) => { if (state.srcVideo === v) { clearUploadVideo(); updateUploadZoneVisibility(); renderUpload(); alert(msg); } };
+            const timeout = setTimeout(() => { if (state.srcVideo === v && !state.srcImage) fail("This video couldn't be opened. Try a shorter clip, or one saved as MP4/MOV."); }, UPLOAD_VIDEO_TIMEOUT);
+            const ready = () => {
+                if (state.srcVideo !== v || v.readyState < 2 || !v.videoWidth) return;
+                // Already set up: a paused video (waiting for a tap) gets its newly decoded
+                // frame drawn — the first draw can come before the picture is ready.
+                if (state.srcImage) { if (v.paused && !uploadExport) uploadVideoFrame(true); return; }
+                clearTimeout(timeout);
                 const sc = Math.min(1, UPLOAD_VIDEO_MAX_SIDE / Math.max(v.videoWidth, v.videoHeight));
                 const c = document.createElement('canvas');
                 c.width = Math.max(2, Math.round(v.videoWidth * sc));
@@ -4623,12 +4665,15 @@ void main() {
                 document.getElementById('file-name').textContent = file.name;
                 updateUploadZoneVisibility();
                 uploadVideoFrame(true);
-                v.play().catch(() => { });
+                updateVideoTapHint();
+            };
+            ['loadeddata', 'canplay', 'seeked', 'playing'].forEach((ev) => v.addEventListener(ev, ready));
+            v.addEventListener('loadedmetadata', () => {
+                // Some browsers don't decode a frame until asked: a tiny seek makes them.
+                if (v.readyState < 2) { try { v.currentTime = 0.001; } catch (_) { } }
             }, { once: true });
-            v.addEventListener('error', () => { if (state.srcVideo === v) { clearUploadVideo(); alert("This video can't be played here."); } }, { once: true });
-            state.srcVideo = v;
-            state.srcImage = null;
-            updateUploadZoneVisibility();
+            v.addEventListener('error', () => { clearTimeout(timeout); fail("This video can't be played here."); }, { once: true });
+            playUploadVideo();
             // New frames → re-render (requestVideoFrameCallback where available, else rAF).
             const tick = () => {
                 if (state.srcVideo !== v) return;
@@ -4636,6 +4681,23 @@ void main() {
                 if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(tick); else requestAnimationFrame(tick);
             };
             if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(tick); else requestAnimationFrame(tick);
+        }
+        // Starts the preview; if the browser refuses (Low Power Mode), wait for a tap.
+        function playUploadVideo() {
+            const v = state.srcVideo;
+            if (!v) return;
+            const pr = v.play();
+            if (pr && pr.then) pr.then(() => { state.videoNeedsTap = false; updateVideoTapHint(); }, () => {
+                if (state.srcVideo !== v) return;
+                state.videoNeedsTap = true;
+                updateVideoTapHint();
+                // Not playing: seek a hair in so the first picture decodes (→ 'seeked' draws it).
+                try { v.currentTime = Math.max(0.001, v.currentTime); } catch (_) { }
+            });
+        }
+        function updateVideoTapHint() {
+            const el = document.getElementById('video-tap-hint');
+            if (el) el.style.display = (state.mode === 'image' && state.srcVideo && state.srcImage && state.videoNeedsTap && !uploadExport) ? 'flex' : 'none';
         }
         let __uploadSlot = -1;
         function uploadVideoFrame(force) {
@@ -4647,7 +4709,13 @@ void main() {
                 if (slot === __uploadSlot) return;
                 __uploadSlot = slot;
             }
-            c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+            const cx = c.getContext('2d');
+            cx.drawImage(v, 0, 0, c.width, c.height);
+            // A paused video (waiting for a tap) can report a frame before it can be drawn
+            // (iOS/WebKit): if nothing landed, try again shortly — no more events will come.
+            if (v.paused && !uploadExport && cx.getImageData(c.width >> 1, c.height >> 1, 1, 1).data[3] === 0) {
+                if ((v.__drawTries = (v.__drawTries || 0) + 1) <= 30) setTimeout(() => { if (state.srcVideo === v && v.paused) uploadVideoFrame(true); }, 100);
+            }
             renderUpload();
         }
         function clearUploadVideo() {
@@ -4656,10 +4724,13 @@ void main() {
             if (!v) return;
             state.srcVideo = null;
             state.srcImage = null;
+            state.videoNeedsTap = false;
+            updateVideoTapHint();
             try { v.pause(); } catch (_) { }
             URL.revokeObjectURL(v.src);
             v.removeAttribute('src');
             v.load();
+            if (v.parentNode) v.parentNode.removeChild(v);
         }
 
         // Saving an uploaded video = re-shooting it through the camera, in real time (the
@@ -4674,7 +4745,9 @@ void main() {
             if (!pv || !state.srcImage) return;
             const s = activeFilmSettings();
             const v = document.createElement('video');
-            v.playsInline = true; v.setAttribute('playsinline', '');
+            v.playsInline = true; v.setAttribute('playsinline', ''); v.setAttribute('webkit-playsinline', '');
+            v.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none';
+            document.body.appendChild(v);
             v.src = pv.src;
             const frame = state.srcImage;
             const d = uploadFrame(frame);
@@ -4689,6 +4762,8 @@ void main() {
             pv.pause();
             document.body.classList.add('recording');
             showExportProgress(0);
+            state.videoNeedsTap = false;
+            updateVideoTapHint();
 
             // Must start inside the tap (iOS): the audio context, and play().
             job.audio = buildAudioGraph(s.camera, (ac) => ac.createMediaElementSource(v), true);
@@ -4743,9 +4818,10 @@ void main() {
             if (uploadExport === job) uploadExport = null;
             if (job.audio) { job.audio.close(); job.audio = null; }
             try { job.v.pause(); } catch (_) { }
+            if (job.v.parentNode) job.v.parentNode.removeChild(job.v);
             document.body.classList.remove('recording');
             showExportProgress(null);
-            if (state.srcVideo) state.srcVideo.play().catch(() => { });
+            if (state.srcVideo) playUploadVideo();
         }
         // Centered progress panel (null hides it).
         function showExportProgress(f) {
@@ -6031,6 +6107,8 @@ void main() {
                 renderView();
             };
             gridCanvas.addEventListener('pointerdown', start);
+            // Upload: a tap starts a video the phone wouldn't autoplay (a tap is a gesture).
+            gridCanvas.addEventListener('click', () => { if (state.mode === 'image' && state.videoNeedsTap) playUploadVideo(); });
             ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => gridCanvas.addEventListener(ev, end));
             // A second finger means pinch-zoom, not compare.
             gridCanvas.addEventListener('touchstart', (e) => { if (e.touches && e.touches.length > 1) end(); }, { passive: true });
@@ -6805,7 +6883,7 @@ void main() {
         // PWA: register service worker for installability + reliable updates
         (function () {
             if (!('serviceWorker' in navigator)) return;
-            const __BUILD = 'v18';
+            const __BUILD = 'v19';
             try {
                 const bt = document.getElementById('build-tag');
                 if (bt) bt.textContent = __BUILD;
@@ -6839,7 +6917,7 @@ void main() {
             window.forceAppUpdate = resetServiceWorkerAndReload;
 
             // Versioned SW URL forces Safari to re-fetch updated sw.js
-            const __SW_URL = 'sw.js?v=18';
+            const __SW_URL = 'sw.js?v=19';
             navigator.serviceWorker.register(__SW_URL).then((reg) => {
                 function trySkipWaiting() {
                     if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
