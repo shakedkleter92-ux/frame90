@@ -1,11 +1,11 @@
 // Minimal service worker so the app can be installed (PWA)
-const CACHE = 'film-camera-v7';
+const CACHE = '90frame-v16';
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE).then((cache) => {
       // Use relative URLs so this works on GitHub Pages subpaths too
-      return cache.addAll(['./', './index.html', './frame.html', './manifest.json']);
+      return cache.addAll(['./', './index.html', './frame.html', './manifest.json', './fonts/DSEG14Classic-Bold.woff2', './icon.svg', './icon-180.png', './icon-512.png']);
     }).then(() => self.skipWaiting())
   );
 });

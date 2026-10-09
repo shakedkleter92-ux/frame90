@@ -1,4 +1,4 @@
-# Film Camera
+# 90'FRAME (formerly Film Camera)
 
 Single-file browser PWA: a camera app that shoots through film-stock / vintage-camera looks —
 live from the camera, or applied to an uploaded photo. No build step, no dependencies, no
@@ -14,68 +14,87 @@ python3 -m http.server 8765     # then open http://localhost:8765
 
 Camera needs `localhost` or HTTPS. A wide desktop window redirects to `frame.html` (a
 phone-shaped iframe shell), same as the original app — the app always renders its mobile layout.
-Bump `CACHE` in `sw.js` (`film-camera-vN`) **and** `__BUILD` / `__SW_URL`'s `?v=` near INIT in
+Bump `CACHE` in `sw.js` (`90frame-vN`) **and** `__BUILD` / `__SW_URL`'s `?v=` near INIT in
 `index.html` together on every deploy; `?__sw_reset=1` force-clears the service worker.
 
 ## Map of index.html
 
-- **CAMERAS · FILMS · LENSES** — the look is **fixed**: there are no user adjustment sliders
-  (removed on purpose — the user wants it to work like the original's palette picker). The
-  panel has exactly two pickers, **01 Camera** and **02 Film**, each a 4-column grid capped to
-  3 rows that scrolls internally with the custom square `.grid-scrollbar` (same pattern as the
-  original's palette bar). The right-edge side slider is the **lens** (`LENSES`: 8mm fisheye,
-  24, 28, 35, 50, 85, 135mm; default 50mm) and is the *only* thing that changes it — **picking a
-  camera never changes the lens or the framing** (user-reported bug: cameras used to switch to
-  "their" lens, which read as the canvas zooming in). **A lens never crops/zooms** — the full
-  frame always stays in view; it changes the feel of space: barrel distortion for wide lenses
-  (corners stay put, center bulges), shader depth-of-field falloff with bokeh-weighted
-  highlights for long ones (`uDof`), round mask for the fisheye. No pincushion for tele lenses:
-  keeping the full frame with pincushion needs pixels from outside the frame (smeared edges).
-  A centered `#lens-toast` names the lens and its character while the slider moves.
-  **Zoom is separate from the lens and must stay**: the grid app's zoom-presets row
-  (`.5×`/`1×`/`2×`, `.5×` = the physical ultra-wide on the back camera) and pinch-to-zoom dial
-  are part of the app. (They were once removed by mistake — a request that "only the lens"
-  be on the outside slider was misread as "no zoom"; the user never wanted zoom removed.)
-  Zoom = how close the frame is (hardware zoom first, software crop for the rest); lens = the
-  feel of the space. They stack independently.
-  `FILM(...)` entries = chemistry (color, contrast, grain, halation, tone curve, split tone,
-  B&W mix; instant films also carry their print frame). `CAMERA(...)` entries = optics/print
-  (vignette, soft lens, leaks, fringing, frame, date stamp, grain multiplier) plus small color
-  nudges added to the film's. `combineLook()` merges camera + film + lens into the settings
-  object `film.render()` takes; `activeFilmSettings()` caches it — the setters
-  (`setActiveCamera/Film/Lens`) null `__filmSettingsCache`. To add a camera or film, add one
-  `CAMERA(...)`/`FILM(...)` call; pickers are built from `CAMERA_ORDER`/`FILM_ORDER`.
-- **FILM ENGINE (WebGL)** — `film.render(source, {outW, outH, crop, mirror, settings, time})`
-  draws one frame into `film.canvas` with a single fragment shader (`FILM_FRAG`). Crop/zoom/
-  mirror is a UV transform, not a 2D draw. Grain size scales with output height so a 1080×1920
-  capture matches the preview. Falls back to a rough Canvas2D `ctx.filter` version if WebGL is
-  unavailable. `drawFilmOverlays()` draws the Polaroid/Instax frame and orange date stamp in 2D
-  on top of renders (preview, every recorded video frame, exports).
-- **renderView() / renderUpload() / refreshView()** — `renderView` paints the on-screen canvas
-  (Live: latest film frame, cover-fit; Upload: the filtered photo, contain-fit).
-  `renderUpload` re-runs the film pass for the uploaded photo at preview size. Call
-  `refreshView()` after any settings change.
-- **Live framing = the grid app's canvas, exactly.** A 9:16 frame cover-filling the whole
-  screen (`getLiveFrameRect()` = the grid app's `renderGrid()` math), back camera requested at
-  9:16, front camera at its natural aspect (`getLiveVideoConstraints()` copied verbatim). The
-  "too close" feeling is solved the grid app's way: every camera start opens at **0.5×** through
-  the *hardware* zoom where the device's zoom range reaches it (else its minimum, else 1×) —
-  see the end of `startCamera()` (first launch only; later restarts keep the user's zoom). Tried instead (2026-10-08) and **rejected by the user**: a
-  contain-fit 3:4/4:3 frame showing the full sensor with bands above/below ("the canvas is wide
-  and not good") — don't reintroduce it. Dropping the 0.5× default (when the zoom UI was
-  removed) is what made it look zoomed-in on real phones.
+- **CAMERAS · LENSES** — a **1990s** camera library (user, 2026-10-08: "we're in the 90s now,
+  not the 80s"), built from the user's technical spec (pasted 2026-10-08; its rules: no generic
+  filter, film grain ≠ sensor noise ≠ tape artifacts, no VHS artifacts on digital, no forced
+  timestamps/leaks/scratches/blur, defaults that keep quality, everything adjustable and
+  non-destructive, restrained documented approximations). Each preset is assembled by
+  `CAMERA(key, label, name, desc, parts)` from independent parts: `BODIES` (optics + `flash`),
+  and exactly one of `FILMS` (organic grain, color `matrix`, highlight `shoulder`; scanned at
+  `FILM_SCAN` = Kodak Picture CD 1536×1024, 3:2), `SENSORS` (native `px`, matrix, hard clip
+  `white`/`black`, sensor noise, `sharpen`, `jpegQ`) or `VIDEO_FORMATS` (tape bandwidth,
+  chroma, `interlace`, analog noise, optional `tapeFx`, `kbps`, `audio`). `AUDIO_PROFILES`
+  A/B/C(/C32) drive `buildRecordAudio()` (Web Audio chain on the mic for video only; film
+  presets keep the original sound). Presets now (8, two rows): FunSaver, Video8, Hi8, MiniDV,
+  the user's VHS references (`vhs92`, `vhsslp`), NightShot, QuickTake. **Removed by the user
+  as too sharp (2026-10-08): Mavica FD5, DC290, Gold 200, Superia 400**. **Rule from the
+  user: nothing in the app may look sharp — a preset that renders crisp doesn't belong here**
+  (Hi8/Video8/MiniDV were softened for this: Video8 320×240, Hi8 400×300, MiniDV soft 1.2;
+  Video8 stays the softest, Hi8 between).  — and the 2000s models
+  before that. One picker, titled **CAMERA TYPE** (no number), one list for Photo, Video and Upload — the
+  panel has nothing else. **The 02 Adjust tab was removed on the user's request (2026-10-08)**: no
+  sliders/toggles in the UI; `CONTROLS` / `PRESET_TOGGLES` remain only as fixed defaults that
+  `combineLook()` reads (effect 100, grain 100, color 100, WB auto, tape FX off, camera sound;
+  flash/date = each preset's own default: FunSaver flash on, VHS OSD on). Hold the picture =
+  the original (`state.comparing`), a gesture with no UI.
+  **Authenticity**: renders at each format's native pixels, the preview itself goes through a
+  real JPEG at the camera's quality (`pumpLiveJpeg()`), stills are saved as that JPEG
+  (`cameraJpeg()`, enlarged after the JPEG pass if < 960px), video records the small frame at
+  `kbps`. Removed as fake: rolling tracking band (now only an optional intermittent
+  `tapeFx`), dark scanlines, CCD smear, light leaks, Game Boy. **Formats per camera**
+  (`formats`, cycled by the top-center pill `#mob-ratio`): film/DC290 3:2, Mavica/tape 4:3,
+  MiniDV 4:3/16:9 **anamorphic** 720×480 (`cameraDims()` = stored pixels, `cameraAspect()` =
+  displayed shape; stills resampled by `squarePixels()`). **Flash** has no depth data:
+  distance is approximated by frame position, ambient drops, the room's color cast is taken
+  out of the flash-lit part, dark things stay dark, shadows only on the far side of edges.
+  **Lens = field of view** (`LENSES` `focal`; phone main = 26mm, ultra-wide 13mm; crop by
+  focal/feed, hardware zoom first). No fake depth-of-field. Fisheyes `globe` (whole frame in
+  the circle) and `fish` (bulging center) are real optics. Default lens 28mm. Picking a
+  camera never changes the lens. **Zoom stays** (presets row + pinch dial, never remove):
+  effective focal = lens × zoom. To add a camera, add parts + one `CAMERA(...)` call.
+- **FILM ENGINE (WebGL)** — `film.render(source, {outW, outH, native, aspect, crop, mirror,
+  settings, time, still})` draws one frame into `film.canvas` with one fragment shader
+  (`FILM_FRAG`), in separate stages: resolution/optics → flash → color (matrix, WB) → tone
+  (film shoulder / digital clip) → noise (type 0 film grain, 1 sensor, 2 analog; temporally
+  coherent — cross-faded at 24 fps, never re-randomized per render) → optional tape FX.
+  `native` = the camera frame size the render stands for (pixel-scale effects and noise are
+  measured in its pixels). Two source textures (current + previous frame) for interlacing;
+  `still: true` (uploads) means no previous frame. Crop/zoom/mirror is a UV transform.
+  Falls back to a rough Canvas2D `ctx.filter` version if WebGL is unavailable.
+- **renderView() / renderUpload() / refreshView()** — `renderView` paints the on-screen
+  canvas (Live: the native-size frame + OSD scaled up into its frame rect; Upload: the
+  processed photo, contain-fit). `renderUpload` renders the photo cropped to the camera's
+  frame shape (landscape/upright following the photo) and the lens. Call `refreshView()`
+  after any settings change.
+- **Live framing = the camera's own frame**, not full screen (user, 2026-10-08: "the picture
+  being full screen is weird"; this replaces the earlier full-screen 9:16 canvas). All
+  cameras are 4:3, shown upright as 3:4 (`getLiveTargetRatioValue()` from the camera's
+  `px`/`vpx`), contain-fit between the top buttons and the bottom controls
+  (`getLiveFrameRect()`, `LIVE_FRAME_TOP/BOTTOM`) on a dark surround. The back camera is
+  requested at 3:4 so the stream is the whole sensor. First launch opens at 1× zoom (the old
+  0.5× default only existed to undo the 9:16 crop of the sensor). An earlier *landscape*
+  4:3 contain-fit frame was rejected as "wide" — keep it upright.
 - **LIVE CAMERA** — unchanged camera plumbing from the original (facing defaults, ultra-wide
-  0.5×, zoom dial, Android rotation fix). `liveLoop()` renders the preview (long side capped by
-  `LIVE_PREVIEW_MAX`); `liveCoverCanvas` *is* `film.canvas`. The shutter (`captureLivePhoto()`)
-  re-renders the current camera frame at full export size rather than upscaling the preview.
-  Video recording blits the preview frame each tick (`drawRecordFrame()`) — never a second
-  shader pass per tick (that's what made the original's video choppy).
+  0.5×, zoom dial, Android rotation fix). `liveLoop()` renders the preview at the camera's
+  native size (video size in Video mode, still size in Photo; big still sensors capped by
+  `LIVE_PREVIEW_MAX`); `liveCoverCanvas` *is* `film.canvas`. The shutter
+  (`captureLivePhoto()`) re-renders the current frame at the full native still size.
+  Video recording blits the native frame + OSD (`liveComposite`), enlarged by a whole factor,
+  each tick (`drawRecordFrame()`) — never a second shader pass per tick (that's what made the
+  original's video choppy).
 - **SHUTTER SOUNDS** — `shutterSound`, synthesized with Web Audio (no audio files): noise
   bursts, body thumps, motor whirs, spring twangs and ratchets combined into one `PROFILES`
   entry per mechanism (SLR, Leica, compact, disposable, toy, Polaroid eject, Hasselblad…),
   mapped from camera keys in `CAMERA_SOUND` (unlisted → SLR) and loudness-matched by
   `PROFILE_GAIN` (measured from offline renders; Leica deliberately quietest). Played only for
-  Live photo captures. `shutterSound.unlock()` runs on the splash tap — iOS only lets an
+  Live photo captures. Each preset names its sound (`sound`: `mavica`, `digicam`, `compact`, `disposable`,
+  `camcorder`, `earlydigi`; unlisted → `digicam`); the film-camera profiles are
+  still there, unused. `shutterSound.unlock()` runs on the splash tap — iOS only lets an
   AudioContext start inside a user gesture. On iPhone the ringer/silent switch can mute it.
   **Volume-UP = shutter** (keydown `AudioVolumeUp`/`VolumeUp`/175/24, Live only, key-repeat
   ignored; Down is left alone). Works only where a browser forwards volume keys to pages (some
@@ -90,18 +109,28 @@ Bump `CACHE` in `sw.js` (`film-camera-vN`) **and** `__BUILD` / `__SW_URL`'s `?v=
 ## Conventions
 
 Same as `../grid_symbol_maker/CLAUDE.md` (one file; only the mobile layout path is reachable;
-iOS quirks are deliberate) — **except the visual style, which the user replaced on purpose**:
-a VHS-sleeve theme from a reference image. Cream paper `--cream #f2ebe0`, deep plum ink
-`--plum #4a3942`, and the sunset stripe run (`--stripes`: lime → yellow → orange → red → pink →
-magenta → purple) as the only accent. **Every control is rounded** (`--radius` soft squares,
-`--pill` for labels/chips) **and see-through** with a frosted `--fab-blur` — the opposite of the
-original's square/opaque rule. Font is Outfit (heavy 800 for titles, light spaced caps for small
-labels, like "BACK TO THE / 80s"); IBM Plex Mono is loaded only for the canvas date stamp. The
-theme lives in the "VHS SLEEVE THEME" block at the end of the `<style>` — restyle there.
-**Logo** (`icon.svg`, chosen by the user) = the shutter button *as it looks over the camera
-feed*: a frosted warm-beige rounded square (`#bfa48f`→`#a88b77`, the translucent cream ring
-sampled from a screenshot — an opaque cream ring vanished on the cream splash) holding the
-8-color stripe run, same proportions as `#mob-shutter`. `icon-180.png` (apple-touch
-— iOS ignores SVG touch icons) and `icon-512.png` are full-bleed PNG renders of it; regenerate
-both if the SVG changes. `icon_logo.svg` / `Asset 1.svg` are the user's earlier film-strip logo,
-no longer used.
+iOS quirks are deliberate) — **except the visual style, which the user replaced on purpose**.
+Current style (2026-10-08) = **PHOSPHOR HUD**: the interface blends into the picture like an
+old camera's on-screen display (user reference: a green-phosphor radar terminal — thin glowing
+green lines and text on black). Black surround (`--void`), phosphor green `--hud` with dimmer
+`--hud-mid`/`--hud-dim`, red `--rec` only for recording; thin 1.5px outlines, no filled blocks,
+no bevels, no rounding, no blur; text = VT323 with a phosphor glow plus a hairline dark halo so
+it reads over any image; selected = inverted (solid green, black text); viewfinder corner
+brackets + center cross drawn around the live frame (`drawViewfinderMarks()`, screen only).
+The theme is the "PHOSPHOR HUD THEME" block at the end of the `<style>` + the `:root` vars —
+restyle there; old variable names (`--cream`, `--plum`, `--lcd`, `--ink`…) are remapped onto it.
+The shutter is the same 44px square as the Upload key (the 64px one was out of proportion);
+mode labels (VIDEO / PHOTO / UPLOAD) are small, 15px. **Typing animation only on the splash** (`typewrite()`; user: typing everywhere was too much).
+Splash = BIOS-style boot lines typed out → logo → "90'FRAME" in DSEG14 (LED segments,
+bundled in `fonts/`, OFL) → blinking "TAP TO START". **Rejected, don't bring back**: the
+opaque olive-LCD + Winamp beveled-metal look ("too much"), and before it the cream/plum
+VHS-sleeve theme (80s; the app is 90s now).
+**Logo** (`icon.svg`) = a 16×16 pixel-art camera in glowing phosphor green on black inside
+viewfinder corner brackets. `icon-180.png` (apple-touch — iOS ignores SVG touch icons) and
+`icon-512.png` are full-bleed PNG renders of it; regenerate both if the SVG changes (render the
+SVG in headless Chrome). When the logo changes, bump the `?v=` on every icon reference together (`index.html`
+icon/apple-touch-icon/manifest links, `frame.html`, the `icons` in `manifest.json`) — iOS and
+Android cache home-screen icons hard. The 512 icon is `purpose: any`, not maskable (a circle
+mask would clip the viewfinder corners). Repo: `shakedkleter92-ux/frame90`, served by GitHub
+Pages at `https://shakedkleter92-ux.github.io/frame90/`. `icon_logo.svg` / `Asset 1.svg` are the user's earlier film-strip
+logo, no longer used.

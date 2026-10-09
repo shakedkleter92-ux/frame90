@@ -19,26 +19,26 @@
             } catch (e) { }
         })();
     </script>
-    <meta name="theme-color" content="#4a3942" />
+    <meta name="theme-color" content="#030503" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Film Camera" />
-    <title>Film Camera</title>
+    <meta name="apple-mobile-web-app-title" content="90'FRAME" />
+    <title>90'FRAME</title>
     <!-- Social / share preview -->
-    <meta property="og:title" content="Film Camera" />
-    <meta property="og:description" content="shoot it on film" />
-    <meta property="og:image" content="icon.svg" />
+    <meta property="og:title" content="90'FRAME" />
+    <meta property="og:description" content="90s cameras, live on your phone" />
+    <meta property="og:image" content="icon-512.png?v=5" />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Film Camera" />
-    <meta name="twitter:description" content="shoot it on film" />
-    <meta name="twitter:image" content="icon.svg" />
-    <link rel="manifest" href="manifest.json" />
+    <meta name="twitter:title" content="90'FRAME" />
+    <meta name="twitter:description" content="90s cameras, live on your phone" />
+    <meta name="twitter:image" content="icon-512.png?v=5" />
+    <link rel="manifest" href="manifest.json?v=5" />
     <!-- אייקון למסך הבית — משתמש באייקון מהתיקייה -->
-    <link rel="icon" type="image/svg+xml" href="icon.svg?v=3" />
-    <link rel="apple-touch-icon" href="icon-180.png?v=3" />
+    <link rel="icon" type="image/svg+xml" href="icon.svg?v=5" />
+    <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=5" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=IBM+Plex+Mono:wght@700&display=swap"
+    <link href="https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Mono:wght@700&display=swap"
         rel="stylesheet" />
     <style>
         *,
@@ -49,35 +49,59 @@
             padding: 0
         }
 
+        /* Segmented LCD display font (DSEG14 Classic Bold, SIL OFL — fonts/DSEG-LICENSE.txt),
+           bundled locally so the PWA keeps it offline. */
+        @font-face {
+            font-family: 'DSEG14';
+            src: url('fonts/DSEG14Classic-Bold.woff2') format('woff2');
+            font-weight: 700;
+            font-display: block;
+        }
+
         :root {
-            /* VHS-sleeve palette: cream paper, deep plum ink, and the sunset stripe run
-               (lime → yellow → orange → red → pink → magenta → purple) as the accent. */
-            --bg: #f2ebe0;
-            --cream: #f2ebe0;
-            --plum: #4a3942;
-            --plum-deep: #2e2329;
-            /* Shades over the cream background (Upload, gallery) — translucent plum tints,
-               not grey, so everything stays in the sleeve's two-color world. */
-            --panel: rgba(74, 57, 66, .08);
-            --surface: rgba(74, 57, 66, .16);
-            --border: #4a3942;
-            --text: #4a3942;
-            --muted: #8b7682;
-            /* Floating controls over the camera feed: frosted, see-through cream. */
-            --fab-bg: rgba(242, 235, 224, .42);
-            --fab-blur: blur(14px) saturate(150%);
-            --zoom-accent: #ec7a2f;
-            --radius: 14px;
-            --radius-sm: 10px;
-            --pill: 999px;
-            --stripes: linear-gradient(180deg, #d7df5a 0 12.5%, #f6d34a 12.5% 25%, #f6a83c 25% 37.5%, #f27f37 37.5% 50%, #ec5a40 50% 62.5%, #d9475a 62.5% 75%, #a8406c 75% 87.5%, #74385f 87.5% 100%);
+            /* PHOSPHOR HUD palette (user's reference, 2026-10-08: a green-phosphor radar
+               terminal — thin glowing green lines and text on black). The UI is drawn ON the
+               picture like a camcorder viewfinder's on-screen display, not as panels over it.
+               The old variable names are kept and remapped, so every older rule follows. */
+            --void: #030503;
+            --hud: #46f27a;
+            --hud-mid: rgba(70, 242, 122, .62);
+            --hud-dim: rgba(70, 242, 122, .32);
+            --hud-faint: rgba(70, 242, 122, .1);
+            --rec: #ff4b3a;
+            --glow: 0 0 6px rgba(70, 242, 122, .55), 0 0 1px rgba(0, 0, 0, .9), 0 1px 2px rgba(0, 0, 0, .8);
+            --line: 1.5px;
+            --bg: var(--void);
+            --cream: var(--void);
+            --plum: var(--hud);
+            --plum-deep: var(--hud);
+            --panel: var(--hud-faint);
+            --surface: rgba(70, 242, 122, .18);
+            --border: var(--hud-mid);
+            --text: var(--hud);
+            --muted: var(--hud-mid);
+            --fab-bg: transparent;
+            --fab-blur: none;
+            --zoom-accent: var(--hud);
+            --radius: 0px;
+            --radius-sm: 0px;
+            --pill: 0px;
+            --stripes: var(--hud);
+            /* VT323 = thin terminal type everywhere; DSEG14 only for the splash title. */
+            --font-ui: 'VT323', ui-monospace, monospace;
+            --font-text: 'VT323', ui-monospace, monospace;
+            --font-led: 'DSEG14', 'VT323', monospace;
+            /* Legacy names some rules/JS still read */
+            --lcd: var(--void);
+            --ink: var(--hud);
+            --ink-2: var(--hud-dim);
         }
 
         html,
         body {
             height: 100%;
             overflow: hidden;
-            font-family: 'Outfit', system-ui, sans-serif;
+            font-family: var(--font-ui);
             background: var(--bg);
             color: var(--text)
         }
@@ -367,7 +391,7 @@
             letter-spacing: .09em;
             text-transform: uppercase;
             cursor: pointer;
-            font-family: 'Outfit', system-ui, sans-serif;
+            font-family: var(--font-ui);
             color: var(--muted);
             transition: background .12s, color .12s, transform .12s
         }
@@ -448,7 +472,7 @@
             letter-spacing: .12em;
             text-transform: uppercase;
             cursor: pointer;
-            font-family: 'Outfit', system-ui, sans-serif;
+            font-family: var(--font-ui);
             transition: background .12s, color .12s, transform .12s;
             margin-bottom: 5px
         }
@@ -683,7 +707,7 @@
             background: rgba(0, 0, 0, .55);
             border-radius: var(--radius);
             padding: 5px 10px;
-            font-family: 'Outfit', system-ui, sans-serif;
+            font-family: var(--font-ui);
             font-size: 12px;
             font-weight: 700;
             letter-spacing: .05em;
@@ -792,7 +816,7 @@
 
         #gallery-title {
             flex: 1;
-            font-family: 'Outfit', system-ui, sans-serif;
+            font-family: var(--font-ui);
             font-size: 11px;
             font-weight: 700;
             letter-spacing: .15em;
@@ -801,7 +825,7 @@
         }
 
         #gallery-count {
-            font-family: 'Outfit', system-ui, sans-serif;
+            font-family: var(--font-ui);
             font-size: 10px;
             color: var(--muted);
             -webkit-text-fill-color: var(--muted);
@@ -815,7 +839,7 @@
             border: none;
             padding: 4px 0;
             cursor: pointer;
-            font-family: 'Outfit', system-ui, sans-serif;
+            font-family: var(--font-ui);
             font-size: 10px;
             font-weight: 700;
             letter-spacing: .1em;
@@ -851,7 +875,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-family: 'Outfit', system-ui, sans-serif;
+            font-family: var(--font-ui);
             font-size: 11px;
             letter-spacing: .1em;
             text-transform: uppercase;
@@ -973,7 +997,7 @@
 
         #gallery-viewer-count {
             flex: 1;
-            font-family: 'Outfit', system-ui, sans-serif;
+            font-family: var(--font-ui);
             font-size: 10px;
             color: var(--muted);
             -webkit-text-fill-color: var(--muted);
@@ -1546,7 +1570,7 @@
             font-weight: 700;
             letter-spacing: .08em;
             text-transform: uppercase;
-            font-family: 'Outfit', system-ui, sans-serif;
+            font-family: var(--font-ui);
             color: #fff;
             -webkit-text-fill-color: #fff;
             text-shadow: 0 1px 3px rgba(0, 0, 0, .8);
@@ -1605,7 +1629,7 @@
             cursor: pointer;
             font-size: 10px;
             font-weight: 700;
-            font-family: 'Outfit', system-ui, sans-serif;
+            font-family: var(--font-ui);
             color: #fff;
             -webkit-text-fill-color: #fff;
             text-shadow: 0 1px 3px rgba(0, 0, 0, .8);
@@ -1689,7 +1713,7 @@
         }
 
         #mob-zoom-dial-label {
-            font-family: 'Outfit', system-ui, sans-serif;
+            font-family: var(--font-ui);
             font-size: 20px;
             font-weight: 800;
             fill: var(--zoom-accent);
@@ -1713,7 +1737,7 @@
         }
 
         #mob-side-slider-wrap span {
-            font-family: 'Outfit', system-ui, sans-serif;
+            font-family: var(--font-ui);
             font-size: 10px;
             font-weight: 700;
             color: var(--text);
@@ -1729,7 +1753,7 @@
             background: var(--fab-bg);
             padding: 4px 5px;
             min-width: 34px;
-            font-family: 'Outfit', system-ui, sans-serif;
+            font-family: var(--font-ui);
             font-size: 9px;
             font-weight: 700;
             letter-spacing: .06em;
@@ -1816,7 +1840,7 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            font-family: 'Outfit', system-ui, sans-serif;
+            font-family: var(--font-ui);
             opacity: 1;
             transition: opacity .5s ease;
         }
@@ -1901,7 +1925,7 @@
             justify-content: center;
             padding: 24px;
             text-align: center;
-            font-family: 'Outfit', system-ui, sans-serif;
+            font-family: var(--font-ui);
         }
 
         #install-prompt.show {
@@ -1934,7 +1958,7 @@
             letter-spacing: .1em;
             text-transform: uppercase;
             cursor: pointer;
-            font-family: 'Outfit', system-ui, sans-serif;
+            font-family: var(--font-ui);
             margin-bottom: 10px;
         }
 
@@ -1947,14 +1971,13 @@
             text-decoration: underline;
         }
 
-        /* ───── Camera / Film pickers ───── */
+        /* ───── Camera picker ───── */
         .picker-info {
             font-size: 9px;
             line-height: 1.5;
             color: var(--muted);
         }
 
-        #film-section .sec-label,
         #camera-section .sec-label {
             margin-bottom: 8px;
         }
@@ -1981,7 +2004,7 @@
             align-items: center;
             gap: 8px;
             cursor: pointer;
-            font-family: 'Outfit', system-ui, sans-serif;
+            font-family: var(--font-ui);
             font-size: 10px;
             font-weight: 700;
             letter-spacing: .1em;
@@ -2037,7 +2060,7 @@
             background: rgba(0, 0, 0, .45);
             color: #fff;
             -webkit-text-fill-color: #fff;
-            font-family: 'Outfit', system-ui, sans-serif;
+            font-family: var(--font-ui);
             text-align: center;
             opacity: 0;
             transition: opacity .25s ease;
@@ -2085,275 +2108,350 @@
         }
 
         /* ═════════════════════════════════════════════════════════════════════
-           VHS SLEEVE THEME — cream paper, plum ink, sunset stripes. Every control is
-           rounded (soft squares / pills) and see-through with a frosted blur. This block
-           sits last on purpose: it restyles the shared app shell in one place.
+           PHOSPHOR HUD THEME — the user's direction after rejecting the opaque LCD /
+           Winamp look as "too much" (2026-10-08): the interface should blend into the
+           picture like the on-screen text of an old camera. Reference: a green-phosphor
+           radar terminal. So: black surround, thin (1.5px) glowing green outlines, thin
+           terminal type (VT323) with a phosphor glow plus a hairline dark halo so it reads
+           over any image, no filled blocks, no bevels, no rounding, no blur. Selected =
+           inverted (solid green, black text), like a terminal selection. Typing animation
+           only on the splash. This block sits last on purpose: it restyles the shell.
            ═════════════════════════════════════════════════════════════════════ */
         body {
-            -webkit-font-smoothing: antialiased;
+            background: var(--void);
+            color: var(--hud);
         }
 
-        /* ── Frosted, translucent floating controls ── */
+        /* Blinking block cursor (splash typewriter) */
+        .tw-caret {
+            display: inline-block;
+            width: .5em;
+            height: .9em;
+            margin-left: 2px;
+            vertical-align: -.08em;
+            background: currentColor;
+            box-shadow: 0 0 6px rgba(70, 242, 122, .6);
+            animation: tw-blink .7s step-end infinite;
+        }
+
+        @keyframes tw-blink {
+            50% { opacity: 0; }
+        }
+
+        /* ── Every floating control: a thin glowing outline, nothing filled ── */
         #panel-toggle-bar,
         #mob-film-badge,
-        #mob-shutter,
+        #mob-ratio,
+        #mob-flip,
+        #mob-gallery,
+        #mob-download,
         #mob-upload-more,
-        #mob-flip,
-        #mob-gallery,
-        #mob-download,
         #mob-side-slider-wrap,
-        .mob-mode-label.active {
-            -webkit-backdrop-filter: var(--fab-blur);
-            backdrop-filter: var(--fab-blur);
-        }
-
-        #panel-toggle-bar,
-        #mob-flip,
-        #mob-gallery,
-        #mob-download,
-        #mob-upload-more {
-            border-radius: var(--radius);
-            color: var(--plum);
-            -webkit-text-fill-color: var(--plum);
-        }
-
-        #panel-toggle-bar {
-            font-size: 18px;
-            font-weight: 700;
+        #mob-rec-timer,
+        #lens-toast,
+        #compare-tag,
+        .mob-zoom-preset {
+            border-radius: 0 !important;
+            background: transparent !important;
+            border: var(--line) solid var(--hud-mid) !important;
+            box-shadow: 0 0 6px rgba(70, 242, 122, .18), inset 0 0 6px rgba(70, 242, 122, .1);
+            -webkit-backdrop-filter: none !important;
+            backdrop-filter: none !important;
+            color: var(--hud);
+            -webkit-text-fill-color: var(--hud);
+            text-shadow: var(--glow);
+            font-family: var(--font-ui);
+            font-weight: 400;
         }
 
         #panel-toggle-bar #panel-toggle-icon {
-            color: var(--plum);
+            color: var(--hud);
+            text-shadow: var(--glow);
         }
 
+        /* Icons drawn in phosphor green */
         #mob-flip img {
-            filter: brightness(0) saturate(100%) invert(22%) sepia(10%) saturate(1500%) hue-rotate(275deg) brightness(92%);
+            filter: brightness(0) saturate(100%) invert(79%) sepia(54%) saturate(640%) hue-rotate(78deg) drop-shadow(0 0 3px rgba(70, 242, 122, .6));
         }
 
-        #mob-download::before {
-            color: var(--plum);
-            font-weight: 600;
+        #mob-download::before,
+        #mob-upload-more {
+            color: var(--hud);
         }
 
-        /* Current camera · film — a pill, like the sleeve's "BACK TO THE" label */
+        /* Current camera: viewfinder text with a blinking marker, no box */
         #mob-film-badge {
-            border-radius: var(--pill);
-            padding: 0 16px 0 12px;
-            font-weight: 700;
-            letter-spacing: .08em;
-            color: var(--plum);
-            -webkit-text-fill-color: var(--plum);
+            border: none !important;
+            box-shadow: none;
+            padding: 0 6px;
+            font-size: 20px;
+            letter-spacing: .06em;
         }
 
         #mob-film-badge::before {
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            background: var(--stripes);
+            width: 8px;
+            height: 8px;
+            border-radius: 0;
+            background: var(--hud);
+            box-shadow: 0 0 6px var(--hud);
+            animation: tw-blink 1.4s step-end infinite;
         }
 
-        /* Shutter: a soft square ring with the stripe run inside — the cassette label */
+        #mob-ratio {
+            font-size: 18px;
+            letter-spacing: .06em;
+            padding: 0 12px;
+        }
+
+        /* Shutter: a viewfinder reticle — outlined square, inner block. Same size as the
+           Upload key (user: the big one was out of proportion). */
         #mob-shutter {
-            width: 64px;
-            height: 64px;
-            bottom: 18px;
-            border-radius: 22px;
+            width: 44px;
+            height: 44px;
+            bottom: 27px;
+            border-radius: 0;
+            background: transparent;
+            border: 2px solid var(--hud) !important;
+            box-shadow: 0 0 8px rgba(70, 242, 122, .35), inset 0 0 8px rgba(70, 242, 122, .2);
         }
 
         #mob-shutter::before {
-            inset: 9px;
+            inset: 8px;
             border: none;
-            border-radius: 15px;
-            background: var(--stripes);
+            border-radius: 0;
+            background: var(--hud-dim);
+            box-shadow: 0 0 10px rgba(70, 242, 122, .4);
         }
 
-        #mob-shutter.mode-video::before,
-        #mob-shutter.recording::before {
-            background: #ec5a40;
+        #mob-shutter:active::before {
+            background: var(--hud);
+        }
+
+        /* Video: the camcorder's red REC dot */
+        #mob-shutter.mode-video::before {
+            inset: 12px;
             border-radius: 50%;
-            inset: 14px;
+            background: var(--rec);
+            box-shadow: 0 0 10px rgba(255, 75, 58, .6);
         }
 
         #mob-shutter.recording {
-            border: 3px solid #f6a83c;
+            border-color: var(--rec) !important;
+            box-shadow: 0 0 10px rgba(255, 75, 58, .45);
         }
 
-        /* Gallery thumbnail keeps the button's rounded shape */
+        #mob-shutter.recording::before {
+            inset: 13px;
+            border-radius: 0;
+            background: var(--rec);
+            animation: tw-blink 1s step-end infinite;
+        }
+
         #mob-gallery.has-thumb img {
-            border-radius: var(--radius);
+            border-radius: 0;
+            opacity: .9;
         }
 
         .gallery-empty-frame {
-            border-radius: 5px;
-            border-color: var(--plum);
+            border-radius: 0;
+            border-color: var(--hud-mid);
         }
 
-        /* Photo / Video / Upload — pills; active one is solid plum like the sleeve's dark band */
-        .mob-mode-label {
-            border-radius: var(--pill);
-            padding: 6px 13px;
-            font-size: 11px;
-            font-weight: 600;
-            letter-spacing: .12em;
+        /* Photo / Video / Upload: plain viewfinder words; active one in brackets */
+        #mob-capture-mode {
+            gap: 6px;
+            background: transparent;
+            border: none;
+            box-shadow: none;
+        }
+
+        .mob-mode-label,
+        #mob-capture-mode.on-light-bg .mob-mode-label:not(.active) {
+            border-radius: 0;
+            padding: 2px 4px;
+            font-family: var(--font-ui);
+            font-size: 15px;
+            font-weight: 400;
+            letter-spacing: .08em;
+            background: transparent;
+            color: var(--hud-mid);
+            -webkit-text-fill-color: var(--hud-mid);
+            text-shadow: 0 0 1px rgba(0, 0, 0, .9), 0 1px 2px rgba(0, 0, 0, .8);
+            opacity: 1;
         }
 
         .mob-mode-label.active,
         #mob-capture-mode.on-light-bg .mob-mode-label.active {
-            background: rgba(74, 57, 66, .78);
-            color: var(--cream);
-            -webkit-text-fill-color: var(--cream);
+            background: transparent;
+            color: var(--hud);
+            -webkit-text-fill-color: var(--hud);
+            text-shadow: var(--glow);
         }
 
-        #mob-capture-mode.on-light-bg .mob-mode-label:not(.active) {
-            border-radius: var(--pill);
-            color: var(--plum);
-            -webkit-text-fill-color: var(--plum);
-        }
+        .mob-mode-label.active::before { content: '['; margin-right: 3px; }
+        .mob-mode-label.active::after { content: ']'; margin-left: 3px; }
 
-        /* Zoom presets (.5× / 1× / 2×) — small frosted pills; active = plum */
+        /* Zoom presets */
         #mob-zoom-presets {
-            gap: 6px;
+            gap: 8px;
             bottom: 128px;
         }
 
         .mob-zoom-preset {
             width: auto;
-            min-width: 34px;
+            min-width: 38px;
             height: 28px;
             padding: 0 8px;
-            border-radius: var(--pill);
-            font-size: 11px;
-            font-weight: 700;
-            background: var(--fab-bg);
-            -webkit-backdrop-filter: var(--fab-blur);
-            backdrop-filter: var(--fab-blur);
-            color: var(--plum);
-            -webkit-text-fill-color: var(--plum);
-            text-shadow: none;
+            font-size: 18px;
             opacity: 1;
+            border-color: var(--hud-dim) !important;
+            box-shadow: none;
         }
 
         .mob-zoom-preset.active {
-            background: rgba(74, 57, 66, .82);
-            color: var(--cream);
-            -webkit-text-fill-color: var(--cream);
+            background: var(--hud) !important;
+            color: var(--void);
+            -webkit-text-fill-color: var(--void);
+            text-shadow: none;
+            border-color: var(--hud) !important;
         }
 
-        /* Pinch zoom dial: cream ticks/labels so it reads over the camera feed */
+        /* Pinch zoom dial */
         #mob-zoom-ticks-g line,
         #mob-zoom-ticks-g path {
-            stroke: var(--cream);
+            stroke: var(--hud);
         }
 
         #mob-zoom-ticks-g text {
-            fill: var(--cream);
-            font-family: 'Outfit', system-ui, sans-serif;
-            font-weight: 600;
+            fill: var(--hud);
+            font-family: var(--font-ui);
+            font-size: 13px;
         }
 
         #mob-zoom-dial-label {
-            font-weight: 800;
+            font-family: var(--font-ui);
+            color: var(--hud);
+            text-shadow: var(--glow);
         }
 
-        /* Lens slider: a frosted capsule with a plum track and a round knob */
+        /* Lens slider: a thin scale with tick marks, no capsule */
         #mob-side-slider-wrap {
-            right: 12px;
-            height: 270px;
-            padding: 8px 5px;
-            border-radius: var(--pill);
-            background: var(--fab-bg);
+            right: 8px;
+            height: 280px;
+            padding: 6px 4px;
+            border: none !important;
+            box-shadow: none;
         }
 
         #mob-side-slider-wrap span,
-        body.mode-upload #mob-side-slider-wrap span {
-            background: transparent;
-            color: var(--plum);
-            font-size: 11px;
-            font-weight: 800;
-            padding: 2px 0 0;
+        body.mode-upload #mob-side-slider-wrap span,
+        #side-val {
+            background: transparent !important;
+            color: var(--hud);
+            font-family: var(--font-ui);
+            font-size: 18px;
+            font-weight: 400;
+            padding: 0;
+            text-shadow: var(--glow);
         }
 
         #mob-side-slider-wrap input[type=range] {
-            width: 2px;
-            background: rgba(74, 57, 66, .55);
-            border-radius: 2px;
-        }
-
-        /* Same frosted cream in Upload — it floats over the photo, where a faint plum tint
-           left the lens label unreadable. */
-        body.mode-upload #mob-side-slider-wrap {
-            background: rgba(242, 235, 224, .62);
+            width: 14px;
+            background:
+                linear-gradient(var(--hud-mid), var(--hud-mid)) center / 1.5px 100% no-repeat,
+                repeating-linear-gradient(180deg, var(--hud-dim) 0 1px, transparent 1px 12px) center / 10px 100% no-repeat;
+            border-radius: 0;
         }
 
         #side-param,
         body.mode-upload #side-param {
-            border-radius: var(--pill);
-            background: var(--plum);
-            color: var(--cream);
-            -webkit-text-fill-color: var(--cream);
-            font-size: 9px;
-            font-weight: 700;
-            letter-spacing: .1em;
-            padding: 5px 7px;
+            border-radius: 0;
+            background: transparent;
+            border: var(--line) solid var(--hud-mid);
+            color: var(--hud);
+            -webkit-text-fill-color: var(--hud);
+            font-family: var(--font-ui);
+            font-size: 16px;
+            letter-spacing: .06em;
+            padding: 1px 5px;
+            text-shadow: var(--glow);
         }
 
         input[type=range]::-webkit-slider-thumb {
-            border-radius: 50% !important;
-            background: var(--plum);
-            border: 3px solid var(--cream);
-            width: 20px;
-            height: 20px;
+            -webkit-appearance: none;
+            appearance: none;
+            border-radius: 0 !important;
+            background: var(--void);
+            border: 2px solid var(--hud);
+            outline: none;
+            width: 16px;
+            height: 10px;
+            box-shadow: 0 0 6px rgba(70, 242, 122, .6);
         }
 
         input[type=range]::-moz-range-thumb {
-            border-radius: 50%;
-            background: var(--plum);
-            border: 3px solid var(--cream);
+            border-radius: 0;
+            background: var(--void);
+            border: 2px solid var(--hud);
+            width: 14px;
+            height: 8px;
         }
 
-        /* Recording timer + lens toast — plum pills */
+        /* REC timer: red dot + green time, no box */
         #mob-rec-timer {
-            border-radius: var(--pill);
-            background: rgba(74, 57, 66, .82);
-            padding: 6px 14px;
-            -webkit-backdrop-filter: var(--fab-blur);
-            backdrop-filter: var(--fab-blur);
+            border: none !important;
+            box-shadow: none;
+            padding: 2px 8px;
+            font-size: 22px;
         }
 
         #mob-rec-timer::before {
-            background: #ec5a40;
+            background: var(--rec);
+            border-radius: 50%;
+            box-shadow: 0 0 6px var(--rec);
         }
 
+        /* Lens toast: big viewfinder text, no panel */
         #lens-toast {
-            border-radius: 22px;
-            padding: 14px 22px;
-            background: rgba(74, 57, 66, .55);
-            -webkit-backdrop-filter: var(--fab-blur);
-            backdrop-filter: var(--fab-blur);
+            border: none !important;
+            box-shadow: none;
+            padding: 6px 10px;
         }
 
         #lens-toast b {
-            font-size: 40px;
-            font-weight: 800;
-            letter-spacing: -.01em;
-            line-height: 1;
+            font-family: var(--font-ui);
+            font-size: 56px;
+            font-weight: 400;
+            line-height: .9;
+            letter-spacing: .02em;
         }
 
         #lens-toast span {
-            font-weight: 400;
-            letter-spacing: .14em;
+            font-family: var(--font-ui);
+            font-size: 18px;
+            letter-spacing: .06em;
+            text-transform: uppercase;
         }
 
-        /* ── Panel: frosted cream sheet with rounded bottom corners ── */
+        #compare-tag {
+            padding: 2px 10px;
+            font-size: 18px;
+            letter-spacing: .1em;
+        }
+
+        /* ── Panel: a dark see-through terminal screen with thin rules ── */
         @media (max-width: 700px) {
             #panel {
-                border-radius: 0 0 26px 26px;
+                border-radius: 0;
             }
 
             #panel.panel-open {
-                background: rgba(242, 235, 224, .5);
-                -webkit-backdrop-filter: blur(16px) saturate(140%);
-                backdrop-filter: blur(16px) saturate(140%);
+                background: rgba(3, 6, 3, .72);
+                -webkit-backdrop-filter: none;
+                backdrop-filter: none;
+                border-bottom: var(--line) solid var(--hud-mid);
+                box-shadow: 0 0 10px rgba(70, 242, 122, .15);
+                max-height: 64vh;
             }
 
             #panel.panel-open .section {
@@ -2361,141 +2459,177 @@
             }
 
             .section {
-                padding: 16px 18px;
+                padding: 14px 18px;
             }
         }
 
         .section {
-            border-bottom: 1px solid rgba(74, 57, 66, .14);
+            border-bottom: 1px solid var(--hud-dim);
         }
 
-        /* "01 CAMERA" — light, spaced caps with a bold number, like "BACK TO THE / 80s" */
-        .sec-label {
-            font-size: 11px;
-            font-weight: 300;
-            letter-spacing: .22em;
-            color: var(--plum);
-        }
-
-        .sec-num {
-            font-size: 11px;
-            font-weight: 800;
-            opacity: 1;
-            padding: 2px 7px;
-            border-radius: var(--pill);
-            background: var(--plum);
-            color: var(--cream);
-            letter-spacing: .04em;
-        }
-
+        #panel.panel-open .sec-label,
+        #panel.panel-open label,
+        #panel.panel-open .picker-info,
         #panel.panel-open .sec-num {
-            color: var(--cream);
+            color: var(--hud);
         }
 
-        /* Thin stripe run under each picker heading */
-        #camera-section .sec-label::after,
-        #film-section .sec-label::after {
+        .sec-label {
+            font-family: var(--font-ui);
+            font-size: 20px;
+            font-weight: 400;
+            letter-spacing: .08em;
+            color: var(--hud);
+            text-shadow: var(--glow);
+        }
+
+        .sec-num,
+        #panel.panel-open .sec-num {
+            font-family: var(--font-ui);
+            font-size: 20px;
+            font-weight: 400;
+            opacity: 1;
+            padding: 0 4px;
+            border-radius: 0;
+            background: transparent;
+            border: var(--line) solid var(--hud-mid);
+            letter-spacing: 0;
+        }
+
+        #camera-section .sec-label::after {
             content: '';
             flex: 1;
-            height: 6px;
-            border-radius: var(--pill);
-            background: linear-gradient(90deg, #d7df5a, #f6d34a, #f6a83c, #f27f37, #ec5a40, #d9475a, #a8406c, #74385f);
-            opacity: .9;
+            height: 1px;
+            border-radius: 0;
+            background: var(--hud-dim);
+            opacity: 1;
         }
 
-        .picker-info {
-            color: var(--plum);
+        .picker-info,
+        #panel.panel-open .picker-info {
+            font-family: var(--font-text);
+            font-size: 18px;
+            line-height: 1.1;
             font-weight: 400;
+            text-shadow: 0 0 4px rgba(70, 242, 122, .35);
         }
 
-        /* Camera / film chips: rounded, see-through; selected = solid plum */
+        /* Preset chips & toggles: thin outlines; selected = inverted */
         .film-presets {
-            gap: 5px;
-            max-height: 92px;
+            gap: 6px;
+            max-height: 104px;
         }
 
         .pal-tgt {
-            border-radius: var(--radius-sm);
-            background: rgba(255, 250, 242, .55);
-            color: var(--plum);
-            -webkit-text-fill-color: var(--plum);
-            font-size: 9px;
-            font-weight: 600;
-            letter-spacing: .06em;
-            padding: 8px 3px;
+            border-radius: 0;
+            background: transparent;
+            border: 1px solid var(--hud-dim);
+            box-shadow: none;
+            color: var(--hud);
+            -webkit-text-fill-color: var(--hud);
+            font-family: var(--font-ui);
+            font-size: 15px;
+            font-weight: 400;
+            letter-spacing: .02em;
+            padding: 5px 2px 4px;
+            text-shadow: 0 0 4px rgba(70, 242, 122, .4);
         }
 
         @media (hover:hover) {
             .pal-tgt:hover {
-                background: rgba(255, 250, 242, .85);
-                color: var(--plum);
+                background: var(--hud-faint);
+                color: var(--hud);
             }
         }
 
         .pal-tgt.active {
-            background: var(--plum);
-            color: var(--cream) !important;
-            -webkit-text-fill-color: var(--cream) !important;
+            background: var(--hud);
+            border-color: var(--hud);
+            box-shadow: 0 0 8px rgba(70, 242, 122, .45);
+            color: var(--void) !important;
+            -webkit-text-fill-color: var(--void) !important;
+            text-shadow: none;
         }
 
         .grid-scrollbar {
             width: 6px;
-            border-radius: var(--pill);
-            background: rgba(74, 57, 66, .12);
+            border-radius: 0;
+            background: transparent;
+            border-left: 1px solid var(--hud-dim);
         }
 
         .grid-scrollbar-thumb {
-            border-radius: var(--pill);
-            background: var(--plum);
+            border-radius: 0;
+            background: var(--hud-mid);
         }
 
         /* ── Buttons ── */
-        .btn {
-            border-radius: var(--pill);
-            font-weight: 700;
-            letter-spacing: .14em;
+        .btn,
+        .fm-btn {
+            border-radius: 0;
+            font-family: var(--font-ui);
+            font-size: 18px;
+            font-weight: 400;
+            letter-spacing: .06em;
+            background: transparent;
+            color: var(--hud);
+            border: var(--line) solid var(--hud-mid);
+            text-shadow: var(--glow);
         }
 
         .btn-fill {
-            background: var(--plum);
-            color: var(--cream);
-        }
-
-        .btn-fill:hover {
-            background: var(--plum-deep);
+            background: var(--hud);
+            color: var(--void);
+            text-shadow: none;
         }
 
         .btn-outline {
-            background: var(--panel);
-            color: var(--plum);
+            background: transparent;
+            color: var(--hud);
         }
 
-        .fm-btn {
-            border-radius: var(--pill);
+        .btn:disabled {
+            color: var(--hud-dim);
+            border-color: var(--hud-dim);
         }
 
         /* ── Upload drop zone ── */
         #drop-zone {
-            border-radius: 26px;
-            border: 1.5px dashed rgba(74, 57, 66, .35);
-            background: rgba(255, 250, 242, .5);
+            border-radius: 0;
+            border: var(--line) dashed var(--hud-mid);
+            background: transparent;
         }
 
         .dz-text {
-            color: var(--plum);
-            font-weight: 400;
+            font-family: var(--font-ui);
+            font-size: 20px;
+            color: var(--hud);
+            text-shadow: var(--glow);
         }
 
         /* ── Gallery ── */
+        #gallery-screen {
+            background: var(--void);
+            color: var(--hud);
+        }
+
         #gallery-header,
         #gallery-viewer-header {
-            border-bottom: 1px solid rgba(74, 57, 66, .14);
+            border-bottom: 1px solid var(--hud-dim);
+        }
+
+        #gallery-title,
+        #gallery-count,
+        #gallery-empty {
+            font-family: var(--font-ui);
+            color: var(--hud);
+            text-shadow: var(--glow);
         }
 
         #gallery-title {
-            font-size: 16px;
-            font-weight: 800;
-            letter-spacing: .06em;
+            font-size: 24px;
+            font-weight: 400;
+            letter-spacing: .1em;
         }
 
         #gallery-grid {
@@ -2504,109 +2638,191 @@
         }
 
         .gallery-item {
-            border-radius: var(--radius-sm);
+            border-radius: 0;
+            outline: 1px solid var(--hud-dim);
         }
 
         .gallery-item .gallery-check {
-            border-radius: 50%;
+            border-radius: 0;
         }
 
         .gallery-item.selected::after {
-            border-radius: var(--radius-sm);
-            border-color: var(--plum);
+            border-radius: 0;
+            border-color: var(--hud);
         }
 
         #gallery-actions,
         #gallery-viewer-actions {
-            border-top: 1px solid rgba(74, 57, 66, .14);
+            border-top: 1px solid var(--hud-dim);
         }
 
+        #gallery-close,
         #gallery-select-toggle {
-            border-radius: var(--pill);
-            padding: 5px 12px;
-            background: var(--panel);
-            color: var(--plum);
-            -webkit-text-fill-color: var(--plum);
+            border-radius: 0;
+            border: var(--line) solid var(--hud-mid);
+            padding: 2px 10px;
+            background: transparent;
+            color: var(--hud);
+            -webkit-text-fill-color: var(--hud);
+            font-family: var(--font-ui);
+            font-size: 18px;
         }
 
         #gallery-select-toggle.active {
-            background: var(--plum);
-            color: var(--cream);
-            -webkit-text-fill-color: var(--cream);
+            background: var(--hud);
+            color: var(--void);
+            -webkit-text-fill-color: var(--void);
         }
 
         /* ── Export modal ── */
         .export-modal-card {
-            border-radius: 26px;
+            border-radius: 0;
             overflow: hidden;
-            border: none;
-            background: rgba(242, 235, 224, .8);
+            border: var(--line) solid var(--hud-mid);
+            background: var(--void);
+            color: var(--hud);
         }
 
         #export-preview-canvas,
         #export-preview-video {
-            border-radius: var(--radius);
-            border: none;
+            border-radius: 0;
+            border: 1px solid var(--hud-dim);
         }
 
-        /* ── Splash: the cassette sleeve ── */
+        /* ── Splash: boot screen (the only place text types itself in) ── */
+        #splash-screen {
+            background: var(--void);
+            padding: 24px;
+        }
+
+        #splash-boot {
+            width: min(320px, 86vw);
+            min-height: 4.6em;
+            font-family: var(--font-text);
+            font-size: 20px;
+            line-height: 1.15;
+            color: var(--hud);
+            text-shadow: var(--glow);
+            white-space: pre-wrap;
+            text-align: left;
+        }
+
         #splash-logo {
-            width: 112px;
-            height: 112px;
-            margin-top: 26px;
+            width: 128px;
+            height: 128px;
+            margin-top: 18px;
         }
 
-        /* Title sits above the logo; min-height keeps the logo from jumping while it types. */
         #splash-title {
-            margin-top: 0;
-            min-height: 1.05em;
-            font-size: 40px;
-            font-weight: 800;
-            letter-spacing: -.01em;
-            text-transform: none;
-            line-height: 1.05;
-            color: var(--plum);
+            margin-top: 22px;
+            min-height: 1.15em;
+            font-family: var(--font-led);
+            font-size: 26px;
+            font-weight: 700;
+            letter-spacing: .04em;
+            word-spacing: .55em;
+            text-transform: uppercase;
+            line-height: 1.15;
+            color: var(--hud);
+            text-shadow: 0 0 8px rgba(70, 242, 122, .6);
+            border-right: none;
         }
 
         #splash-title.caret {
-            border-right-color: var(--plum);
+            border-right: none;
+            animation: none;
         }
 
         #splash-hint {
-            margin-top: 30px;
-            font-size: 10px;
-            font-weight: 400;
-            letter-spacing: .22em;
-            color: var(--muted);
+            margin-top: 28px;
+            font-family: var(--font-ui);
+            font-size: 20px;
+            letter-spacing: .1em;
+            color: var(--hud);
+            text-shadow: var(--glow);
+        }
+
+        #splash-hint.show {
+            animation: tw-blink 1.1s step-end infinite;
         }
 
         /* ── Install prompt ── */
+        #install-prompt {
+            background: var(--void);
+            color: var(--hud);
+        }
+
         #install-prompt h2 {
-            font-size: 30px;
-            font-weight: 800;
-            letter-spacing: -.01em;
-            text-transform: none;
-            color: var(--plum);
+            font-family: var(--font-ui);
+            font-size: 34px;
+            font-weight: 400;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            color: var(--hud);
+            text-shadow: var(--glow);
         }
 
         #install-prompt p {
-            color: var(--plum);
-            font-size: 13px;
+            font-family: var(--font-text);
+            color: var(--hud);
+            font-size: 20px;
+            line-height: 1.1;
+            max-width: 300px;
+            text-shadow: 0 0 4px rgba(70, 242, 122, .35);
         }
 
         #install-prompt .install-btn {
-            border-radius: var(--pill);
-            background: var(--plum);
-            color: var(--cream);
-            padding: 15px 28px;
-            letter-spacing: .14em;
+            border-radius: 0;
+            background: transparent;
+            color: var(--hud);
+            border: var(--line) solid var(--hud);
+            padding: 10px 20px;
+            font-family: var(--font-ui);
+            font-size: 20px;
+            letter-spacing: .08em;
+            text-shadow: var(--glow);
+            box-shadow: 0 0 8px rgba(70, 242, 122, .25);
         }
 
         #install-prompt .skip-btn {
-            color: var(--muted);
-            font-size: 12px;
+            color: var(--hud-mid);
+            font-family: var(--font-ui);
+            font-size: 18px;
         }
-    </style>
+
+        /* ───── Frame format (top center) ───── */
+        #mob-ratio {
+            top: 20px;
+            left: 0;
+            right: 0;
+            margin: 0 auto;
+            width: fit-content;
+            height: 36px;
+            z-index: 86;
+        }
+
+        body.panel-open #mob-ratio,
+        body.zoom-dial-active #mob-ratio,
+        body.recording #mob-ratio {
+            display: none !important;
+        }
+
+        #compare-tag {
+            position: fixed;
+            left: 0;
+            right: 0;
+            top: 76px;
+            margin: 0 auto;
+            width: fit-content;
+            z-index: 87;
+            display: none;
+            pointer-events: none;
+        }
+
+        body.comparing #compare-tag {
+            display: block;
+        }
+</style>
 </head>
 
 <body>
@@ -2615,13 +2831,14 @@
          carries no state of its own. -->
     <div id="splash-screen" aria-hidden="true">
         <!-- Hierarchy: name → logo → tap hint. Nothing else. -->
+        <pre id="splash-boot"></pre>
+        <img id="splash-logo" src="icon.svg?v=5" alt="" />
         <h1 id="splash-title"></h1>
-        <img id="splash-logo" src="icon.svg?v=3" alt="" />
-        <p id="splash-hint">Tap to continue</p>
+        <p id="splash-hint">Tap to start</p>
     </div>
     <!-- Add to home screen prompt (shown on mobile when opening from link) -->
     <div id="install-prompt" aria-hidden="true">
-        <h2>Film Camera</h2>
+        <h2>90'FRAME</h2>
         <p>Add a shortcut to your home screen to open the app from your icon.</p>
         <button type="button" class="install-btn" id="install-prompt-btn">Add to Home Screen</button>
         <p id="install-manual-hint"
@@ -2653,13 +2870,13 @@
          on the lens it shipped with. Tapping the LENS label steps to the next one. -->
     <div id="mob-side-slider-wrap" style="display:none">
         <span id="side-val">50mm</span>
-        <input type="range" id="side-slider" min="0" max="6" value="4" step="1" aria-label="Lens" />
+        <input type="range" id="side-slider" min="0" max="7" value="5" step="1" aria-label="Lens" />
         <button type="button" id="side-param" aria-label="Next lens">LENS</button>
     </div>
-    <!-- Aspect ratio: top, Live only -->
-    <button id="mob-ratio" aria-label="Aspect ratio" type="button" style="display:none">
-        <img src="ratio_icon.png" alt="" width="22" height="22">
-    </button>
+    <div id="compare-tag">ORIGINAL</div>
+    <!-- Frame format pill (top center): only for cameras that really shot more than one
+         format (e.g. Handycam 16:9 / 4:3); tapping cycles them. -->
+    <button id="mob-ratio" aria-label="Frame format" type="button" style="display:none"><span id="mob-ratio-label">4:3</span></button>
     <!-- Camera flip -->
     <button id="mob-flip" aria-label="Flip camera" style="display:none">
         <img src="camera-switch.svg" alt="" width="22" height="22">
@@ -2720,7 +2937,7 @@
     <div id="app">
         <aside id="panel">
             <div id="panel-header">
-                <h1>Film Camera</h1>
+                <h1>90'FRAME</h1>
             </div>
 
             <!-- Mode switch (desktop): keep first in panel -->
@@ -2731,12 +2948,13 @@
                 </div>
             </div>
 
-            <!-- 01 Camera / 02 Film: the only two choices in the app. Each is a fixed 4-column
-                 grid capped to 3 rows that scrolls inside itself, with a real DOM element
-                 standing in for the scrollbar (iOS Safari ignores ::-webkit-scrollbar styling,
-                 so a native one can't be made square there). Built from CAMERAS / FILMS. -->
+            <!-- 01 Camera: the only choice in the app — a whole camera look, one list for Photo,
+                 Video and Upload. A fixed 4-column grid
+                 capped to 3 rows that scrolls inside itself, with a real DOM element standing in
+                 for the scrollbar (iOS Safari ignores ::-webkit-scrollbar styling, so a native
+                 one can't be made square there). Built from CAMERAS / CAMERA_ORDER. -->
             <div class="section" id="camera-section">
-                <div class="sec-label"><span class="sec-num">01</span> Camera</div>
+                <div class="sec-label">Camera type</div>
                 <div class="film-presets-wrap">
                     <div class="film-presets" id="camera-presets"></div>
                     <div class="grid-scrollbar" id="camera-scrollbar">
@@ -2746,20 +2964,9 @@
                 <p class="picker-info" id="camera-info"></p>
             </div>
 
-            <div class="section" id="film-section">
-                <div class="sec-label"><span class="sec-num">02</span> Film</div>
-                <div class="film-presets-wrap">
-                    <div class="film-presets" id="film-presets"></div>
-                    <div class="grid-scrollbar" id="film-scrollbar">
-                        <div class="grid-scrollbar-thumb" id="film-scrollbar-thumb"></div>
-                    </div>
-                </div>
-                <p class="picker-info" id="film-info"></p>
-            </div>
-
-            <!-- 03 Export -->
+            <!-- 02 Export -->
             <div class="section">
-                <div class="sec-label"><span class="sec-num">03</span> Export</div>
+                <div class="sec-label"><span class="sec-num">02</span> Export</div>
                 <button class="btn btn-fill" id="dl-pixels">Download</button>
             </div>
         </aside>
@@ -2820,7 +3027,7 @@
             srcImage: null,
             uploadSeed: 0,      // fixed grain/leak seed per uploaded photo, so tweaking a slider doesn't re-roll the grain
             uploadRect: null,   // where the Upload preview sits inside #main, CSS px
-            bg: '#f2ebe0',
+            bg: '#030503',
             captureMode: 'image',
             exportRatio: null,
         };
@@ -2847,31 +3054,50 @@
         function hexToRgba(hex, a) { const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16); return `rgba(${r},${g},${b},${a})`; }
 
         // ═══════════════════════════════════════════════════
-        //  CAMERAS · FILMS · LENSES
+        //  CAMERAS · LENSES
         // ═══════════════════════════════════════════════════
-        // The whole look is fixed — there are no user sliders. You pick a camera and a film,
-        // and the side slider picks a lens. A film supplies the chemistry (color, contrast,
-        // grain, halation); a camera supplies the optics and print (vignette, soft plastic
-        // lens, light leaks, fringing, instant-film frame, date stamp) plus small color
-        // nudges; a lens supplies field of view and wide-angle distortion. combineLook()
-        // merges the three into the one settings object film.render() takes.
+        // A 1990s camera library, built from the user's technical spec (2026-10-08). Each
+        // preset is assembled from independent parts — never one generic filter:
+        //   BODIES        camera body + lens optics (softness, edge softness, vignette,
+        //                 fringing) and its flash
+        //   FILMS         film stock (organic grain, color matrix, highlight shoulder) +
+        //                 the 90s lab scan it comes back as (Kodak Picture CD, 1536×1024)
+        //   SENSORS       digital still sensor (native resolution, color matrix, hard
+        //                 highlight clip, sensor noise, in-camera sharpening, JPEG quality)
+        //   VIDEO_FORMATS recording format (analog tape bandwidth / digital DV, interlace,
+        //                 analog vs sensor noise, optional tape artifacts, bitrate)
+        //   AUDIO_PROFILES sound for video recording (separate Web Audio chain)
+        // A preset has a body + exactly one of film / sensor / video. combineLook() merges
+        // the parts with the lens and the user controls into what film.render() takes.
+        // Numbers are restrained starting points, not calibrated reproductions of the
+        // named models (no reference captures from the real cameras were available).
 
         // Every parameter the shader understands, on plain slider-like scales (the mapping
-        // to shader values lives in film.render()'s uniforms). Not user-facing.
+        // to shader values lives in film.render()'s uniforms). Parts' values add up.
         const LOOK_PARAMS = {
             intensity: 100, exposure: 0, contrast: 0, saturation: 0, warmth: 0, tint: 0, fade: 0,
-            grain: 0, vignette: 0, halation: 0, leak: 0, blur: 0, chroma: 0,
+            grain: 0, vignette: 0, halation: 0, blur: 0, chroma: 0,
         };
-        // A camera's color nudges are added on top of the film's; these stay in range.
         const PARAM_RANGE = { exposure: [-100, 100], contrast: [-100, 100], saturation: [-100, 100], warmth: [-100, 100], tint: [-100, 100] };
 
-        // Film chemistry that isn't one of LOOK_PARAMS: per-channel tone curve (gamma — <1
-        // lifts that channel, >1 sinks it), split-tone tints added to shadows/highlights, B&W
-        // conversion weights, halation color, grain size, and (instant films) the print frame.
-        const FILM_LOOK_DEFAULTS = {
-            gamma: [1, 1, 1], shadows: [0, 0, 0], highlights: [0, 0, 0],
-            mono: 0, mix: [0.299, 0.587, 0.114], halColor: [1, 0.32, 0.12],
-            grainSize: 1.2, frame: 'none',
+        // Everything else the shader understands (per-stage, not slider-like).
+        const IDENTITY3 = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+        const LOOK_DEFAULTS = {
+            matrix: IDENTITY3,        // color response (rows sum to 1 → neutrals stay neutral)
+            gamma: [1, 1, 1],         // per-channel curve (<1 lifts that channel)
+            shadows: [0, 0, 0], highlights: [0, 0, 0], // split tone
+            shoulder: 0,              // film: gradual highlight roll-off (0..1)
+            white: 1, black: 0,       // digital: input level that clips to white / to black
+            mono: 0, mix: [0.299, 0.587, 0.114], duo: null,
+            halColor: [1, 0.32, 0.12],
+            noiseType: 0,             // 0 film grain · 1 digital sensor noise · 2 analog video noise
+            noiseColor: 0,            // sensor noise: share of chroma noise
+            grainSize: 1,             // noise cell, in native pixels
+            soft: 0,                  // limited detail, in native pixels (optics + processing)
+            sharpen: 0,               // in-camera edge enhancement
+            chromaSub: [1, 1],        // color resolution divisor [x, y] (DV 4:1:1 = [4, 1])
+            tape: 0,                  // analog tape: luma bandwidth + color smear + line wobble
+            interlace: 0,             // 480i fields (combing on motion)
         };
 
         function hashKey(key) {
@@ -2880,233 +3106,251 @@
             return h / 37;
         }
 
-        // ── Films ──
-        const FILMS = {};
-        const FILM_ORDER = [];
-        function FILM(key, label, name, desc, adj, look) {
-            FILMS[key] = { key, label, name, desc, adj: adj || {}, look: Object.assign({}, FILM_LOOK_DEFAULTS, look || {}) };
-            FILM_ORDER.push(key);
-        }
+        // ── Bodies: optics + flash ──
+        // flash: { power, reach (falloff radius, frame heights), color }
+        const BODIES = {
+            funsaver: { adj: { vignette: 16, blur: 16, chroma: 8 }, soft: 0.4, flash: { power: 1, reach: 0.75, color: [1, 0.97, 1.0] } },
+            quicktake: { adj: { vignette: 8, blur: 6 }, soft: 0.6, flash: { power: 0.8, reach: 0.8, color: [1, 0.98, 1.02] } },
+            handycam: { adj: { vignette: 4 }, soft: 0, flash: null },
+            handycamDV: { adj: { vignette: 3 }, soft: 0, flash: null },
+            vhsCam: { adj: { vignette: 6 }, soft: 0, flash: null },
+            nightshot: { adj: { vignette: 22 }, soft: 0, flash: null },
+        };
 
-        // Color negative
-        FILM('portra160', 'Portra 160', 'Kodak Portra 160', 'Fine grain, low contrast, natural warm skin.',
-            { contrast: -15, saturation: -10, warmth: 12, fade: 12, grain: 12 },
-            { gamma: [0.97, 1.0, 1.04], shadows: [0.01, 0.0, 0.02], highlights: [0.03, 0.015, -0.01], grainSize: 1 });
-        FILM('portra400', 'Portra 400', 'Kodak Portra 400', 'Warm, soft skin tones and gentle pastels.',
-            { exposure: 8, contrast: -10, saturation: -5, warmth: 15, fade: 15, grain: 22 },
-            { gamma: [0.96, 0.99, 1.05], shadows: [0.0, 0.01, 0.025], highlights: [0.035, 0.02, -0.01] });
-        FILM('portra800', 'Portra 800', 'Kodak Portra 800', 'Warmer, grainier Portra for low light.',
-            { contrast: -5, saturation: 5, warmth: 22, fade: 12, grain: 38, halation: 8 },
-            { gamma: [0.95, 0.99, 1.06], highlights: [0.04, 0.02, -0.01], grainSize: 1.4 });
-        FILM('ektar100', 'Ektar 100', 'Kodak Ektar 100', 'The most vivid negative: punchy reds, deep blues.',
-            { contrast: 25, saturation: 40, warmth: 5, grain: 8 },
-            { gamma: [0.94, 1.0, 0.98], shadows: [0.0, 0.0, 0.02], highlights: [0.02, 0.0, -0.02], grainSize: 1 });
-        FILM('gold200', 'Gold 200', 'Kodak Gold 200', 'Golden-hour yellows and nostalgic warmth.',
-            { contrast: 8, saturation: 18, warmth: 35, fade: 8, grain: 25 },
-            { gamma: [0.93, 0.97, 1.12], highlights: [0.05, 0.03, -0.03] });
-        FILM('ultramax', 'UltraMax', 'Kodak UltraMax 400', 'Saturated, warm, friendly visible grain.',
-            { contrast: 12, saturation: 25, warmth: 25, grain: 35 },
-            { gamma: [0.95, 0.98, 1.08], grainSize: 1.3 });
-        FILM('colorplus', 'ColorPlus', 'Kodak ColorPlus 200', 'Budget Kodak: warm, muted greens, milky shadows.',
-            { saturation: 5, warmth: 28, fade: 18, grain: 30 },
-            { gamma: [0.95, 0.96, 1.1], shadows: [0.02, 0.0, 0.03] });
-        FILM('superia', 'Superia', 'Fujifilm Superia 400', 'Cool, green-leaning, magenta kick in the shadows.',
-            { contrast: 10, saturation: 10, warmth: -12, tint: -10, grain: 28 },
-            { gamma: [1.04, 0.97, 1.0], shadows: [-0.01, 0.02, 0.03], highlights: [0.0, 0.01, 0.02] });
-        FILM('c200', 'Fuji C200', 'Fujicolor C200', 'Soft contrast, cool greens and teal skies.',
-            { contrast: -5, warmth: -8, tint: -15, fade: 10, grain: 26 },
-            { gamma: [1.03, 0.96, 0.99], highlights: [0.02, 0.03, 0.0] });
-        FILM('pro400h', 'Pro 400H', 'Fujifilm Pro 400H', 'Airy pastels with mint-cyan shadows.',
-            { exposure: 20, contrast: -20, saturation: -15, warmth: -5, tint: -8, fade: 18, grain: 18 },
-            { gamma: [1.02, 0.97, 0.96], shadows: [-0.01, 0.02, 0.03], highlights: [0.0, 0.02, 0.02] });
-        FILM('agfavista', 'Agfa Vista', 'Agfa Vista 200', 'Bold reds, warm light, crisp and poppy.',
-            { contrast: 15, saturation: 35, warmth: 15, tint: 5, grain: 25 },
-            { gamma: [0.9, 1.0, 1.03] });
-        FILM('lomo800', 'Lomo 800', 'Lomography Color 800', 'Wild saturation and heavy grain, made for neon.',
-            { contrast: 25, saturation: 45, warmth: 10, grain: 55, halation: 10 },
-            { gamma: [0.95, 0.98, 1.02], grainSize: 1.5 });
-        // Slide
-        FILM('kodachrome', 'Kodachrome', 'Kodak Kodachrome 64', 'Rich reds, deep shadows, warm documentary color.',
-            { exposure: -8, contrast: 30, saturation: 25, warmth: 12, grain: 10 },
-            { gamma: [0.9, 1.02, 1.06], shadows: [0.0, 0.0, 0.015], highlights: [0.03, 0.01, -0.02], grainSize: 1 });
-        FILM('velvia50', 'Velvia 50', 'Fujifilm Velvia 50', 'Extreme saturation: electric greens and skies.',
-            { exposure: -10, contrast: 38, saturation: 60, tint: -5, grain: 6 },
-            { gamma: [1.0, 0.95, 0.94], shadows: [0.0, 0.0, 0.02], grainSize: 1 });
-        FILM('provia', 'Provia', 'Fujifilm Provia 100F', 'Clean, faithful, saturated but natural.',
-            { contrast: 20, saturation: 25, warmth: -3, grain: 8 },
-            { grainSize: 1 });
-        FILM('ektachrome', 'Ektachrome', 'Kodak Ektachrome E100', 'Cool, clean and contrasty, true blues.',
-            { contrast: 22, saturation: 18, warmth: -15, grain: 10 },
-            { gamma: [1.02, 1.0, 0.94], shadows: [-0.01, 0.0, 0.02], grainSize: 1 });
-        FILM('ctprecisa', 'CT Precisa', 'Agfa CT Precisa 100', 'Cool cyan-blue cast, punchy color.',
-            { contrast: 18, saturation: 25, warmth: -22, grain: 12 },
-            { gamma: [1.06, 0.98, 0.92], shadows: [0.0, 0.01, 0.04] });
-        FILM('xpro', 'Cross Pro', 'Cross-processed slide', 'Yellow-green highs, cyan shadows, huge contrast.',
-            { contrast: 45, saturation: 35, grain: 25 },
-            { gamma: [0.9, 0.85, 1.35], shadows: [-0.02, 0.02, 0.06], highlights: [0.05, 0.06, -0.08] });
-        // Cinema
-        FILM('cinestill800t', 'CineStill 800T', 'CineStill 800T', 'Tungsten movie film: cool nights, red halos.',
-            { contrast: 5, saturation: 5, warmth: -45, tint: 5, fade: 8, grain: 30, halation: 70 },
-            { gamma: [1.04, 1.0, 0.94], shadows: [-0.01, 0.01, 0.04], halColor: [1, 0.18, 0.08], grainSize: 1.3 });
-        FILM('cinestill50d', 'CineStill 50D', 'CineStill 50D', 'Daylight cinema: clean, fine, soft glow.',
-            { contrast: 8, saturation: 12, warmth: 5, grain: 8, halation: 35 },
-            { grainSize: 1 });
-        FILM('vision500t', 'Vision3', 'Kodak Vision3 500T', 'Teal shadows, warm skin, gentle roll-off.',
-            { contrast: -12, saturation: -8, warmth: -10, fade: 10, grain: 28, halation: 15 },
-            { shadows: [-0.02, 0.02, 0.04], highlights: [0.04, 0.02, -0.02] });
-        FILM('eterna', 'Eterna', 'Fujifilm Eterna 500', 'Flat, muted, moody with soft green shadows.',
-            { contrast: -20, saturation: -25, warmth: -5, fade: 12, grain: 15 },
-            { shadows: [-0.01, 0.015, 0.02] });
-        FILM('bleach', 'Bleach Byp', 'Bleach bypass', 'Desaturated, gritty, high-contrast silver look.',
-            { exposure: -5, contrast: 45, saturation: -60, grain: 25 });
-        // Black & white
-        FILM('trix', 'Tri-X 400', 'Kodak Tri-X 400', 'Punchy blacks, bright mids, gritty grain.',
-            { contrast: 30, grain: 45 },
-            { mono: 1, mix: [0.3, 0.6, 0.1], grainSize: 1.3 });
-        FILM('hp5', 'HP5 Plus', 'Ilford HP5 Plus 400', 'Softer, greyer, lifted shadows, visible grain.',
-            { contrast: 5, fade: 10, grain: 40 },
-            { mono: 1, grainSize: 1.3 });
-        FILM('tmax100', 'T-Max 100', 'Kodak T-Max 100', 'Smooth tones, almost invisible grain.',
-            { contrast: 15, grain: 10 },
-            { mono: 1, mix: [0.27, 0.62, 0.11], grainSize: 1 });
-        FILM('delta3200', 'Delta 3200', 'Ilford Delta 3200', 'Salt-and-pepper grain everywhere.',
-            { contrast: 25, fade: 6, grain: 85 },
-            { mono: 1, grainSize: 1.8 });
-        FILM('panf', 'Pan F 50', 'Ilford Pan F Plus 50', 'Razor sharp, contrasty, inky blacks.',
-            { contrast: 45, grain: 5 },
-            { mono: 1, mix: [0.35, 0.55, 0.1], grainSize: 1 });
-        FILM('fomapan', 'Fomapan', 'Fomapan 100 Classic', 'Old-school emulsion, a little soft and dark.',
-            { contrast: 20, fade: 8, grain: 35 },
-            { mono: 1 });
-        FILM('sepia', 'Sepia', 'Sepia-toned print', 'Warm brown toning of an old darkroom print.',
-            { contrast: -5, fade: 15, grain: 25 },
-            { mono: 1, shadows: [0.03, 0.0, -0.03], highlights: [0.06, 0.03, -0.04] });
-        // Instant (these come with their print frame)
-        FILM('polaroidcolor', 'Polaroid', 'Polaroid Color film', 'Soft, faded, warm, greenish shadows. White frame.',
-            { exposure: 5, contrast: -18, saturation: -15, warmth: 18, tint: -6, fade: 25, grain: 20 },
-            { gamma: [0.95, 0.93, 1.1], shadows: [0.0, 0.02, 0.04], highlights: [0.04, 0.04, -0.03], frame: 'polaroid' });
-        FILM('polaroidbw', 'Polaroid BW', 'Polaroid B&W film', 'Silvery, soft, slightly faded mono instant.',
-            { contrast: 10, fade: 18, grain: 22 },
-            { mono: 1, shadows: [0.0, 0.005, 0.015], highlights: [0.01, 0.01, 0.0], frame: 'polaroid' });
-        FILM('instax', 'Instax', 'Fujifilm Instax Mini film', 'Bright, cool, high-key instant print.',
-            { exposure: 15, contrast: 5, saturation: 10, warmth: -10, fade: 8, grain: 10 },
-            { frame: 'instax' });
+        // ── Film stocks (+ the lab scan) ──
+        const FILM_SCAN = { px: [1536, 1024], jpegQ: 0.85 }; // Kodak Picture CD, the 90s scan
+        const FILMS = {
+            gold400: { // what a 90s FunSaver came loaded with
+                adj: { contrast: 10, saturation: 12, warmth: 10, grain: 20 },
+                look: {
+                    matrix: [[1.05, -0.01, -0.04], [0.0, 1.02, -0.02], [-0.03, 0.01, 1.02]],
+                    shoulder: 0.4, gamma: [0.97, 1.0, 1.04], highlights: [0.02, 0.012, -0.015], grainSize: 1.25,
+                },
+            },
+        };
 
-        // ── Cameras ──
-        // adj: color nudges (added to the film's) + optics (vignette/blur/leak/chroma/halation,
-        // added too) · frame/date: print features. Cameras never set the lens.
+        // ── Digital still sensors ──
+        const SENSORS = {
+            quicktake100: { // 1994 · 640×480
+                px: [640, 480], jpegQ: 0.5,
+                adj: { exposure: -4, contrast: -4, saturation: -22, warmth: 10, fade: 6, grain: 16 },
+                look: {
+                    matrix: [[0.9, 0.12, -0.02], [0.06, 0.9, 0.04], [0.02, 0.1, 0.88]],
+                    white: 0.88, black: 0.05, noiseType: 1, noiseColor: 0.7, soft: 1, chromaSub: [3, 3],
+                },
+            },
+        };
+
+        // ── Video formats ──
+        // px = stored frame; anamorphic = stored pixels aren't square (DV's 720×480 shows as
+        // 4:3 or 16:9). jpegQ = per-frame quality for stills/preview: analog formats have
+        // no block compression of their own (0.92), DV is intra-frame DCT (≈0.85).
+        const VIDEO_FORMATS = {
+            video8: {
+                px: [320, 240], jpegQ: 0.85, kbps: 700, audio: 'B', stereo: false, tapeFx: true,
+                adj: { contrast: 4, saturation: -8, warmth: 4, grain: 12 },
+                look: { tape: 1, chromaSub: [4, 1], interlace: 1, noiseType: 2, white: 0.92, black: 0.03, sharpen: 0.3, soft: 1.1 },
+            },
+            hi8: {
+                px: [400, 300], jpegQ: 0.85, kbps: 800, audio: 'B', stereo: true, tapeFx: true,
+                adj: { contrast: 4, saturation: -4, warmth: 2, grain: 10 },
+                look: { tape: 0.75, chromaSub: [4, 1], interlace: 1, noiseType: 2, white: 0.93, black: 0.02, sharpen: 0.3, soft: 0.9 },
+            },
+            minidv: {
+                px: [720, 480], anamorphic: true, formats: ['4:3', '16:9'], jpegQ: 0.7, kbps: 1500, audio: 'C', stereo: true, tapeFx: false,
+                adj: { contrast: 8, saturation: 2, warmth: -3, grain: 5 },
+                look: { noiseType: 1, noiseColor: 0.3, sharpen: 0.3, chromaSub: [4, 1], white: 0.94, black: 0.01, soft: 1.2 },
+            },
+            vhsc: { // the user's VHS-filter reference clips
+                px: [320, 240], jpegQ: 0.75, kbps: 700, audio: 'B', stereo: false, tapeFx: true,
+                adj: { exposure: 6, contrast: 14, saturation: 18, warmth: 2, tint: 24, fade: 14, grain: 12 },
+                look: { soft: 1, chromaSub: [4, 1], tape: 0.8, sharpen: 1, interlace: 1, noiseType: 2, white: 0.93, shadows: [0.05, 0.0, 0.08], highlights: [0.05, 0.0, 0.05] },
+            },
+            vhsslp: { // the user's "PLAY Ch 01 … SLP" reference clip
+                px: [280, 210], jpegQ: 0.7, kbps: 500, audio: 'B', stereo: false, tapeFx: true,
+                adj: { exposure: 4, contrast: 26, saturation: 20, warmth: -30, tint: 26, fade: 10, grain: 16 },
+                look: { soft: 1.4, chromaSub: [5, 1], tape: 1, sharpen: 1.1, interlace: 1, noiseType: 2, white: 0.92, gamma: [1.0, 1.05, 0.85], shadows: [0.04, 0.0, 0.1], highlights: [0.0, 0.02, 0.06] },
+            },
+            nightshot: { // Hi8 NightShot (infrared)
+                px: [400, 300], jpegQ: 0.92, kbps: 900, audio: 'B', stereo: true, tapeFx: true,
+                adj: { exposure: 8, contrast: 24, grain: 30, halation: 20 },
+                look: { soft: 0.8, mono: 1, sharpen: 0.4, interlace: 1, tape: 0.4, chromaSub: [3, 1], noiseType: 2, halColor: [0.9, 1, 0.9], duo: [[0.0, 0.05, 0.0], [0.82, 1.0, 0.78]] },
+            },
+        };
+
+        // ── Audio (video recording only) ──
+        // A: built-in mic of a consumer digital camera · B: Video8/Hi8 home video ·
+        // C: MiniDV digital (48 kHz/16-bit, or the 32 kHz/12-bit mode).
+        // hp/lp: high-/low-pass Hz · eq: peaking filters · hiss: tape hiss (only with the
+        // optional tape-artifacts layer) · crush: 12-bit quantization.
+        const AUDIO_PROFILES = {
+            A: { hp: 150, lp: 8000, eq: [{ f: 2500, g: 2, q: 1 }], hiss: 0 },
+            B: { hp: 100, lp: 12000, eq: [{ f: 220, g: 1.5, q: 0.8 }, { f: 4000, g: -2, q: 0.9 }], hiss: 0.0025 },
+            C: { hp: 60, lp: 15500, eq: [{ f: 3000, g: 1, q: 1 }], hiss: 0 },
+            C32: { hp: 60, lp: 14500, eq: [{ f: 3000, g: 1, q: 1 }], hiss: 0, crush: 12 },
+        };
+
+        // ── Presets ──
         const CAMERAS = {};
         const CAMERA_ORDER = [];
-        function CAMERA(key, label, name, desc, adj, extra) {
-            CAMERAS[key] = Object.assign({ key, label, name, desc, adj: adj || {}, frame: null, date: false, leakColor: [1, 0.42, 0.12], grainMul: 1 }, extra || {});
+        // parts: { body, film | sensor | video, formats, date, dateOn, flashOn, sound }
+        function CAMERA(key, label, name, desc, parts) {
+            const body = BODIES[parts.body];
+            const medium = parts.film ? FILMS[parts.film] : parts.sensor ? SENSORS[parts.sensor] : VIDEO_FORMATS[parts.video];
+            const kind = parts.film ? 'film' : parts.sensor ? 'digital' : 'video';
+            const adj = Object.assign({}, medium.adj);
+            Object.keys(body.adj).forEach((k) => { adj[k] = (adj[k] || 0) + body.adj[k]; });
+            const look = Object.assign({}, LOOK_DEFAULTS, medium.look);
+            look.soft = (look.soft || 0) + body.soft;
+            const px = kind === 'film' ? FILM_SCAN.px : medium.px;
+            CAMERAS[key] = {
+                key, label, name, desc, kind, adj, look, body, parts,
+                px, vpx: kind === 'film' ? [960, 640] : px,
+                anamorphic: !!medium.anamorphic,
+                formats: parts.formats || medium.formats || [kind === 'film' ? '3:2' : (Math.abs(px[0] / px[1] - 1.5) < 0.02 ? '3:2' : '4:3')],
+                jpegQ: kind === 'film' ? FILM_SCAN.jpegQ : medium.jpegQ,
+                kbps: medium.kbps || (kind === 'film' ? 3000 : 1200),
+                // Sound with video: the format's own; a digital still camera's built-in mic
+                // (A); film cameras have none, so the original sound is kept.
+                audio: kind === 'video' ? medium.audio : kind === 'digital' ? 'A' : null,
+                stereo: kind === 'video' ? !!medium.stereo : false,
+                tapeFx: kind === 'video' && !!medium.tapeFx,
+                flash: body.flash, flashOn: !!parts.flashOn,
+                date: parts.date || false, dateOn: !!parts.dateOn,
+                sound: parts.sound,
+            };
             CAMERA_ORDER.push(key);
         }
-        CAMERA('ae1', 'Canon AE-1', 'Canon AE-1', 'The best-selling 70s SLR. Clean, honest optics.',
-            { vignette: 12 });
-        CAMERA('fm2', 'Nikon FM2', 'Nikon FM2', 'All-mechanical 80s SLR, crisp Nikkor glass.',
-            { contrast: 4, vignette: 10 });
-        CAMERA('k1000', 'Pentax K1000', 'Pentax K1000', 'The student classic. Simple and a little warm.',
-            { warmth: 4, vignette: 14 });
-        CAMERA('om1', 'Olympus OM-1', 'Olympus OM-1', 'Compact 70s SLR with soft Zuiko rendering.',
-            { contrast: -4, vignette: 12, blur: 4 });
-        CAMERA('leicam3', 'Leica M3', 'Leica M3', 'Rangefinder legend: deep contrast, gentle falloff.',
-            { contrast: 6, vignette: 18 });
-        CAMERA('contaxt2', 'Contax T2', 'Contax T2', 'Luxury compact, razor-sharp Zeiss 38mm.',
-            { contrast: 6, saturation: 4, vignette: 12 });
-        CAMERA('mju', 'Mju II', 'Olympus Mju II', '90s point-and-shoot with the orange date stamp.',
-            { contrast: 6, saturation: 6, vignette: 20 }, { date: true });
-        CAMERA('t4', 'Yashica T4', 'Yashica T4', 'Cult compact: punchy, sharp, date stamp.',
-            { contrast: 8, saturation: 6, vignette: 16 }, { date: true });
-        CAMERA('disposable', 'Disposable', 'Kodak FunSaver', 'Single-use party camera: flash look, soft corners, date.',
-            { exposure: 5, contrast: 6, saturation: 6, vignette: 30, blur: 15, chroma: 15 }, { date: true, grainMul: 1.15 });
-        CAMERA('lca', 'Lomo LC-A', 'Lomo LC-A', 'Heavy vignette, saturated, contrasty — the Lomography original.',
-            { contrast: 10, saturation: 15, vignette: 70 });
-        CAMERA('holga', 'Holga 120', 'Holga 120N', 'Plastic toy lens: soft edges, dark corners, light leaks.',
-            { contrast: 6, vignette: 75, leak: 45, blur: 55, chroma: 20 }, { leakColor: [1, 0.3, 0.05], grainMul: 1.15 });
-        CAMERA('diana', 'Diana F+', 'Diana F+', 'Dreamy 60s toy camera: hazy, glowing, leaky.',
-            { contrast: -10, saturation: -8, warmth: 6, fade: 10, vignette: 55, halation: 18, leak: 25, blur: 45 });
-        CAMERA('instamatic', 'Instamatic', 'Kodak Instamatic', '70s snapshots: faded, warm-magenta, soft corners.',
-            { contrast: -5, saturation: -8, warmth: 10, tint: 10, fade: 12, vignette: 40, blur: 15 });
-        CAMERA('penf', 'Olympus Pen', 'Olympus Pen F (half-frame)', 'Half-frame: twice the shots, a little more grain.',
-            { vignette: 15 }, { grainMul: 1.35 });
-        CAMERA('sx70', 'SX-70', 'Polaroid SX-70', 'Folding 1972 instant SLR. Soft, dreamy, framed.',
-            { vignette: 25, blur: 15 }, { frame: 'polaroid' });
-        CAMERA('onestep', 'OneStep', 'Polaroid OneStep 600', 'Point-and-shoot instant with a bright flash look.',
-            { exposure: 6, vignette: 18, blur: 8 }, { frame: 'polaroid' });
-        CAMERA('instaxmini', 'Instax Mini', 'Fujifilm Instax Mini', 'Credit-card-size instant prints.',
-            { vignette: 10 }, { frame: 'instax' });
-        CAMERA('rollei', 'Rolleiflex', 'Rolleiflex 2.8F', 'Twin-lens medium format: smooth, gentle falloff.',
-            { contrast: -4, vignette: 15, blur: 5 }, { grainMul: 0.7 });
-        CAMERA('hasselblad', 'Hasselblad', 'Hasselblad 500C/M', 'Medium format: huge, clean negatives.',
-            { vignette: 8 }, { grainMul: 0.6 });
-        CAMERA('super8', 'Super 8', 'Canon 514XL Super 8', 'Home movies: warm, soft, grainy, flickering leak.',
-            { contrast: 6, warmth: 10, fade: 8, vignette: 50, leak: 15, blur: 25, chroma: 10 }, { grainMul: 1.6 });
+
+        CAMERA('funsaver', 'FunSaver', 'Kodak FunSaver single-use (90s)', 'Plastic fixed-focus lens and direct flash on Kodak 400 film.',
+            { body: 'funsaver', film: 'gold400', flashOn: true, sound: 'disposable' });
+        CAMERA('video8', 'Video8', 'Sony Handycam · Video8', 'Soft analog home video, low color resolution, interlaced.',
+            { body: 'handycam', video: 'video8', date: 'osd', sound: 'camcorder' });
+        CAMERA('hi8', 'Hi8', 'Sony Handycam · Hi8', 'More detail than Video8, soft analog color, restrained bleed.',
+            { body: 'handycam', video: 'hi8', date: 'osd', sound: 'camcorder' });
+        CAMERA('minidv', 'MiniDV', 'Sony Handycam · MiniDV (late 90s)', 'Clean digital SD: 720×480, 4:1:1 color, DV compression.',
+            { body: 'handycamDV', video: 'minidv', date: 'osd', sound: 'camcorder' });
+        CAMERA('vhs92', "VHS '92", 'VHS-C camcorder (1992)', 'Faded pink-lilac tape, edge halos, CAMERA1 / PLAY on screen.',
+            { body: 'vhsCam', video: 'vhsc', date: 'cam92', dateOn: true, sound: 'camcorder' });
+        CAMERA('vhsslp', 'VHS SLP', 'VHS tape, SLP long-play', 'Played-back tape: violet-blue cast, bleeding color.',
+            { body: 'vhsCam', video: 'vhsslp', date: 'slp', dateOn: true, sound: 'camcorder' });
+        CAMERA('nightshot', 'NightShot', 'Sony Hi8 NightShot (1998)', 'Infrared night mode: glowing green-white, noisy.',
+            { body: 'nightshot', video: 'nightshot', date: 'osd', sound: 'camcorder' });
+        CAMERA('quicktake', 'QuickTake', 'Apple QuickTake 100 (1994)', '640×480 consumer digital: muddy, soft, noisy.',
+            { body: 'quicktake', sensor: 'quicktake100', sound: 'earlydigi' });
+
+        // ── User controls (panel 02) ──
+        // Sensible defaults that keep image quality. Flash and date are per preset (each
+        // preset's own default until the user flips it); the rest apply to every preset.
+        const CONTROLS = { intensity: 100, grain: 100, color: 100, wb: 'auto', tapeFx: false, sound: 'camera' };
+        const PRESET_TOGGLES = {};
+        function presetToggle(cam, k) {
+            const o = PRESET_TOGGLES[cam.key];
+            return (o && o[k] != null) ? o[k] : cam[k + 'On'];
+        }
+        const WB_WARMTH = { auto: 0, warm: 16, cool: -16 };
 
         // ── Lenses (the side slider) ──
-        // A lens never crops or zooms — the whole frame always stays in view. It changes how
-        // space *feels*: wide lenses bulge the scene toward you (barrel distortion, heavier
-        // corners); long lenses fall off into soft, glowing out-of-focus surroundings around a
-        // sharp center (shallow depth of field). No pincushion for long lenses: keeping the
-        // full frame with pincushion would need pixels from outside the frame (smeared
-        // edges). distort: barrel strength (≥0) · circle: round fisheye image ·
-        // dof: depth-of-field falloff strength · vignette: added to the camera's.
+        // Like really changing lenses: a lens is a focal length, and focal length is field of
+        // view. The phone's main camera ≈ 26mm and its ultra-wide ≈ 13mm (35mm-equivalent);
+        // a longer lens crops in by focal/26 (hardware zoom first, then a crop of the camera
+        // feed — exactly a digicam's digital zoom when the phone can't reach optically). No
+        // fake depth-of-field blur, no fake bulge: rectilinear lenses are clean. The two
+        // fisheyes are real optics: `globe` squeezes the whole feed into the circle (rim
+        // stretched), `fish` bulges the center. focal: 35mm-equivalent · circle: fisheye type ·
+        // distort: barrel strength (fisheye zoom only) · vignette: added to the camera's.
+        const PHONE_MAIN_FOCAL = 26;
+        const PHONE_UW_FOCAL = 13;
         const LENSES = [
-            { key: 'fish', label: '8mm', name: 'Fisheye', feel: 'Round 180° world', distort: 1.4, circle: 1, dof: 0, vignette: 10 },
-            { key: '24', label: '24mm', name: 'Ultra wide', feel: 'Space bulges toward you', distort: 0.28, circle: 0, dof: 0, vignette: 18 },
-            { key: '28', label: '28mm', name: 'Wide', feel: 'Open, deep, everything sharp', distort: 0.12, circle: 0, dof: 0, vignette: 10 },
-            { key: '35', label: '35mm', name: 'Street', feel: 'Natural with a little depth', distort: 0.06, circle: 0, dof: 0.1, vignette: 5 },
-            { key: '50', label: '50mm', name: 'Normal', feel: 'How the eye sees', distort: 0, circle: 0, dof: 0.28, vignette: 3 },
-            { key: '85', label: '85mm', name: 'Portrait', feel: 'Sharp subject, soft background', distort: 0, circle: 0, dof: 0.65, vignette: 2 },
-            { key: '135', label: '135mm', name: 'Tele', feel: 'Isolated subject, creamy blur', distort: 0, circle: 0, dof: 1, vignette: 2 },
+            { key: 'globe', label: '8mm', name: 'Globe fisheye', feel: 'The whole world bent into a bubble', focal: 8, distort: 0, circle: 2, vignette: 16 },
+            { key: 'fish', label: '10mm', name: 'Fisheye zoom', feel: 'Round, bulging center', focal: 10, distort: 1.4, circle: 1, vignette: 8 },
+            { key: '24', label: '24mm', name: 'Wide', feel: 'Wide field of view', focal: 24, distort: 0, circle: 0, vignette: 4 },
+            { key: '28', label: '28mm', name: 'Wide-normal', feel: 'A little wider than the eye', focal: 28, distort: 0, circle: 0, vignette: 2 },
+            { key: '35', label: '35mm', name: 'Classic compact', feel: 'The wide end of most old cameras', focal: 35, distort: 0, circle: 0, vignette: 0 },
+            { key: '50', label: '50mm', name: 'Normal', feel: 'How the eye sees', focal: 50, distort: 0, circle: 0, vignette: 0 },
+            { key: '85', label: '85mm', name: 'Portrait', feel: 'Tighter framing, flatter faces', focal: 85, distort: 0, circle: 0, vignette: 0 },
+            { key: '135', label: '135mm', name: 'Tele', feel: 'Far things pulled close', focal: 135, distort: 0, circle: 0, vignette: 0 },
         ];
         function lensIndex(key) { return Math.max(0, LENSES.findIndex((l) => l.key === key)); }
 
-        const DEFAULT_CAMERA_KEY = 'ae1';
-        const DEFAULT_FILM_KEY = 'portra400';
+        const DEFAULT_CAMERA_KEY = 'vhs92';
         let ACTIVE_CAMERA_KEY = DEFAULT_CAMERA_KEY;
-        let ACTIVE_FILM_KEY = DEFAULT_FILM_KEY;
-        // 50mm = "normal", closest to no lens character. Only the lens slider changes
+        // 28mm: about the phone's own view, slightly tighter. Only the lens slider changes
         // this — never the camera picker.
-        const DEFAULT_LENS_KEY = '50';
+        const DEFAULT_LENS_KEY = '28';
         let ACTIVE_LENS_KEY = DEFAULT_LENS_KEY;
         let __filmSettingsCache = null;
 
-        function combineLook(cameraKey, filmKey, lensKey) {
+        // How much a lens crops in from a feed of a given focal length (≥1; a fisheye or a
+        // lens wider than the feed just uses the whole feed).
+        function lensCropZoom(lens, feedFocal) {
+            if (lens.circle) return 1;
+            return Math.max(1, lens.focal / (feedFocal || PHONE_MAIN_FOCAL));
+        }
+
+        // Each camera's chosen frame format (from its own formats list; remembered per
+        // camera). The format pill cycles it.
+        const FORMAT_RATIO = { '4:3': 4 / 3, '3:2': 3 / 2, '16:9': 16 / 9 };
+        const ACTIVE_FORMATS = {};
+        function cameraFormat(cam) {
+            const f = ACTIVE_FORMATS[cam.key];
+            return cam.formats.indexOf(f) >= 0 ? f : cam.formats[0];
+        }
+        // The active camera's frame: its native pixels in its current format (the long side
+        // stays, the short side follows the format), upright for Live (phone held vertically
+        // = camera held vertically), or matching an uploaded photo's orientation.
+        // Anamorphic formats (DV) keep their stored pixels whatever the display shape.
+        function cameraDims(cam, video, landscape) {
+            const p = video ? cam.vpx : cam.px;
+            const R = FORMAT_RATIO[cameraFormat(cam)];
+            let w = p[0], h = p[1];
+            if (!cam.anamorphic && Math.abs(w / h - R) > 0.01) h = Math.max(2, Math.round(w / R));
+            return landscape ? { w, h } : { w: h, h: w };
+        }
+        // The shape the frame is SHOWN at (w / h) — differs from cameraDims() for DV.
+        function cameraAspect(cam, landscape) {
+            const R = FORMAT_RATIO[cameraFormat(cam)];
+            return landscape ? R : 1 / R;
+        }
+
+        function combineLook(cameraKey, lensKey) {
             const cam = CAMERAS[cameraKey] || CAMERAS[DEFAULT_CAMERA_KEY];
-            const f = FILMS[filmKey] || FILMS[DEFAULT_FILM_KEY];
             const lens = LENSES[lensIndex(lensKey)];
             const adj = {};
             Object.keys(LOOK_PARAMS).forEach((k) => {
-                let v = (f.adj[k] != null ? f.adj[k] : LOOK_PARAMS[k]) + (cam.adj[k] || 0);
+                let v = (cam.adj[k] != null ? cam.adj[k] : LOOK_PARAMS[k]);
                 if (k === 'vignette') v += lens.vignette;
+                if (k === 'warmth') v += WB_WARMTH[CONTROLS.wb] || 0;
+                if (k === 'grain') v *= CONTROLS.grain / 100;
                 const r = PARAM_RANGE[k] || [0, 100];
                 adj[k] = Math.max(r[0], Math.min(r[1], v));
             });
-            const look = Object.assign({}, f.look, {
-                leakColor: cam.leakColor,
-                grainSize: f.look.grainSize * cam.grainMul,
-            });
+            adj.intensity = CONTROLS.intensity;
+            const look = Object.assign({}, cam.look, { colorMul: CONTROLS.color / 100 });
+            const flashOn = !!cam.flash && presetToggle(cam, 'flash');
             return {
-                key: cam.key + '_' + f.key, camera: cam, film: f, lens,
-                adj, look, seed: hashKey(cam.key + f.key),
-                frame: cam.frame || f.look.frame,
-                date: !!cam.date,
+                key: cam.key + '_' + lens.key, camera: cam, lens,
+                adj, look, seed: hashKey(cam.key),
+                date: presetToggle(cam, 'date') ? cam.date : false,
+                flash: flashOn ? cam.flash : null,
+                tapeFx: cam.tapeFx && CONTROLS.tapeFx,
             };
         }
-        // Read every frame by the Live loop, so cached — anything that changes the camera,
-        // film or lens must null __filmSettingsCache (the setters below do).
+        // Read every frame by the Live loop, so cached — anything that changes the camera
+        // or lens must null __filmSettingsCache (the setters below do).
         function activeFilmSettings() {
-            if (!__filmSettingsCache) __filmSettingsCache = combineLook(ACTIVE_CAMERA_KEY, ACTIVE_FILM_KEY, ACTIVE_LENS_KEY);
+            if (!__filmSettingsCache) __filmSettingsCache = combineLook(ACTIVE_CAMERA_KEY, ACTIVE_LENS_KEY);
             return __filmSettingsCache;
         }
 
         // ═══════════════════════════════════════════════════
         //  FILM ENGINE (WebGL)
         // ═══════════════════════════════════════════════════
-        // One full-screen-quad fragment shader does the whole look per pixel: chromatic
-        // fringing → edge (toy-lens) blur → halation → exposure → B&W mix → saturation →
-        // white balance → contrast → per-channel curve → split tone → fade → light leak →
-        // vignette → grain → intensity mix with the untouched source. The source (camera
+        // One full-screen-quad fragment shader does the whole look per pixel, rendered at the
+        // camera's own resolution: sensor sampling (+ interlaced fields) → tape bandwidth /
+        // chroma subsampling → edge enhancement → fringing → toy-lens
+        // blur → bloom → exposure → B&W mix → saturation → white balance → contrast →
+        // per-channel curve → split tone → fade → vignette → noise → duotone. The source (camera
         // <video>, rotated canvas, or uploaded photo) is uploaded as a texture each render;
         // the crop/zoom/mirror is a UV transform (uSrcOff + uv * uSrcScale), not a 2D draw.
         const FILM_VERT = `
@@ -3123,125 +3367,245 @@ precision highp float;
 precision mediump float;
 #endif
 varying vec2 vUv;
-uniform sampler2D uTex;
-uniform vec2 uSrcOff, uSrcScale, uOutSize;
+uniform sampler2D uTex, uPrev;
+uniform vec2 uSrcOff, uSrcScale, uOutSize, uNative, uChromaSub;
+uniform float uAspect;
 uniform float uIntensity, uExposure, uContrast, uSaturation, uWarmth, uTint, uFade;
-uniform float uGrain, uGrainScale, uVignette, uHalation, uLeak, uBlur, uChroma, uMono;
-uniform float uTime, uSeed, uDistort, uCircle, uDof;
-uniform vec3 uMix, uGamma, uShadows, uHighlights, uHalColor, uLeakColor;
+uniform float uGrain, uGrainScale, uVignette, uHalation, uBlur, uChroma, uMono;
+uniform float uTime, uSeed, uDistort, uCircle;
+uniform float uSoft, uSharpen, uNoiseColor, uNoiseType, uTape, uInterlace, uDuo, uTapeFx;
+uniform float uShoulder, uWhite, uBlack;
+uniform float uFlash, uFlashReach;
+uniform mat3 uMatrix;
+uniform vec3 uMix, uGamma, uShadows, uHighlights, uHalColor, uDuoLo, uDuoHi, uFlashColor;
 const vec3 LUMA = vec3(0.2126, 0.7152, 0.0722);
 
-vec3 src(vec2 uv) { return texture2D(uTex, uSrcOff + clamp(uv, 0.0, 1.0) * uSrcScale).rgb; }
+// One camera-feed sample. Interlaced (480i) formats build each frame from two fields
+// captured 1/60 s apart — every other native line comes from the previous frame, which
+// is what makes moving edges comb (real field structure, not lines drawn on top).
+vec3 src(vec2 uv) {
+    vec2 t = uSrcOff + clamp(uv, 0.0, 1.0) * uSrcScale;
+    if (uInterlace > 0.5 && mod(floor(uv.y * uNative.y), 2.0) > 0.5) return texture2D(uPrev, t).rgb;
+    return texture2D(uTex, t).rgb;
+}
+// What one native pixel records: the light over its whole area (a box of taps), widened
+// by limited optics / processing (uSoft, in native pixels) — the frame is already
+// downsampled to the camera's resolution; this is limited detail, not a big blur.
+vec3 sensor(vec2 uv) {
+    vec2 o = (0.3 + uSoft * 0.45) / uNative;
+    vec3 c = (src(uv - o) + src(uv + o) + src(uv + vec2(o.x, -o.y)) + src(uv + vec2(-o.x, o.y))) * 0.25;
+    if (uSoft < 0.5) return c;
+    vec2 q = o * 1.6;
+    vec3 c2 = (src(uv + vec2(q.x, 0.0)) + src(uv - vec2(q.x, 0.0)) + src(uv + vec2(0.0, q.y)) + src(uv - vec2(0.0, q.y))) * 0.25;
+    return mix(c, c2, 0.4);
+}
 
-// Lens: barrel distortion (output → source radius r*(1+k r^2)/(1+k), so the center bulges
-// and the edges compress); a fisheye also squeezes the whole frame into a circle.
+// Lens: barrel distortion (fisheye zoom) or the globe fisheye (uCircle 2: the whole frame
+// squeezed into the circle, center shrunk, rim stretched; the circle's edge lands on the
+// frame border in every direction, so nothing outside the frame is needed).
 vec2 lensUV(vec2 uv, float ar) {
+    if (uCircle > 1.5) {
+        vec2 p = (uv - 0.5) * vec2(ar, 1.0);
+        float R = min(ar, 1.0) * 0.5 * 1.08;
+        float len = length(p);
+        if (len < 0.0001) return vec2(0.5);
+        float r = min(len / R, 1.0);
+        vec2 dir = p / len;
+        float hw = ar * 0.5, hh = 0.5;
+        float rect = min(hw / max(abs(dir.x), 0.0001), hh / max(abs(dir.y), 0.0001));
+        float g = mix(min(hw, hh), rect, smoothstep(0.0, 1.0, r));
+        return 0.5 + dir * sin(r * 1.5708) * g / vec2(ar, 1.0);
+    }
     if (abs(uDistort) < 0.001) return uv;
     vec2 p = (uv - 0.5) * vec2(ar, 1.0);
     float halfDiag = length(vec2(ar, 1.0)) * 0.5;
     float R = (uCircle > 0.5) ? min(ar, 1.0) * 0.5 : halfDiag;
     float r = length(p) / R;
     float sr = r * (1.0 + uDistort * r * r) / (1.0 + uDistort);
-    // A round fisheye only reaches out to its own circle, so the whole image stays inside
-    // the source frame (reaching to the corners would smear clamped edge pixels on a tall
-    // frame); a plain barrel lens keeps the full frame, corner to corner.
     vec2 q = (r > 0.0001) ? normalize(p) * sr * R : vec2(0.0);
     return 0.5 + q / vec2(ar, 1.0);
 }
 float hash(vec2 p) { p = mod(p, 1024.0); return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+// Triangular noise for one noise "frame" t.
+float tri(vec2 p, float t) { vec2 o = vec2(t * 7.31, t * 3.17); return hash(p + o) + hash(p + o + 37.17) - 1.0; }
+// Temporally coherent noise: cross-fades between noise frames 1/24 s apart instead of a
+// fresh random field every render — moves like grain/noise, never flickers.
+float tnoise(vec2 p) {
+    float tn = uTime * 24.0, t0 = floor(tn), tf = fract(tn);
+    return mix(tri(p, t0), tri(p, t0 + 1.0), tf) * (1.0 + 0.5 * tf * (1.0 - tf) * 2.0);
+}
 
 void main() {
-    float ar = uOutSize.x / uOutSize.y;
+    float ar = uAspect;
     vec2 uv = lensUV(vUv, ar);
     vec2 cen = vUv - 0.5;
     float r2 = dot(cen, cen) * 2.0;
+    vec2 px = 1.0 / uNative;
+    // Tape timebase error: each scan line lands a fraction of a pixel off.
+    if (uTape > 0.001) uv.x += (hash(vec2(floor(vUv.y * uNative.y), floor(uTime * 30.0))) - 0.5) * px.x * 1.2 * uTape;
     vec3 orig = src(uv);
-    vec3 col = orig;
 
+    // ── 1. Resolution / optics ──
+    vec3 col = sensor(uv);
+    // Analog tape can't hold fine horizontal luma detail.
+    if (uTape > 0.001) {
+        vec2 h = vec2(px.x * 1.6 * uTape, 0.0);
+        col = (col * 2.0 + src(uv - h) + src(uv + h)) * 0.25;
+    }
+    // Color resolution: analog tape's color lags and smears to the right (visible only at
+    // color edges); a digital file stores one color per block (JPEG 2×2, DV 4×1).
+    if (uTape > 0.001 || uChromaSub.x > 1.01 || uChromaSub.y > 1.01) {
+        vec3 cc = vec3(0.0);
+        if (uTape > 0.001) {
+            for (int i = 0; i < 6; i++) cc += src(uv - vec2((float(i) + 0.5) * px.x * uChromaSub.x * 0.6, 0.0));
+            cc /= 6.0;
+        } else {
+            vec2 cs = px * uChromaSub;
+            cc = src((floor(uv / cs) + 0.5) * cs);
+        }
+        col = vec3(dot(col, LUMA)) + cc - vec3(dot(cc, LUMA));
+    }
+    // In-camera edge enhancement.
+    if (uSharpen > 0.001) {
+        vec3 nb = (src(uv + vec2(px.x * 1.5, 0.0)) + src(uv - vec2(px.x * 1.5, 0.0)) + src(uv + vec2(0.0, px.y * 1.5)) + src(uv - vec2(0.0, px.y * 1.5))) * 0.25;
+        col += (col - nb) * uSharpen * 1.2;
+    }
+    col = clamp(col, 0.0, 1.0);
     if (uChroma > 0.001) {
         vec2 ca = cen * uChroma * 0.014;
-        col.r = src(uv + ca).r;
-        col.b = src(uv - ca).b;
+        col.r = mix(col.r, src(uv + ca).r, 0.8);
+        col.b = mix(col.b, src(uv - ca).b, 0.8);
     }
+    // Simple lenses: softer toward the edges (the center stays sharp).
     if (uBlur > 0.001) {
-        float rad = uBlur * (0.15 + r2) * 0.012;
+        float rad = uBlur * r2 * 0.012;
         vec3 acc = col;
         for (int i = 0; i < 8; i++) {
             float a = float(i) * 0.785398;
             acc += src(uv + vec2(cos(a), sin(a) * ar) * rad);
         }
-        col = acc / 9.0;
-    }
-    if (uDof > 0.001) {
-        // Long-lens depth of field: sharp center, surroundings melt into a disk blur whose
-        // highlights are weighted up so they bloom like bokeh.
-        float rad = uDof * smoothstep(0.06, 0.55, r2) * 0.02;
-        if (rad > 0.0002) {
-            vec3 acc = col;
-            float wsum = 1.0;
-            for (int i = 0; i < 12; i++) {
-                float a = float(i) * 0.523599 + 0.26;
-                float rr = (mod(float(i), 2.0) < 0.5) ? 1.0 : 0.55;
-                vec3 sm = src(uv + vec2(cos(a), sin(a) * ar) * rad * rr);
-                float bw = 1.0 + 2.5 * max(0.0, dot(sm, LUMA) - 0.7);
-                acc += sm * bw;
-                wsum += bw;
-            }
-            col = acc / wsum;
-        }
+        col = mix(col, acc / 9.0, smoothstep(0.05, 0.6, r2));
     }
     if (uHalation > 0.001) {
         float glow = 0.0;
         for (int i = 0; i < 12; i++) {
             float a = float(i) * 0.523599;
             float rr = (mod(float(i), 2.0) < 0.5) ? 0.022 : 0.011;
-            vec3 s = src(uv + vec2(cos(a), sin(a) * ar) * rr);
-            glow += max(0.0, dot(s, LUMA) - 0.6);
+            glow += max(0.0, dot(src(uv + vec2(cos(a), sin(a) * ar) * rr), LUMA) - 0.6);
         }
-        glow = glow / 12.0 / 0.4;
-        col += uHalColor * glow * uHalation * 1.6;
+        col += uHalColor * (glow / 12.0 / 0.4) * uHalation * 1.6;
     }
 
+    // ── 2. Direct flash ──
+    // A phone gives no depth, so distance is approximated by position: the subject (center,
+    // a little low) is nearest and the light falls off toward the edges and top (inverse-
+    // square-like). The camera exposes for the flash, so the ambient scene drops; the
+    // subject is lit by its own colors with the ambient shading flattened; a near subject's
+    // edges throw a hard shadow down and to the side. An approximation, documented.
+    if (uFlash > 0.001) {
+        vec2 fc = (vUv - vec2(0.5, 0.56)) * vec2(ar, 1.0);
+        float near = 1.0 / (1.0 + dot(fc, fc) / (uFlashReach * uFlashReach) * 2.0);
+        near *= near;
+        float lum = dot(col, LUMA);
+        // Reflectance: the scene's own color, its brightness pulled toward a lit midtone
+        // (the flash, not the room, now lights it).
+        // (Truly dark things — a black shirt — stay dark: the lift is capped at 3×.)
+        vec3 alb = col * min(mix(lum, 0.55, 0.6) / max(lum, 0.01), 3.0);
+        // The flash is white: take out the room light's color cast (gray-world estimate
+        // from five samples) from what the flash lights.
+        vec3 ill = (src(vec2(0.25)) + src(vec2(0.75, 0.25)) + src(vec2(0.5)) + src(vec2(0.25, 0.75)) + src(vec2(0.75))) / 5.0;
+        ill /= max(dot(ill, LUMA), 0.02);
+        alb /= mix(vec3(1.0), max(ill, vec3(0.2)), 0.8 * smoothstep(0.03, 0.2, lum));
+        // Shadow only on the far side of an edge: where the neighbor toward the flash is
+        // brighter (a near subject) than this pixel (the background behind it).
+        vec2 so = vec2(-0.010, -0.014);
+        float rise = dot(sensor(uv + so), LUMA) - lum;
+        float sh = smoothstep(0.08, 0.3, rise) * near;
+        col = col * (1.0 - 0.6 * uFlash) + alb * uFlashColor * near * uFlash;
+        col *= 1.0 - sh * 0.35 * uFlash;
+    }
+
+    // ── 3. Color ──
     col *= uExposure;
+    col = uMatrix * col;
     if (uMono > 0.5) col = vec3(dot(col, uMix));
     float l = dot(col, LUMA);
     col = mix(vec3(l), col, uSaturation);
     col.r *= 1.0 + uWarmth * 0.14;
     col.g *= 1.0 + uWarmth * 0.03 - uTint * 0.09;
     col.b *= 1.0 - uWarmth * 0.16;
-    col = clamp(col, 0.0, 1.0);
-    col = clamp((col - 0.5) * uContrast + 0.5, 0.0, 1.0);
+
+    // ── 4. Tone response ──
+    // Film: a gradual shoulder — only the top of the range rolls off (values above 1 from
+    // exposure/flash compress instead of clipping). Digital: limited dynamic range — the
+    // highlights clip hard at uWhite, the shadows block up below uBlack.
+    if (uShoulder > 0.001) {
+        vec3 k = vec3(1.0 - uShoulder * 0.5);
+        vec3 rolled = k + (1.0 - k) * (1.0 - exp(-(col - k) / (1.0 - k) * 1.5)) / (1.0 - exp(-1.5));
+        col = mix(col, rolled, step(k, col));
+    }
+    col = clamp((col - uBlack) / (uWhite - uBlack), 0.0, 1.0);
+    float cs = uContrast - 1.0;
+    col = cs > 0.0 ? mix(col, col * col * (3.0 - 2.0 * col), cs * 1.4) : 0.5 + (col - 0.5) * (1.0 + cs);
     col = pow(max(col, vec3(0.0001)), uGamma);
     l = dot(col, LUMA);
     col += uShadows * (1.0 - l) * (1.0 - l) + uHighlights * l * l;
     col = col * (1.0 - uFade * 1.3) + uFade;
-
-    if (uLeak > 0.001) {
-        float t = uSeed + uTime * 0.05;
-        vec2 p1 = vec2(-0.05 + 0.08 * sin(t * 1.3), 0.25 + 0.35 * (0.5 + 0.5 * sin(t * 0.7)));
-        vec2 d1 = (uv - p1) * vec2(ar, 1.0);
-        float l1 = exp(-dot(d1, d1) * 7.0);
-        vec2 p2 = vec2(1.02, 0.8 + 0.15 * cos(t * 0.9));
-        vec2 d2 = (uv - p2) * vec2(ar, 1.0);
-        float l2 = exp(-dot(d2, d2) * 14.0);
-        vec3 lc = uLeakColor * l1 + vec3(1.0, 0.78, 0.35) * l2 * 0.8;
-        col = 1.0 - (1.0 - col) * (1.0 - clamp(lc * uLeak * 1.3, 0.0, 1.0));
-    }
     if (uVignette > 0.001) {
         float d = length(cen) * 1.4142;
         col *= 1.0 - uVignette * smoothstep(0.3, 1.05, d) * 0.95;
     }
+
+    // ── 5. Grain / noise (three different physical sources) ──
     if (uGrain > 0.001) {
-        vec2 gp = floor(gl_FragCoord.xy / uGrainScale);
-        vec2 go = vec2(fract(uTime * 0.618034) * 911.0, fract(uTime * 0.414214) * 577.0);
-        float n = hash(gp + go) + hash(gp + go + 37.17) - 1.0;
-        float gL = dot(col, LUMA);
-        col += n * uGrain * 0.2 * (0.55 + 0.45 * (1.0 - abs(gL - 0.5) * 2.0));
+        float gL = clamp(dot(col, LUMA), 0.0, 1.0);
+        vec3 nv;
+        float w;
+        if (uNoiseType < 0.5) {
+            // Film: organic grain — two scales of clumps, strongest in the midtones, a
+            // faint dye-cloud color; scaled to the scan's resolution.
+            vec2 g1 = floor(gl_FragCoord.xy / uGrainScale);
+            vec2 g2 = floor(gl_FragCoord.xy / (uGrainScale * 2.3)) + 311.0;
+            float n = tnoise(g1) * 0.8 + tnoise(g2) * 0.45;
+            nv = vec3(n) + vec3(tnoise(g1 + 17.0), 0.0, tnoise(g1 + 53.0)) * 0.12;
+            w = 0.35 + 0.65 * clamp(1.0 - abs(gL - 0.45) * 1.8, 0.0, 1.0);
+        } else if (uNoiseType < 1.5) {
+            // Digital sensor: per-pixel luminance + some chroma noise, rising in the
+            // underexposed shadows, nearly gone in bright daylight.
+            vec2 g = floor(gl_FragCoord.xy / uGrainScale);
+            vec3 nc = vec3(tnoise(g + 11.3), tnoise(g + 53.7), tnoise(g + 91.1));
+            nv = mix(vec3(tnoise(g)), vec3(tnoise(g)) * 0.5 + nc * 0.6, uNoiseColor);
+            w = 0.15 + 1.3 * (1.0 - gL) * (1.0 - gL);
+        } else {
+            // Analog video: luminance noise stretched along the scan line.
+            vec2 g = floor(gl_FragCoord.xy / (uGrainScale * vec2(3.0, 1.0)));
+            nv = vec3(tnoise(g));
+            w = 0.4 + 0.8 * (1.0 - gL);
+        }
+        col += nv * uGrain * 0.2 * w;
     }
-    col = mix(orig, clamp(col, 0.0, 1.0), uIntensity);
+
+    // ── 6. Optional tape artifacts (off by default; intermittent, never continuous) ──
+    if (uTapeFx > 0.5) {
+        float tb = floor(uTime * 15.0);
+        float line = floor(vUv.y * uNative.y);
+        if (hash(vec2(line, tb)) > 0.9975) {
+            float x0 = hash(vec2(tb, line + 3.1)), len = 0.04 + 0.14 * hash(vec2(line, tb + 9.0));
+            if (vUv.x > x0 && vUv.x < x0 + len) col = mix(col, vec3(0.85 + 0.15 * hash(gl_FragCoord.xy)), 0.85);
+        }
+        float ph = fract(uTime / 9.0 + uSeed * 0.1);
+        if (ph < 0.07) {
+            float band = smoothstep(0.025, 0.0, abs(vUv.y - (0.92 - ph * 0.8)));
+            col = mix(col, vec3(hash(floor(gl_FragCoord.xy / vec2(3.0, 1.0)) + tb)), band * 0.65);
+        }
+    }
+
+    col = clamp(col, 0.0, 1.0);
+    if (uDuo > 0.5) col = mix(uDuoLo, uDuoHi, dot(col, LUMA));
+    col = mix(orig, col, uIntensity);
     if (uCircle > 0.5) {
         vec2 pc = cen * vec2(ar, 1.0);
-        float rc = length(pc) / (min(ar, 1.0) * 0.5);
+        float rc = length(pc) / (min(ar, 1.0) * 0.5 * (uCircle > 1.5 ? 1.08 : 1.0));
         col *= 1.0 - smoothstep(0.97, 1.0, rc);
     }
     gl_FragColor = vec4(col, 1.0);
@@ -3319,32 +3683,56 @@ void main() {
             gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
 
             // Non-power-of-two textures in WebGL1: CLAMP_TO_EDGE + no mipmaps is required.
-            const tex = gl.createTexture();
-            gl.bindTexture(gl.TEXTURE_2D, tex);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            // Two source textures: the current camera frame and the one before it (for
+            // interlaced cameras). Each new frame goes into the older one and they swap.
+            function makeTex() {
+                const t = gl.createTexture();
+                gl.bindTexture(gl.TEXTURE_2D, t);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                return t;
+            }
+            const texs = [makeTex(), makeTex()];
+            let cur = 0, lastTime = null;
             gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
 
             const U = {};
-            ['uTex', 'uSrcOff', 'uSrcScale', 'uOutSize', 'uIntensity', 'uExposure', 'uContrast', 'uSaturation', 'uWarmth', 'uTint', 'uFade',
-                'uGrain', 'uGrainScale', 'uVignette', 'uHalation', 'uLeak', 'uBlur', 'uChroma', 'uMono', 'uTime', 'uSeed', 'uDistort', 'uCircle', 'uDof',
-                'uMix', 'uGamma', 'uShadows', 'uHighlights', 'uHalColor', 'uLeakColor'
+            ['uTex', 'uPrev', 'uSrcOff', 'uSrcScale', 'uOutSize', 'uNative', 'uAspect', 'uChromaSub', 'uMatrix', 'uShoulder', 'uWhite', 'uBlack',
+                'uNoiseType', 'uTapeFx', 'uFlash', 'uFlashReach', 'uFlashColor', 'uIntensity', 'uExposure', 'uContrast', 'uSaturation', 'uWarmth', 'uTint', 'uFade',
+                'uGrain', 'uGrainScale', 'uVignette', 'uHalation', 'uBlur', 'uChroma', 'uMono', 'uTime', 'uSeed', 'uDistort', 'uCircle',
+                'uMix', 'uGamma', 'uShadows', 'uHighlights', 'uHalColor',
+                'uSoft', 'uSharpen', 'uNoiseColor', 'uTape', 'uInterlace', 'uDuo', 'uDuoLo', 'uDuoHi'
             ].forEach((n) => { U[n] = gl.getUniformLocation(prog, n); });
             gl.uniform1i(U.uTex, 0);
+            gl.uniform1i(U.uPrev, 1);
             const maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 4096;
 
-            // o: { outW, outH, crop, mirror, settings, time }
+            function upload(i, source) {
+                gl.activeTexture(i === cur ? gl.TEXTURE0 : gl.TEXTURE1);
+                gl.bindTexture(gl.TEXTURE_2D, texs[i]);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+            }
+
+            // o: { outW, outH, native: {w, h}, crop, mirror, settings, time, still }
+            // native = the camera's own frame size this render stands for (pixel-scale
+            // effects are measured in its pixels); still = no previous frame (uploads).
             function render(source, o) {
                 const outW = o.outW, outH = o.outH;
                 if (canvas.width !== outW) canvas.width = outW;
                 if (canvas.height !== outH) canvas.height = outH;
                 gl.viewport(0, 0, outW, outH);
-                gl.activeTexture(gl.TEXTURE0);
-                gl.bindTexture(gl.TEXTURE_2D, tex);
                 try {
-                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+                    // A new moment in time → the current frame becomes the previous one.
+                    if (o.still) {
+                        upload(cur, source); upload(1 - cur, source); lastTime = null;
+                    } else {
+                        if (o.time !== lastTime) { cur = 1 - cur; lastTime = o.time; }
+                        upload(cur, source);
+                    }
+                    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, texs[cur]);
+                    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, texs[1 - cur]);
                 } catch (_) { return canvas; }
 
                 const c = o.crop || FULL_CROP;
@@ -3356,36 +3744,56 @@ void main() {
                     gl.uniform2f(U.uSrcScale, c.w, c.h);
                 }
                 gl.uniform2f(U.uOutSize, outW, outH);
+                const nat = o.native || { w: outW, h: outH };
+                gl.uniform2f(U.uNative, nat.w, nat.h);
+                // Displayed shape (differs from the pixel shape for anamorphic DV).
+                gl.uniform1f(U.uAspect, o.aspect || (outW / outH));
 
                 const s = o.settings, a = s.adj, L = s.look;
                 gl.uniform1f(U.uIntensity, a.intensity / 100);
                 gl.uniform1f(U.uExposure, Math.pow(2, a.exposure / 100));
                 gl.uniform1f(U.uContrast, 1 + a.contrast / 100 * 0.7);
-                gl.uniform1f(U.uSaturation, Math.max(0, 1 + a.saturation / 100));
+                gl.uniform1f(U.uSaturation, Math.max(0, (1 + a.saturation / 100) * (s.look.colorMul == null ? 1 : s.look.colorMul)));
                 gl.uniform1f(U.uWarmth, a.warmth / 100);
                 gl.uniform1f(U.uTint, a.tint / 100);
                 gl.uniform1f(U.uFade, a.fade / 100 * 0.3);
                 gl.uniform1f(U.uGrain, a.grain / 100);
-                // Grain cell size scales with output height, so a 1080×1920 capture has the
-                // same visible grain as the ~900px-tall preview it was framed in.
-                gl.uniform1f(U.uGrainScale, L.grainSize * Math.max(1, outH / 1000));
+                // Grain/noise sits on the camera's own pixel grid: one native pixel spans
+                // outH / native.h output pixels.
+                gl.uniform1f(U.uGrainScale, L.grainSize * Math.max(1, outH / nat.h));
                 gl.uniform1f(U.uVignette, a.vignette / 100);
                 gl.uniform1f(U.uHalation, a.halation / 100);
-                gl.uniform1f(U.uLeak, a.leak / 100);
                 gl.uniform1f(U.uBlur, a.blur / 100);
                 gl.uniform1f(U.uChroma, a.chroma / 100);
                 gl.uniform1f(U.uMono, L.mono ? 1 : 0);
                 gl.uniform1f(U.uTime, o.time || 0);
                 gl.uniform1f(U.uSeed, s.seed || 0);
                 gl.uniform1f(U.uDistort, s.lens ? s.lens.distort : 0);
-                gl.uniform1f(U.uCircle, s.lens && s.lens.circle ? 1 : 0);
-                gl.uniform1f(U.uDof, s.lens ? s.lens.dof : 0);
+                gl.uniform1f(U.uCircle, s.lens ? (s.lens.circle || 0) : 0);
                 gl.uniform3fv(U.uMix, L.mix);
                 gl.uniform3fv(U.uGamma, L.gamma);
                 gl.uniform3fv(U.uShadows, L.shadows);
                 gl.uniform3fv(U.uHighlights, L.highlights);
                 gl.uniform3fv(U.uHalColor, L.halColor);
-                gl.uniform3fv(U.uLeakColor, L.leakColor);
+                gl.uniform1f(U.uSoft, L.soft);
+                gl.uniform1f(U.uSharpen, L.sharpen);
+                gl.uniform2f(U.uChromaSub, L.chromaSub[0], L.chromaSub[1]);
+                const M = L.matrix; // rows → GLSL column-major
+                gl.uniformMatrix3fv(U.uMatrix, false, [M[0][0], M[1][0], M[2][0], M[0][1], M[1][1], M[2][1], M[0][2], M[1][2], M[2][2]]);
+                gl.uniform1f(U.uShoulder, L.shoulder);
+                gl.uniform1f(U.uWhite, L.white);
+                gl.uniform1f(U.uBlack, L.black);
+                gl.uniform1f(U.uNoiseType, L.noiseType);
+                gl.uniform1f(U.uTapeFx, s.tapeFx ? 1 : 0);
+                gl.uniform1f(U.uFlash, s.flash ? s.flash.power : 0);
+                gl.uniform1f(U.uFlashReach, s.flash ? s.flash.reach : 0.5);
+                gl.uniform3fv(U.uFlashColor, s.flash ? s.flash.color : [1, 1, 1]);
+                gl.uniform1f(U.uNoiseColor, L.noiseColor);
+                gl.uniform1f(U.uTape, L.tape);
+                gl.uniform1f(U.uInterlace, o.still ? 0 : L.interlace);
+                gl.uniform1f(U.uDuo, L.duo ? 1 : 0);
+                gl.uniform3fv(U.uDuoLo, L.duo ? L.duo[0] : [0, 0, 0]);
+                gl.uniform3fv(U.uDuoHi, L.duo ? L.duo[1] : [1, 1, 1]);
                 gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
                 return canvas;
             }
@@ -3397,7 +3805,15 @@ void main() {
         // frame, and onto exports — so it's never cropped off by the screen's cover-fit.
         // dateInset (preview only): extra bottom margin so the date stamp isn't hidden
         // under the shutter row — exports pass nothing and get it in the true corner.
-        function drawFilmOverlays(ctx, x, y, w, h, s, dateInset) {
+        // The tape counter on camcorder OSDs (HH:MM:SS) — runs from app start, and restarts
+        // at 00:00:00 when a recording starts.
+        let __osdCounterStart = performance.now();
+        function osdCounter() {
+            const t = Math.floor((performance.now() - __osdCounterStart) / 1000);
+            const p2 = (n) => String(n).padStart(2, '0');
+            return p2(Math.floor(t / 3600)) + ':' + p2(Math.floor(t / 60) % 60) + ':' + p2(t % 60);
+        }
+        function drawFilmOverlays(ctx, x, y, w, h, s, dateInset, topInset) {
             let ix = x, iy = y, iw = w, ih = h;
             if (s.frame === 'polaroid' || s.frame === 'instax') {
                 const side = Math.round(w * (s.frame === 'polaroid' ? 0.06 : 0.07));
@@ -3412,73 +3828,171 @@ void main() {
                 ctx.restore();
                 ix = x + side; iy = y + top; iw = w - side * 2; ih = h - top - bottom;
             }
-            if (s.date) {
-                const d = new Date();
-                const txt = "'" + String(d.getFullYear()).slice(2) + ' ' + (d.getMonth() + 1) + ' ' + d.getDate();
-                const fs = Math.max(10, Math.round(Math.min(iw, ih) * 0.05));
+            if (!s.date) return;
+            const d = new Date();
+            const p2 = (n) => String(n).padStart(2, '0');
+            if (s.date === 'osd' || s.date === 'cam92' || s.date === 'slp') {
+                // Camcorder / VCR on-screen display, burned into the picture: white blocky caps,
+                // softly glowing with a dark shadow, like the reference clips.
+                const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+                const DAY = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+                const fs = Math.max(10, Math.round(Math.min(iw, ih) * 0.058));
+                const off = Math.max(1, Math.round(fs * 0.08));
+                const pad = fs * 0.9;
                 ctx.save();
-                ctx.font = '700 ' + fs + "px 'IBM Plex Mono', monospace";
-                ctx.textAlign = 'right';
+                ctx.font = '600 ' + fs + "px 'IBM Plex Mono', monospace";
                 ctx.textBaseline = 'alphabetic';
-                ctx.globalAlpha = 0.92;
-                ctx.shadowColor = 'rgba(255, 110, 0, .85)';
-                ctx.shadowBlur = fs * 0.5;
-                ctx.fillStyle = '#ff9a2e';
-                ctx.fillText(txt, ix + iw - fs * 1.2, iy + ih - fs * 1.1 - (dateInset || 0));
+                const put = (t, tx, ty, align) => {
+                    ctx.textAlign = align || 'left';
+                    ctx.shadowBlur = 0;
+                    ctx.fillStyle = 'rgba(0,0,0,.6)';
+                    ctx.fillText(t, tx + off, ty + off);
+                    ctx.shadowColor = 'rgba(255,255,255,.55)';
+                    ctx.shadowBlur = fs * 0.25;
+                    ctx.fillStyle = '#f2f2ee';
+                    ctx.fillText(t, tx, ty);
+                };
+                const L = ix + pad, R = ix + iw - pad, T = iy + pad + fs * 0.8 + (topInset || 0);
+                const B = iy + ih - pad - (dateInset || 0), lh = fs * 1.12;
+                if (s.date === 'osd') {
+                    const h12 = d.getHours() % 12 || 12;
+                    put((d.getHours() < 12 ? 'AM ' : 'PM ') + h12 + ':' + p2(d.getMinutes()) + ':' + p2(d.getSeconds()), L, B);
+                    put(MON[d.getMonth()] + '. ' + d.getDate() + ' ' + d.getFullYear(), L, B - lh);
+                } else if (s.date === 'cam92') {
+                    put('CAMERA1', L, T);
+                    put('PLAY \u25B6', L, T + lh);
+                    put(osdCounter(), L, T + lh * 2);
+                    put(p2(d.getHours()) + ':' + p2(d.getMinutes()), L, B - lh);
+                    put(p2(d.getDate()) + '.' + p2(d.getMonth() + 1) + '.' + d.getFullYear() + ' ' + DAY[d.getDay()], L, B);
+                } else {
+                    put('PLAY', L, T);
+                    put('Ch 01', ix + iw * 0.36, T);
+                    put(osdCounter(), R, T, 'right');
+                    put('SLP', R, B, 'right');
+                }
                 ctx.restore();
+                return;
             }
+            // 'film' = the classic compact stamp ('26 10 8); 'digi' = a digicam's 2026/10/08.
+            const txt = s.date === 'digi'
+                ? d.getFullYear() + '/' + p2(d.getMonth() + 1) + '/' + p2(d.getDate())
+                : "'" + String(d.getFullYear()).slice(2) + ' ' + (d.getMonth() + 1) + ' ' + d.getDate();
+            const fs = Math.max(10, Math.round(Math.min(iw, ih) * 0.05));
+            ctx.save();
+            ctx.font = '700 ' + fs + "px 'IBM Plex Mono', monospace";
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'alphabetic';
+            ctx.globalAlpha = 0.92;
+            ctx.shadowColor = 'rgba(255, 110, 0, .85)';
+            ctx.shadowBlur = fs * 0.5;
+            ctx.fillStyle = '#ff9a2e';
+            ctx.fillText(txt, ix + iw - fs * 1.2, iy + ih - fs * 1.1 - (dateInset || 0));
+            ctx.restore();
         }
 
-        const LIVE_COVER_BASE = 1080;
-        // מקור אמת יחיד ליחס: הפריים החי מרונדר ביחס היעד; היצוא = אותו יחס ברזולוציה מלאה.
-        // 9:16 = פורטרט מלא (רוחב 1080, גובה 1920).
-        var LIVE_EXPORT_DIMENSIONS = {
-            '9:16': { w: 1080, h: 1920 },
-            '4:5': { w: 1080, h: 1350 },
-            '1:1': { w: 1080, h: 1080 },
-            '3:4': { w: 1080, h: 1440 },
-            '4:3': { w: 1440, h: 1080 },
-            '16:9': { w: 1920, h: 1080 }
-        };
-        // Live: the latest full-frame film render (target ratio, cover-fit onto the screen).
-        // It IS film.canvas — the shutter re-renders at full export size, the recorder blits it.
+        // Live: the latest film render, at the active camera's own resolution and frame
+        // shape (film.canvas). liveComposite = that frame with the date/OSD burned in at the
+        // same size — what the screen shows (scaled up) and what the recorder records.
         let liveCoverCanvas = null;
-        // Preview render cap (long side, device px) — the shader does ~25 texture reads per
-        // pixel, and the shutter re-renders at full 1080×1920 anyway, so the live preview
-        // doesn't need full retina resolution to look right.
+        const liveComposite = document.createElement('canvas');
+        // Preview render cap (long side, device px) for high-resolution still cameras; the
+        // shutter re-renders at the camera's full native size anyway.
         const LIVE_PREVIEW_MAX = 1440;
         const uploadPreview = document.createElement('canvas');
 
         function viewDpr() { return Math.min(2, window.devicePixelRatio || 1); }
 
-        // Where the target-ratio Live frame sits on screen: COVER-fit into #main — fills the
-        // screen completely, cropping any excess, so there's never a margin.
-        // Where the 9:16 Live frame sits on screen: COVER-fit into #main — fills the screen
-        // completely, cropping any excess, so there's never a margin. Same canvas as the
-        // grid app (its renderGrid() math). A contain-fit 3:4 version was tried and rejected
-        // ("the canvas is wide and not good") — keep it full-screen.
+        // Where the Live frame sits on screen: the camera's own frame shape (4:3, held
+        // upright), contain-fit into the band between the top buttons and the bottom
+        // controls, centered — like looking at a real camera's picture, not a phone screen.
+        // (The user replaced the old full-screen 9:16 canvas on purpose, 2026-10-08:
+        // "the picture being full screen is weird".)
+        const LIVE_FRAME_TOP = 72, LIVE_FRAME_BOTTOM = 184;
         function getLiveFrameRect(W, H) {
-            let frameW = Math.max(1, W), frameH = Math.max(1, H), dx = 0, dy = 0;
-            let desiredAR = getLiveTargetRatioValue(); // width/height
-            if (desiredAR > 1) desiredAR = 1 / desiredAR;
-            if (frameW / frameH > desiredAR) {
-                frameH = Math.max(1, Math.round(frameW / desiredAR));
-                dy = Math.round((H - frameH) / 2);
-            } else {
-                frameW = Math.max(1, Math.round(frameH * desiredAR));
-                dx = Math.round((W - frameW) / 2);
-            }
-            return { dx, dy, cw: frameW, ch: frameH };
+            const ar = getLiveTargetRatioValue();
+            const top = isMobileLayout() ? LIVE_FRAME_TOP : 0;
+            const availH = Math.max(1, H - top - (isMobileLayout() ? LIVE_FRAME_BOTTOM : 0));
+            let cw = W, ch = W / ar;
+            if (ch > availH) { ch = availH; cw = ch * ar; }
+            cw = Math.round(cw); ch = Math.round(ch);
+            return { dx: Math.round((W - cw) / 2), dy: Math.round(top + (availH - ch) / 2), cw, ch };
         }
 
-        // The shutter/mode/zoom rows occupy roughly the bottom 160px of the screen.
-        const PREVIEW_CONTROLS_H = 160;
-        function previewDateInset(H, bottom) {
-            return isMobileLayout() ? Math.max(0, PREVIEW_CONTROLS_H - (H - bottom)) : 0;
+        // The picture through a real JPEG at quality q (async) → ImageBitmap, or null where
+        // the browser can't decode one. Used on the preview too, so what's on screen is the
+        // camera's compressed file, not a clean render.
+        function jpegBitmap(canvas, q) {
+            return new Promise((res) => {
+                if (typeof createImageBitmap !== 'function') { res(null); return; }
+                canvas.toBlob((b) => {
+                    if (!b) { res(null); return; }
+                    createImageBitmap(b).then(res, () => res(null));
+                }, 'image/jpeg', q);
+            });
+        }
+        // Live: one JPEG in flight at a time; the newest decoded one is shown (a frame or two
+        // behind the camera — like a real camera's LCD).
+        let liveJpeg = null, __liveJpegBusy = false;
+        function pumpLiveJpeg() {
+            if (__liveJpegBusy || liveComposite.width < 2) return;
+            __liveJpegBusy = true;
+            jpegBitmap(liveComposite, activeFilmSettings().camera.jpegQ).then((bmp) => {
+                __liveJpegBusy = false;
+                if (!bmp) return;
+                if (liveJpeg && liveJpeg.close) liveJpeg.close();
+                liveJpeg = bmp;
+            });
+        }
+        // What the screen and the recorder show: the JPEG'd frame when it matches the current
+        // frame size (a camera/format switch changes it), else the raw composite.
+        function livePreviewFrame() {
+            return (liveJpeg && liveJpeg.width === liveComposite.width && liveJpeg.height === liveComposite.height) ? liveJpeg : liveComposite;
+        }
+        let uploadJpeg = null, __uploadJpegSeq = 0;
+
+        // Theme colors the canvas paints with (read from the CSS variables, one source).
+        const THEME = (function () {
+            const cs = getComputedStyle(document.documentElement);
+            const v = (n, d) => (cs.getPropertyValue(n) || '').trim() || d;
+            return { lcd: v('--void', '#030503'), ink: v('--hud', '#46f27a') };
+        })();
+
+        // Viewfinder corner brackets around the picture — thin glowing phosphor lines drawn
+        // on screen only (never into photos/video).
+        function drawViewfinderMarks(r) {
+            const L = Math.round(Math.min(r.cw, r.ch) * 0.07), o = 8;
+            const x0 = r.dx + o, y0 = r.dy + o, x1 = r.dx + r.cw - o, y1 = r.dy + r.ch - o;
+            gctx.save();
+            gctx.strokeStyle = THEME.ink;
+            gctx.lineWidth = 1.5;
+            gctx.shadowColor = 'rgba(70, 242, 122, .6)';
+            gctx.shadowBlur = 6;
+            gctx.beginPath();
+            gctx.moveTo(x0, y0 + L); gctx.lineTo(x0, y0); gctx.lineTo(x0 + L, y0);
+            gctx.moveTo(x1 - L, y0); gctx.lineTo(x1, y0); gctx.lineTo(x1, y0 + L);
+            gctx.moveTo(x1, y1 - L); gctx.lineTo(x1, y1); gctx.lineTo(x1 - L, y1);
+            gctx.moveTo(x0 + L, y1); gctx.lineTo(x0, y1); gctx.lineTo(x0, y1 - L);
+            // center cross
+            const cx = r.dx + r.cw / 2, cy = r.dy + r.ch / 2, c = 7;
+            gctx.moveTo(cx - c, cy); gctx.lineTo(cx + c, cy);
+            gctx.moveTo(cx, cy - c); gctx.lineTo(cx, cy + c);
+            gctx.stroke();
+            gctx.restore();
         }
 
-        // Paints the current state onto the on-screen canvas: Live = the latest film frame
-        // (cover-fit) + overlays on its visible part; Upload = the filtered photo, contain-fit.
+        // A film render + its date/OSD at the render's own size (so the text is as coarse,
+        // and as compressed, as the picture — it's burned in, like on the real camera).
+        function composeWithOverlays(dst, srcCanvas, s) {
+            if (dst.width !== srcCanvas.width) dst.width = srcCanvas.width;
+            if (dst.height !== srcCanvas.height) dst.height = srcCanvas.height;
+            const ctx = dst.getContext('2d');
+            ctx.drawImage(srcCanvas, 0, 0);
+            drawFilmOverlays(ctx, 0, 0, dst.width, dst.height, s);
+            return dst;
+        }
+
+        // Paints the current state onto the on-screen canvas: Live = the latest camera frame
+        // scaled up into its frame; Upload = the processed photo, contain-fit.
         function renderView() {
             const m = document.getElementById('main');
             const W = Math.max(1, m.clientWidth), H = Math.max(1, m.clientHeight);
@@ -3487,54 +4001,92 @@ void main() {
             if (gridCanvas.width !== bw) gridCanvas.width = bw;
             if (gridCanvas.height !== bh) gridCanvas.height = bh;
             gctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            const s = activeFilmSettings();
+            gctx.imageSmoothingEnabled = true;
 
             if (state.mode === 'live') {
-                gctx.fillStyle = '#2e2329';
+                gctx.fillStyle = THEME.lcd;
                 gctx.fillRect(0, 0, W, H);
                 const r = getLiveFrameRect(W, H);
-                if (liveCoverCanvas && liveCoverCanvas.width > 2) {
-                    gctx.drawImage(liveCoverCanvas, r.dx, r.dy, r.cw, r.ch);
-                    const vx = Math.max(0, r.dx), vy = Math.max(0, r.dy);
-                    const vh = Math.min(H, r.dy + r.ch) - vy;
-                    drawFilmOverlays(gctx, vx, vy, Math.min(W, r.dx + r.cw) - vx, vh, s, previewDateInset(H, vy + vh));
+
+                const raw = state.comparing ? getLiveSource() : null;
+                if (raw) {
+                    // Hold-to-compare: the untouched camera feed, same framing.
+                    const c = coverCrop(raw.sw, raw.sh, getLiveTargetRatioValue() * 1000, 1000, getLiveSoftwareZoom());
+                    gctx.save();
+                    if (liveState.mirror) { gctx.translate(2 * r.dx + r.cw, 0); gctx.scale(-1, 1); }
+                    gctx.drawImage(raw.el, c.x * raw.sw, c.y * raw.sh, c.w * raw.sw, c.h * raw.sh, r.dx, r.dy, r.cw, r.ch);
+                    gctx.restore();
+                } else if (liveComposite.width > 2) {
+                    gctx.drawImage(livePreviewFrame(), r.dx, r.dy, r.cw, r.ch);
+                } else {
+                    gctx.fillStyle = '#000';
+                    gctx.fillRect(r.dx, r.dy, r.cw, r.ch);
                 }
+                drawViewfinderMarks(r);
                 return;
             }
 
             gctx.fillStyle = state.bg;
             gctx.fillRect(0, 0, W, H);
             const ur = state.uploadRect;
-            if (state.srcImage && ur && uploadPreview.width > 2) {
-                gctx.drawImage(uploadPreview, ur.x, ur.y, ur.w, ur.h);
-                drawFilmOverlays(gctx, ur.x, ur.y, ur.w, ur.h, s, previewDateInset(H, ur.y + ur.h));
+            if (state.srcImage && ur && state.comparing) {
+                const src = state.srcImage, c = uploadLensCrop(src, ur.w / ur.h);
+                gctx.drawImage(src, c.x * src.width, c.y * src.height, c.w * src.width, c.h * src.height, ur.x, ur.y, ur.w, ur.h);
+            } else if (state.srcImage && ur && uploadPreview.width > 2) {
+                const u = (uploadJpeg && uploadJpeg.width === uploadPreview.width && uploadJpeg.height === uploadPreview.height) ? uploadJpeg : uploadPreview;
+                gctx.drawImage(u, ur.x, ur.y, ur.w, ur.h);
             }
         }
 
-        // Upload: re-run the film render for the loaded photo at preview size (contain-fit
-        // into #main), then paint it. Called whenever the photo, preset or a setting changes.
+        // Upload: the photo is treated as if this camera took it — cropped to the camera's
+        // frame shape (landscape or upright, following the photo), cropped further by the
+        // lens (the photo counts as a 26mm phone shot), and rendered at the camera's own
+        // pixel size. The preview is that render (capped to screen size), contain-fit.
+        function uploadFrame(src) {
+            const cam = activeFilmSettings().camera;
+            const land = src.width > src.height;
+            return Object.assign(cameraDims(cam, false, land), { aspect: cameraAspect(cam, land) });
+        }
         function renderUpload() {
             const src = state.srcImage;
             if (!src) { state.uploadRect = null; renderView(); return; }
             const m = document.getElementById('main');
             const W = Math.max(1, m.clientWidth), H = Math.max(1, m.clientHeight);
             const pad = isMobileLayout() ? 16 : 32;
-            const sc = Math.min((W - pad * 2) / src.width, (H - pad * 2) / src.height);
-            const w = Math.max(2, Math.round(src.width * sc)), h = Math.max(2, Math.round(src.height * sc));
+            const d = uploadFrame(src);
+            const sc = Math.min((W - pad * 2) / d.aspect, H - pad * 2);
+            const w = Math.max(2, Math.round(d.aspect * sc)), h = Math.max(2, Math.round(sc));
             state.uploadRect = { x: Math.round((W - w) / 2), y: Math.round((H - h) / 2), w, h };
-            const dpr = viewDpr();
-            const outW = Math.max(2, Math.min(src.width, Math.round(w * dpr)));
-            const outH = Math.max(2, Math.min(src.height, Math.round(h * dpr)));
-            film.render(src, { outW, outH, crop: uploadLensCrop(src), mirror: false, settings: activeFilmSettings(), time: state.uploadSeed });
-            uploadPreview.width = outW;
-            uploadPreview.height = outH;
-            uploadPreview.getContext('2d').drawImage(film.canvas, 0, 0);
+            const k = Math.min(1, (h * viewDpr()) / d.h);
+            const outW = Math.max(2, Math.round(d.w * k)), outH = Math.max(2, Math.round(d.h * k));
+            const s = activeFilmSettings();
+            film.render(src, { outW, outH, native: d, aspect: d.aspect, crop: uploadLensCrop(src, d.aspect), mirror: false, settings: s, time: state.uploadSeed, still: true });
+            composeWithOverlays(uploadPreview, film.canvas, s);
             renderView();
+            const seq = ++__uploadJpegSeq;
+            jpegBitmap(uploadPreview, s.camera.jpegQ).then((bmp) => {
+                if (!bmp || seq !== __uploadJpegSeq) return;
+                if (uploadJpeg && uploadJpeg.close) uploadJpeg.close();
+                uploadJpeg = bmp;
+                renderView();
+            });
         }
 
-        // Upload: the whole photo, always (a lens changes perspective feel, never the crop).
-        function uploadLensCrop(src) {
-            return FULL_CROP;
+        function uploadLensCrop(src, aspect) {
+            return coverCrop(src.width, src.height, aspect * 1000, 1000, lensCropZoom(activeFilmSettings().lens, PHONE_MAIN_FOCAL));
+        }
+
+        // Stills from anamorphic formats (DV's 720×480) are resampled to square pixels at
+        // the displayed shape, as a DV camera's photo/capture would be viewed.
+        function squarePixels(cnv, aspect) {
+            const w = Math.round(cnv.height * aspect);
+            if (Math.abs(w - cnv.width) < 2) return cnv;
+            const out = document.createElement('canvas');
+            out.width = w; out.height = cnv.height;
+            const x = out.getContext('2d');
+            x.imageSmoothingEnabled = true;
+            x.drawImage(cnv, 0, 0, w, cnv.height);
+            return out;
         }
 
         // Re-render after any setting change: Upload needs an explicit film pass; Live picks
@@ -3575,6 +4127,60 @@ void main() {
             if (typeof updateMobileButtonsForMode === 'function') updateMobileButtonsForMode();
         });
 
+        // ── Typewriter: text types itself in like code on an old terminal ──
+        // Used only on the splash (user, 2026-10-08: typing everywhere was too much).
+        // typewrite(root) blanks every text node inside root and reveals them in order with
+        // a blinking block cursor, finishing within maxMs however long the text is.
+        // Calling it again on the same root restarts it (the previous run is finished
+        // instantly first, so no text is ever lost). Inputs/values are untouched.
+        function typewrite(root, opts) {
+            if (!root) return;
+            const o = Object.assign({ cps: 70, maxMs: 800, delay: 0, keepCaret: false }, opts || {});
+            if (root.__tw) root.__tw.finish();
+            const nodes = [];
+            const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+                acceptNode: (n) => (n.nodeValue.trim() && !(n.parentNode.closest && n.parentNode.closest('script, style, .tw-caret'))) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT,
+            });
+            while (walker.nextNode()) nodes.push(walker.currentNode);
+            if (!nodes.length) return;
+            const full = nodes.map((n) => n.nodeValue);
+            const total = full.reduce((a, t) => a + t.length, 0);
+            const cps = Math.max(o.cps, total * 1000 / o.maxMs);
+            nodes.forEach((n) => { n.nodeValue = ''; });
+            const caret = document.createElement('span');
+            caret.className = 'tw-caret';
+            caret.setAttribute('aria-hidden', 'true');
+            let raf = 0, t0 = 0, done = false;
+            const finish = () => {
+                if (done) return;
+                done = true;
+                cancelAnimationFrame(raf);
+                nodes.forEach((n, i) => { n.nodeValue = full[i]; });
+                if (!o.keepCaret && caret.parentNode) caret.parentNode.removeChild(caret);
+                if (root.__tw === run) root.__tw = null;
+            };
+            const run = { finish };
+            root.__tw = run;
+            const step = (now) => {
+                if (done) return;
+                if (!t0) t0 = now + o.delay;
+                let k = Math.max(0, Math.floor((now - t0) / 1000 * cps));
+                for (let i = 0; i < nodes.length; i++) {
+                    const show = Math.min(full[i].length, k);
+                    if (nodes[i].nodeValue.length !== show) nodes[i].nodeValue = full[i].slice(0, show);
+                    k -= show;
+                    if (show < full[i].length) {
+                        if (caret.previousSibling !== nodes[i] && nodes[i].parentNode) nodes[i].parentNode.insertBefore(caret, nodes[i].nextSibling);
+                        raf = requestAnimationFrame(step);
+                        return;
+                    }
+                }
+                if (o.keepCaret) { const last = nodes[nodes.length - 1]; if (last.parentNode) last.parentNode.insertBefore(caret, last.nextSibling); }
+                finish();
+            };
+            raf = requestAnimationFrame(step);
+        }
+
         function on(id, ev, fn, opts) {
             const el = document.getElementById(id);
             if (el) el.addEventListener(ev, fn, opts);
@@ -3585,12 +4191,11 @@ void main() {
         //  CONTROLS WIRING
         // ═══════════════════════════════════════════════════
 
-        // ── Camera picker (panel 01) & Film picker (panel 02) ──
-        // Both are the same fixed 4-column, max-3-row scrolling grid with a custom square
-        // scrollbar, built from CAMERA_ORDER / FILM_ORDER.
+        // ── Camera picker (panel 01) ──
+        // A fixed 4-column, max-3-row scrolling grid with a custom square scrollbar, built
+        // from CAMERA_ORDER — the same one list in Photo, Video and Upload.
         const PICKERS = {
             camera: { list: 'camera-presets', track: 'camera-scrollbar', thumb: 'camera-scrollbar-thumb', order: CAMERA_ORDER, items: CAMERAS, active: () => ACTIVE_CAMERA_KEY },
-            film: { list: 'film-presets', track: 'film-scrollbar', thumb: 'film-scrollbar-thumb', order: FILM_ORDER, items: FILMS, active: () => ACTIVE_FILM_KEY },
         };
 
         function renderPicker(kind) {
@@ -3630,9 +4235,9 @@ void main() {
             thumb.style.height = thumbH + 'px';
             thumb.style.top = thumbTop + 'px';
         }
-        function syncPickerScrollbars() { syncPickerScrollbar('camera'); syncPickerScrollbar('film'); }
+        function syncPickerScrollbars() { syncPickerScrollbar('camera'); }
 
-        // Keeps the selected camera/film visible inside its 3-row window (e.g. on panel open).
+        // Keeps the selected camera visible inside its 3-row window (e.g. on panel open).
         function scrollActiveIntoView() {
             Object.keys(PICKERS).forEach((kind) => {
                 const el = document.getElementById(PICKERS[kind].list);
@@ -3658,11 +4263,11 @@ void main() {
                     b.classList.toggle('active', b.dataset.preset === p.active());
                 });
             });
-            const cam = CAMERAS[ACTIVE_CAMERA_KEY], f = FILMS[ACTIVE_FILM_KEY];
+            const cam = CAMERAS[ACTIVE_CAMERA_KEY];
             const setText = (id, t) => { const e = document.getElementById(id); if (e) e.textContent = t; };
             setText('camera-info', cam.name + ' — ' + cam.desc);
-            setText('film-info', f.name + ' — ' + f.desc);
-            setText('mob-film-badge-label', cam.label + ' · ' + f.label);
+            setText('mob-film-badge-label', cam.label);
+            try { updateFormatPill(); } catch (_) { } // (not yet defined during early init)
         }
 
         function syncLensSlider() {
@@ -3699,17 +4304,12 @@ void main() {
             syncFilmUI();
             refreshView();
         }
-        function setActiveFilm(key) {
-            if (!FILMS[key]) return;
-            ACTIVE_FILM_KEY = key;
-            __filmSettingsCache = null;
-            syncFilmUI();
-            refreshView();
-        }
         function setActiveLens(key, quiet) {
             const lens = LENSES[lensIndex(key)];
             ACTIVE_LENS_KEY = lens.key;
             __filmSettingsCache = null;
+            // A lens is a field of view: hand the new zoom to the camera hardware first.
+            if (state.mode === 'live') applyHardwareZoomIfPossible(liveState.userZoom);
             if (quiet) return;
             syncLensSlider();
             showLensToast(lens);
@@ -3720,11 +4320,7 @@ void main() {
             const b = e.target.closest('[data-preset]');
             if (b) setActiveCamera(b.dataset.preset);
         });
-        on('film-presets', 'click', (e) => {
-            const b = e.target.closest('[data-preset]');
-            if (b) setActiveFilm(b.dataset.preset);
-        });
-        // The top-left badge is a shortcut into the camera/film picker.
+        // The top-left badge is a shortcut into the camera picker.
         on('mob-film-badge', 'click', () => toggleMobilePanel());
 
         // ── Lens: the side slider snaps between LENSES (fisheye at the bottom, tele on top) ──
@@ -3962,37 +4558,48 @@ void main() {
             setTimeout(() => URL.revokeObjectURL(url), 60000);
         }
 
-        // Long side of an Upload export (capped to the photo's own resolution).
-        const UPLOAD_EXPORT_LONG = 2400;
-
-        // The full-resolution result, with frame/date stamp: Live = a copy of the current
-        // film frame, Upload = a fresh film render of the photo at export size.
+        // The full-resolution result with its date/OSD: Live = the current frame, Upload = a
+        // fresh render of the photo at the camera's native size.
         function buildDownloadCanvas() {
             const s = activeFilmSettings();
             const cnv = document.createElement('canvas');
-            if (state.mode === 'live' && liveCoverCanvas && liveCoverCanvas.width > 2) {
-                cnv.width = liveCoverCanvas.width;
-                cnv.height = liveCoverCanvas.height;
-                const ctx = cnv.getContext('2d');
-                ctx.drawImage(liveCoverCanvas, 0, 0);
-                drawFilmOverlays(ctx, 0, 0, cnv.width, cnv.height, s);
-                return cnv;
-            }
+            if (state.mode === 'live' && liveCoverCanvas && liveCoverCanvas.width > 2) return squarePixels(composeWithOverlays(cnv, liveCoverCanvas, s), getLiveTargetRatioValue());
             const src = state.srcImage;
             if (!src) { cnv.width = 2; cnv.height = 2; return cnv; }
-            const sc = Math.min(1, UPLOAD_EXPORT_LONG / Math.max(src.width, src.height));
-            cnv.width = Math.max(2, Math.round(src.width * sc));
-            cnv.height = Math.max(2, Math.round(src.height * sc));
-            film.render(src, { outW: cnv.width, outH: cnv.height, crop: uploadLensCrop(src), mirror: false, settings: s, time: state.uploadSeed });
-            const ctx = cnv.getContext('2d');
-            ctx.drawImage(film.canvas, 0, 0);
-            drawFilmOverlays(ctx, 0, 0, cnv.width, cnv.height, s);
-            // film.canvas now holds the export-size render; the preview copy is separate
-            // (uploadPreview), so the screen is unaffected.
-            return cnv;
+            const d = uploadFrame(src);
+            film.render(src, { outW: d.w, outH: d.h, native: d, aspect: d.aspect, crop: uploadLensCrop(src, d.aspect), mirror: false, settings: s, time: state.uploadSeed, still: true });
+            // film.canvas now holds the export render; the preview copy (uploadPreview) is
+            // separate, so the screen is unaffected.
+            return squarePixels(composeWithOverlays(cnv, film.canvas, s), d.aspect);
+        }
+
+        // Saves a still the way the camera did: a JPEG at its quality, at its own pixel
+        // size. Small frames (long side < 960) are then enlarged — after the JPEG pass, so
+        // the compression blocks enlarge with the picture — so a 640×480 shot isn't a
+        // postage stamp on a phone. cb(blob).
+        function cameraJpeg(cnv, q, cb) {
+            cnv.toBlob((blob) => {
+                if (!blob) return;
+                const long = Math.max(cnv.width, cnv.height);
+                if (long >= 960) { cb(blob); return; }
+                const k = Math.ceil(960 / long);
+                const url = URL.createObjectURL(blob);
+                const img = new Image();
+                img.onload = () => {
+                    URL.revokeObjectURL(url);
+                    const big = document.createElement('canvas');
+                    big.width = cnv.width * k; big.height = cnv.height * k;
+                    const x = big.getContext('2d');
+                    x.imageSmoothingEnabled = true;
+                    x.drawImage(img, 0, 0, big.width, big.height);
+                    big.toBlob((b2) => { if (b2) cb(b2); }, 'image/jpeg', 0.92);
+                };
+                img.onerror = () => { URL.revokeObjectURL(url); cb(blob); };
+                img.src = url;
+            }, 'image/jpeg', q);
         }
         function filmFileName(prefix, ext) {
-            return 'film_camera_' + ACTIVE_CAMERA_KEY + '_' + ACTIVE_FILM_KEY + '_' + (prefix ? prefix + '_' : '') + Date.now() + '.' + ext;
+            return '90frame_' + ACTIVE_CAMERA_KEY + '_' + (prefix ? prefix + '_' : '') + Date.now() + '.' + ext;
         }
         function downloadPixels() {
             if (state.mode === 'image' && !state.srcImage) return;
@@ -4002,7 +4609,7 @@ void main() {
         // instead — same as Live's shutter — rather than downloading straight away.
         function saveUploadResultToGallery() {
             if (!state.srcImage) return;
-            addToGallery({ type: 'image', canvas: buildDownloadCanvas(), fileName: filmFileName('', 'jpg') });
+            addToGallery({ type: 'image', canvas: buildDownloadCanvas(), jpegQ: activeFilmSettings().camera.jpegQ, fileName: filmFileName('', 'jpg') });
             flashShutter();
         }
         document.getElementById('dl-pixels').addEventListener('click', downloadPixels);
@@ -4044,17 +4651,19 @@ void main() {
             ultraWideChecked: false,
         };
 
-        // Single source of truth: target preview ratio by breakpoint.
-        // - mobile: 9:16 (portrait)
-        // - tablet: 3:4 (portrait-ish)
-        // - desktop: 9:16 (portrait, per request; keeps behavior consistent across devices)
-        // Same canvas as the grid app: a 9:16 portrait frame that fills the screen.
-        function getLiveTargetRatioKey() {
-            return '9:16';
-        }
-
+        // The Live frame = the active camera's frame, upright (all of them are 4:3 → 3:4).
+        // The back camera is asked for this shape too, so the stream is the full sensor.
         function getLiveTargetRatioValue() {
-            return getAspectRatioValue(getLiveTargetRatioKey());
+            return cameraAspect(activeFilmSettings().camera, false);
+        }
+        function getLiveTargetRatioKey() {
+            const ar = getLiveTargetRatioValue();
+            return Math.abs(ar - 0.75) < 0.01 ? '3:4' : (ar < 1 ? '9:16' : '4:3');
+        }
+        // The camera's native frame for what the shutter will make: video size in Video
+        // mode, still size in Photo.
+        function liveNativeDims() {
+            return cameraDims(activeFilmSettings().camera, state.captureMode === 'video', false);
         }
 
         function getAspectRatioValue(ratioKey) {
@@ -4064,12 +4673,6 @@ void main() {
             if (ratioKey === '4:5') return 4 / 5;
             if (ratioKey === '16:9') return 16 / 9;
             return 9 / 16; // '9:16' default
-        }
-
-        // Same as LIVE_EXPORT_DIMENSIONS – export = exactly what’s on screen
-        function getLiveCoverDimensions(ratioKey) {
-            var k = String(ratioKey || '9:16').trim();
-            return LIVE_EXPORT_DIMENSIONS[k] || LIVE_EXPORT_DIMENSIONS['9:16'];
         }
 
         const liveRotC = document.createElement('canvas');
@@ -4232,12 +4835,19 @@ void main() {
             updateZoomPresetsActive(z);
         }
 
-        // The zoom wanted (always 1× now — lenses don't zoom, and there's no zoom control).
-        // As much of it as the hardware zoom range allows goes to the camera;
-        // getLiveSoftwareZoom() crops in for whatever's left over.
+        // The zoom wanted from the current stream = the zoom control × the lens. The zoom
+        // control works like a zoom ring on the lens (.5× = half the focal length, through
+        // the physical ultra-wide); the lens's focal length against the stream's own (26mm
+        // main, 13mm ultra-wide) sets the field of view. Fisheyes take the whole stream.
+        // As much as the hardware zoom range allows goes to the camera (it can go below 1×
+        // on some phones); getLiveSoftwareZoom() crops in for whatever's left over.
         let __appliedHwZoom = 1;
         function getLiveTotalZoom(val) {
-            return liveState.usingUltraWide ? 1 : (val || 1);
+            const lens = LENSES[lensIndex(ACTIVE_LENS_KEY)];
+            const v = val || 1;
+            if (lens.circle) return liveState.usingUltraWide ? 1 : v;
+            const feed = liveState.usingUltraWide ? PHONE_UW_FOCAL : PHONE_MAIN_FOCAL;
+            return lens.focal * v / feed;
         }
         function applyHardwareZoomIfPossible(val) {
             __appliedHwZoom = 1;
@@ -4425,7 +5035,9 @@ void main() {
             // breakpoint. Browsers may ignore, but when honored it prevents "stuck 16:9"
             // on mobile — the back camera's much higher native resolution means this
             // narrower crop still keeps plenty of real detail/FOV, unlike the front one.
-            let desiredAR = getLiveTargetRatioValue(); // width/height, portrait < 1
+            // Always the whole 4:3 sensor (upright 3:4); narrower formats crop from it, so
+            // switching format never restarts the camera.
+            let desiredAR = 3 / 4;
             if (desiredAR > 1) desiredAR = 1 / desiredAR;
             const idealH = idealLong;
             const idealW = Math.max(360, Math.round(idealLong * desiredAR));
@@ -4544,8 +5156,8 @@ void main() {
         let __liveTime = 0;
         function renderLiveFilm(src, outW, outH) {
             return film.render(src.el, {
-                outW, outH,
-                crop: coverCrop(src.sw, src.sh, outW, outH, getLiveSoftwareZoom()),
+                outW, outH, native: liveNativeDims(), aspect: getLiveTargetRatioValue(),
+                crop: coverCrop(src.sw, src.sh, getLiveTargetRatioValue() * 1000, 1000, getLiveSoftwareZoom()),
                 mirror: liveState.mirror,
                 settings: activeFilmSettings(),
                 time: __liveTime,
@@ -4555,29 +5167,28 @@ void main() {
         function liveLoop() {
             const src = getLiveSource();
             if (src) {
+                // Rendered at the camera's own resolution (scaled up on screen, which is the
+                // point) — only big still-camera sensors are capped to what the screen shows.
                 const m = document.getElementById('main');
                 const r = getLiveFrameRect(Math.max(1, m.clientWidth), Math.max(1, m.clientHeight));
-                const sc = Math.min(viewDpr(), LIVE_PREVIEW_MAX / Math.max(r.cw, r.ch));
+                const d = liveNativeDims();
+                const k = Math.min(1, LIVE_PREVIEW_MAX / Math.max(d.w, d.h), (r.ch * viewDpr()) / d.h);
                 __liveTime = performance.now() / 1000;
-                liveCoverCanvas = renderLiveFilm(src, Math.max(2, Math.round(r.cw * sc)), Math.max(2, Math.round(r.ch * sc)));
+                liveCoverCanvas = renderLiveFilm(src, Math.max(2, Math.round(d.w * k)), Math.max(2, Math.round(d.h * k)));
+                composeWithOverlays(liveComposite, liveCoverCanvas, activeFilmSettings());
+                pumpLiveJpeg();
                 renderView();
             }
             liveState.rafId = requestAnimationFrame(liveLoop);
         }
 
-        // Shutter: re-render the current camera frame at full export size (not an upscale of
-        // the preview), then stamp the frame/date on it.
+        // Shutter: re-render the current camera frame at the camera's full native size,
+        // then burn the date/OSD in.
         function captureLivePhoto() {
             const src = getLiveSource();
             if (!src) return null;
-            const dim = getLiveCoverDimensions(getLiveTargetRatioKey());
-            const cnv = document.createElement('canvas');
-            cnv.width = dim.w;
-            cnv.height = dim.h;
-            const ctx = cnv.getContext('2d');
-            ctx.drawImage(renderLiveFilm(src, dim.w, dim.h), 0, 0);
-            drawFilmOverlays(ctx, 0, 0, dim.w, dim.h, activeFilmSettings());
-            return cnv;
+            const d = liveNativeDims();
+            return squarePixels(composeWithOverlays(document.createElement('canvas'), renderLiveFilm(src, d.w, d.h), activeFilmSettings()), getLiveTargetRatioValue());
         }
 
         async function startCamera() {
@@ -4600,13 +5211,12 @@ void main() {
                 }
                 if (isMobileLayout() && !liveState.didSetMobileZoomDefault) {
                     // Set UI immediately; hardware zoom will be applied after stream starts.
-                    setZoomUIValue(0.5);
+                    setZoomUIValue(1);
                     liveState.didSetMobileZoomDefault = true;
                 }
                 // Sync Live ratio to breakpoint (single source of truth)
                 liveState.aspectRatio = getLiveTargetRatioKey();
                 liveCoverCanvas = null;
-                liveCoverLastRatio = null;
                 ensureLiveOptionsUI();
                 wireMobileZoomUI();
 
@@ -4633,13 +5243,14 @@ void main() {
                         renderZoomTicks();
                         renderZoomPresets();
                         try {
-                            // First launch opens at 0.5× (or the widest the hardware allows) —
-                            // the grid app's default, and its fix for "everything looks too
-                            // close" on a full-screen 9:16 frame. After that (camera flip,
+                            // First launch opens at 1× — the lens (default 28mm) sets the field
+                            // of view now. (The old 0.5× default fixed "too close" on a
+                            // full-screen 9:16 crop of the sensor; the 3:4 frame keeps the
+                            // whole sensor width, so it isn't needed.) After that (camera flip,
                             // ultra-wide swap) keep the user's zoom, re-applied to the new
                             // stream so the hardware/software split is never stale.
                             if (isMobileLayout() && !liveState.didApplyMobileHardwareZoomDefault && __liveZoomCaps && typeof __liveZoomCaps.min === 'number') {
-                                const pref = 0.5;
+                                const pref = 1;
                                 const zmin = __liveZoomCaps.min;
                                 const zmax = (typeof __liveZoomCaps.max === 'number') ? __liveZoomCaps.max : zmin;
                                 const target = (pref >= zmin && pref <= zmax) ? pref : zmin;
@@ -4770,8 +5381,7 @@ void main() {
                 mobShutter.style.display = 'block';
                 if (mobUploadMore) mobUploadMore.style.display = 'none';
                 mobFlip.style.display = 'flex';
-                // Ratio button disabled on mobile: Live fits device automatically
-                if (mobRatio) mobRatio.style.display = 'none';
+                updateFormatPill();
                 if (zoomPresets) zoomPresets.style.display = 'flex';
             } else {
                 mobShutter.style.display = 'none';
@@ -4780,7 +5390,7 @@ void main() {
                 // before the first image is picked).
                 if (mobUploadMore) mobUploadMore.style.display = 'flex';
                 mobFlip.style.display = 'none';
-                if (mobRatio) mobRatio.style.display = 'none';
+                updateFormatPill();
                 if (zoomPresets) zoomPresets.style.display = 'none';
             }
         }
@@ -4855,25 +5465,28 @@ void main() {
         var flipCamBtn = document.getElementById('l-flip-cam');
         if (flipCamBtn) flipCamBtn.addEventListener('click', flipCamera);
 
-        function cycleAspectRatio() {
-            const orderMobile = ['9:16', '4:5', '3:4', '1:1'];
-            const orderDesktop = ['16:9', '4:5', '3:4', '1:1'];
-            const order = isMobileLayout() ? orderMobile : orderDesktop;
-
-            const idx = order.indexOf(liveState.aspectRatio);
-            liveState.aspectRatio = order[(idx >= 0 ? idx + 1 : 0) % order.length];
-            // Never allow landscape option on mobile
-            if (isMobileLayout() && liveState.aspectRatio === '16:9') liveState.aspectRatio = '9:16';
-            liveCoverCanvas = null;
-            liveCoverLastRatio = null;
-            if (mobRatio) {
-                mobRatio.setAttribute('aria-label', 'Aspect ratio ' + liveState.aspectRatio);
-                mobRatio.title = liveState.aspectRatio;
-            }
-            // Force immediate refresh (helps when CSS/layout caches)
-            if (state.mode === 'live') refreshView();
+        // Frame format: cycles through the formats the active camera really had. A narrower
+        // format crops the same feed (as those cameras' 16:9 / 3:2 modes did); nothing
+        // restarts. Locked while recording.
+        function updateFormatPill() {
+            if (!mobRatio) return;
+            const cam = CAMERAS[ACTIVE_CAMERA_KEY];
+            const label = document.getElementById('mob-ratio-label');
+            if (label) label.textContent = cameraFormat(cam);
+            mobRatio.setAttribute('aria-label', 'Frame format ' + cameraFormat(cam));
+            mobRatio.style.display = (isMobileLayout() && cam.formats.length > 1) ? 'flex' : 'none';
         }
-        if (mobRatio) mobRatio.addEventListener('click', cycleAspectRatio);
+        function cycleCameraFormat() {
+            const cam = CAMERAS[ACTIVE_CAMERA_KEY];
+            if (cam.formats.length < 2 || document.body.classList.contains('recording')) return;
+            const i = cam.formats.indexOf(cameraFormat(cam));
+            ACTIVE_FORMATS[cam.key] = cam.formats[(i + 1) % cam.formats.length];
+            __filmSettingsCache = null;
+            updateFormatPill();
+            showLensToast({ label: cameraFormat(cam), name: cam.label, feel: cameraFormat(cam) === '16:9' ? 'widescreen' : 'frame format' });
+            refreshView();
+        }
+        if (mobRatio) mobRatio.addEventListener('click', cycleCameraFormat);
 
         var mobCaptureModeBtn = document.getElementById('mob-capture-mode');
         function updateModeRowActive() {
@@ -4976,22 +5589,86 @@ void main() {
             if (el) el.style.display = 'none';
         }
 
-        // Each recorded frame is a blit of the preview film frame liveLoop() already
-        // rendered this animation frame — never a second shader pass here. Rendering twice
-        // per tick (once for the screen, once again for the recorder) starves the main
-        // thread, which shows up as choppy video *and* stuttering audio (MediaRecorder's
-        // timing gets starved when JS is this busy). Frame/date overlays are drawn on top.
+        // Each recorded frame is a blit of the camera-resolution frame liveLoop() already
+        // rendered (with its OSD burned in) — never a second shader pass here. Rendering
+        // twice per tick starves the main thread, which shows up as choppy video *and*
+        // stuttering audio. It's scaled up by a whole factor into the recording canvas.
         function drawRecordFrame() {
             if (!liveRecordCtx || !liveRecordCanvas) return;
             const W = liveRecordCanvas.width, H = liveRecordCanvas.height;
-            if (liveCoverCanvas && liveCoverCanvas.width > 2) {
-                liveRecordCtx.drawImage(liveCoverCanvas, 0, 0, W, H);
+            if (liveComposite.width > 2) {
+                liveRecordCtx.imageSmoothingEnabled = true;
+                liveRecordCtx.drawImage(livePreviewFrame(), 0, 0, W, H);
             } else {
                 liveRecordCtx.fillStyle = '#000';
                 liveRecordCtx.fillRect(0, 0, W, H);
             }
-            drawFilmOverlays(liveRecordCtx, 0, 0, W, H, activeFilmSettings());
         }
+
+        // ── Hold the picture → the original (unprocessed) image, until released ──
+        (function () {
+            let t = null;
+            const start = (e) => {
+                if (e.pointerType === 'mouse' && e.button !== 0) return;
+                clearTimeout(t);
+                t = setTimeout(() => { state.comparing = true; document.body.classList.add('comparing'); renderView(); }, 260);
+            };
+            const end = () => {
+                clearTimeout(t);
+                if (!state.comparing) return;
+                state.comparing = false;
+                document.body.classList.remove('comparing');
+                renderView();
+            };
+            gridCanvas.addEventListener('pointerdown', start);
+            ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => gridCanvas.addEventListener(ev, end));
+            // A second finger means pinch-zoom, not compare.
+            gridCanvas.addEventListener('touchstart', (e) => { if (e.touches && e.touches.length > 1) end(); }, { passive: true });
+        })();
+
+        // ── Recording audio: a separate Web Audio chain per the preset's profile ──
+        // Mic → high-pass (rumble) → peaking EQ (small built-in mic) → low-pass (format
+        // bandwidth) → [12-bit crush for MiniDV 32 kHz] → mono or stereo, plus optional tape
+        // hiss (only with the tape-artifacts layer). Gains stay ≤ unity, so it can't clip
+        // what didn't already clip; the context runs at the device's own rate (no forced
+        // resampling). Returns { tracks, close } or null to record the original sound.
+        function buildRecordAudio(audioTracks, cam) {
+            if (!audioTracks.length || !cam.audio || CONTROLS.sound === 'original') return null;
+            const AC = window.AudioContext || window.webkitAudioContext;
+            if (!AC) return null;
+            try {
+                const prof = AUDIO_PROFILES[(cam.audio === 'C' && CONTROLS.sound === '32k') ? 'C32' : cam.audio];
+                const ac = new AC();
+                const srcNode = ac.createMediaStreamSource(new MediaStream(audioTracks));
+                let node = srcNode;
+                const chain = (n) => { node.connect(n); node = n; };
+                const hp = ac.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = prof.hp; chain(hp);
+                prof.eq.forEach((e) => { const f = ac.createBiquadFilter(); f.type = 'peaking'; f.frequency.value = e.f; f.gain.value = e.g; f.Q.value = e.q; chain(f); });
+                const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = Math.min(prof.lp, ac.sampleRate / 2 - 100); chain(lp);
+                if (prof.crush) {
+                    const steps = Math.pow(2, prof.crush - 1), n = 4096, curve = new Float32Array(n);
+                    for (let i = 0; i < n; i++) { const x = i / (n - 1) * 2 - 1; curve[i] = Math.round(x * steps) / steps; }
+                    const ws = ac.createWaveShaper(); ws.curve = curve; chain(ws);
+                }
+                const dest = ac.createMediaStreamDestination();
+                const stereo = cam.stereo && cam.audio !== 'A';
+                dest.channelCount = stereo ? 2 : 1;
+                dest.channelCountMode = 'explicit';
+                node.connect(dest);
+                if (prof.hiss && CONTROLS.tapeFx && cam.tapeFx) {
+                    const buf = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate), d = buf.getChannelData(0);
+                    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+                    const ns = ac.createBufferSource(); ns.buffer = buf; ns.loop = true;
+                    const nf = ac.createBiquadFilter(); nf.type = 'highpass'; nf.frequency.value = 3000;
+                    const ng = ac.createGain(); ng.gain.value = prof.hiss;
+                    ns.connect(nf).connect(ng).connect(dest);
+                    ns.start();
+                }
+                if (ac.state === 'suspended') ac.resume().catch(() => { });
+                return { tracks: dest.stream.getAudioTracks(), close: () => { try { ac.close(); } catch (_) { } } };
+            } catch (_) { return null; }
+        }
+        var liveRecordAudio = null;
 
         var pendingRecordPoster = null;
         function toggleVideoRecording() {
@@ -5010,12 +5687,16 @@ void main() {
                 return;
             }
             recordedChunks = [];
-            var recordRatio = getLiveTargetRatioKey();
-            var dim = getLiveCoverDimensions(recordRatio);
+            // The camera's own video size (SD for camcorders), enlarged by a whole factor to
+            // ~900px+ so it plays at a sensible size — the low bitrate below keeps it as
+            // compressed as the original tape/MPEG.
+            var nat = cameraDims(activeFilmSettings().camera, true, false);
+            var upk = Math.max(1, Math.ceil(900 / Math.max(nat.w, nat.h)));
             liveRecordCanvas = document.createElement('canvas');
-            liveRecordCanvas.width = dim.w;
-            liveRecordCanvas.height = dim.h;
+            liveRecordCanvas.height = nat.h * upk;
+            liveRecordCanvas.width = Math.round(nat.h * upk * getLiveTargetRatioValue()); // displayed shape (DV is anamorphic)
             liveRecordCtx = liveRecordCanvas.getContext('2d');
+            __osdCounterStart = performance.now();
             // Seed real content before the stream/recorder start, so the first
             // captured frame isn't a blank black canvas.
             drawRecordFrame();
@@ -5024,17 +5705,20 @@ void main() {
             else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) mime = 'video/webm;codecs=vp9';
             var canvasStream = liveRecordCanvas.captureStream(LIVE_RECORD_FPS);
             var audioTracks = (liveState.stream && liveState.stream.getAudioTracks) ? liveState.stream.getAudioTracks() : [];
+            liveRecordAudio = buildRecordAudio(audioTracks, activeFilmSettings().camera);
+            if (liveRecordAudio) audioTracks = liveRecordAudio.tracks;
             var stream = audioTracks.length
                 ? new MediaStream([].concat(canvasStream.getVideoTracks(), audioTracks))
                 : canvasStream;
             try {
-                liveVideoRecorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 5000000 });
+                liveVideoRecorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: activeFilmSettings().camera.kbps * 1000 });
             } catch (e) {
                 liveVideoRecorder = new MediaRecorder(stream);
             }
             liveVideoRecorder.ondataavailable = function (e) { if (e.data.size) recordedChunks.push(e.data); };
             liveVideoRecorder.onstop = function () {
                 stopRecordInterval();
+                if (liveRecordAudio) { liveRecordAudio.close(); liveRecordAudio = null; }
                 mobShutter.classList.remove('recording');
                 document.body.classList.remove('recording');
                 stopRecTimer();
@@ -5068,10 +5752,9 @@ void main() {
 
         function addToGallery(item) {
             if (item.type === 'image') {
-                item.canvas.toBlob(function (blob) {
-                    if (!blob) return;
+                cameraJpeg(item.canvas, item.jpegQ || 0.92, function (blob) {
                     addGalleryEntry({ type: 'image', blob: blob, mimeType: 'image/jpeg', fileName: item.fileName });
-                }, 'image/jpeg', 0.92);
+                });
             } else {
                 addGalleryEntry({ type: 'video', blob: item.blob, mimeType: item.mimeType, fileName: item.fileName, poster: item.poster || null });
             }
@@ -5490,7 +6173,49 @@ void main() {
                 }
             }
 
+            // Electronic beep (focus-lock / confirm tones of digital cameras).
+            function beep(c, t, freq, dur, gain, type) {
+                const o = c.createOscillator();
+                o.type = type || 'square';
+                o.frequency.value = freq;
+                const f = c.createBiquadFilter();
+                f.type = 'lowpass';
+                f.frequency.value = 5000;
+                const g = c.createGain();
+                g.gain.setValueAtTime(0.0001, t);
+                g.gain.exponentialRampToValueAtTime(gain, t + 0.004);
+                g.gain.setValueAtTime(gain, t + dur - 0.01);
+                g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+                o.connect(f).connect(g).connect(bus);
+                o.start(t);
+                o.stop(t + dur + 0.02);
+            }
+
             const PROFILES = {
+                // 2000s digicam: focus-lock double beep, then the speaker's fake shutter.
+                digicam(c, t) {
+                    beep(c, t, 2700, 0.045, 0.12); beep(c, t + 0.07, 2700, 0.045, 0.12);
+                    burst(c, t + 0.16, 3800, 0.02, 0.7, 1.6); burst(c, t + 0.205, 2600, 0.03, 0.55, 1.4);
+                },
+                // Early digital (QuickTake, DC40): one beep, a relay click, a slow processing chirp.
+                earlydigi(c, t) {
+                    burst(c, t, 2600, 0.02, 0.6, 2); thump(c, t, 180, 0.04, 0.2);
+                    beep(c, t + 0.35, 2000, 0.09, 0.08, 'triangle');
+                },
+                // Mavica: shutter click, then the floppy drive grinding the JPEG to disk.
+                mavica(c, t) {
+                    burst(c, t, 3400, 0.02, 0.6, 1.5);
+                    whir(c, t + 0.25, 60, 0.7, 0.07, 500);
+                    ratchet(c, t + 0.3, 10, 0.06, 1500, 0.12);
+                },
+                // Camcorder taking a still: one beep and a soft relay click.
+                camcorder(c, t) {
+                    beep(c, t, 2200, 0.07, 0.11); burst(c, t + 0.1, 3000, 0.02, 0.5, 2); thump(c, t + 0.1, 160, 0.04, 0.15);
+                },
+                // Camera phone: a tinny speaker shutter sample.
+                phone(c, t) {
+                    burst(c, t, 4500, 0.025, 0.6, 3); burst(c, t + 0.04, 3200, 0.035, 0.5, 3);
+                },
                 // SLR: mirror up → curtain → mirror down, then the wind lever.
                 slr(c, t) {
                     burst(c, t, 2400, 0.035, 0.9, 1.2); thump(c, t, 130, 0.08, 0.5);
@@ -5572,20 +6297,8 @@ void main() {
                 },
             };
 
-            // Which mechanism each camera has (anything unlisted is an SLR).
-            const CAMERA_SOUND = {
-                ae1: 'slr', fm2: 'slr', k1000: 'slr', om1: 'slr',
-                leicam3: 'leica',
-                contaxt2: 'compact', mju: 'compact', t4: 'compact',
-                penf: 'halfframe',
-                disposable: 'disposable',
-                lca: 'lomo',
-                holga: 'toy', diana: 'toy',
-                instamatic: 'instamatic',
-                sx70: 'sx70', onestep: 'onestep', instaxmini: 'instax',
-                hasselblad: 'hasselblad', rollei: 'rollei',
-                super8: 'super8',
-            };
+            // Which sound each preset makes: its `sound` (unlisted → a digicam beep).
+
 
             // Loudness trim per mechanism, measured from offline renders so every camera
             // lands at a similar peak — except the Leica, kept deliberately the quietest
@@ -5594,6 +6307,7 @@ void main() {
                 slr: 1, leica: 2.5, compact: 2.6, halfframe: 5, disposable: 4, lomo: 5.5,
                 toy: 3.4, instamatic: 4.5, sx70: 1.6, onestep: 1.7, instax: 2.4,
                 hasselblad: 0.85, rollei: 4.5, super8: 2.2,
+                digicam: 2.2, camcorder: 2.4, earlydigi: 2.6, mavica: 2.4, phone: 3,
             };
 
             return {
@@ -5602,7 +6316,8 @@ void main() {
                 play(cameraKey) {
                     const c = ac();
                     if (!c) return;
-                    const name = PROFILES[CAMERA_SOUND[cameraKey]] ? CAMERA_SOUND[cameraKey] : 'slr';
+                    const want = CAMERAS[cameraKey] && CAMERAS[cameraKey].sound;
+                    const name = PROFILES[want] ? want : 'digicam';
                     try {
                         bus = c.createGain();
                         bus.gain.value = PROFILE_GAIN[name] || 1;
@@ -5624,7 +6339,7 @@ void main() {
             if (!cnv) return;
             shutterSound.play(ACTIVE_CAMERA_KEY);
             flashShutter();
-            addToGallery({ type: 'image', canvas: cnv, fileName: filmFileName('shot', 'jpg') });
+            addToGallery({ type: 'image', canvas: cnv, jpegQ: activeFilmSettings().camera.jpegQ, fileName: filmFileName('shot', 'jpg') });
             // Stay in Live after capture (don't stop camera / don't switch modes)
         });
 
@@ -5658,16 +6373,15 @@ void main() {
         // Home Screen" prompt, have been dismissed. See playSplashThen()/initApp() near the
         // bottom of this script.
 
-        // Camera and film pickers and the lens slider are all built from CAMERAS / FILMS /
-        // LENSES — nothing about a preset is hardcoded in the markup.
+        // The camera picker and the lens slider are built from CAMERAS / LENSES — nothing
+        // about a preset is hardcoded in the markup.
         renderPicker('camera');
-        renderPicker('film');
         syncFilmUI();
 
         // PWA: register service worker for installability + reliable updates
         (function () {
             if (!('serviceWorker' in navigator)) return;
-            const __BUILD = 'v7';
+            const __BUILD = 'v16';
             try {
                 const bt = document.getElementById('build-tag');
                 if (bt) bt.textContent = __BUILD;
@@ -5701,7 +6415,7 @@ void main() {
             window.forceAppUpdate = resetServiceWorkerAndReload;
 
             // Versioned SW URL forces Safari to re-fetch updated sw.js
-            const __SW_URL = 'sw.js?v=7';
+            const __SW_URL = 'sw.js?v=16';
             navigator.serviceWorker.register(__SW_URL).then((reg) => {
                 function trySkipWaiting() {
                     if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
@@ -5759,7 +6473,7 @@ void main() {
 
             function showInstallSteps() {
                 if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-                    alert('To add Film Camera to your home screen:\n\n1. Tap the Share button (□ with arrow) at the bottom of Safari.\n2. Scroll down and tap "Add to Home Screen".\n3. Tap "Add".');
+                    alert('To add 90\'FRAME to your home screen:\n\n1. Tap the Share button (□ with arrow) at the bottom of Safari.\n2. Scroll down and tap "Add to Home Screen".\n3. Tap "Add".');
                 } else {
                     showManualHint();
                 }
@@ -5821,7 +6535,7 @@ void main() {
             const title = document.getElementById('splash-title');
             const hint = document.getElementById('splash-hint');
             if (!splash || !title) { next(); return; }
-            const APP_NAME = 'Film Camera';
+            const APP_NAME = "90'FRAME";
             let advanced = false;
             function advance() {
                 if (advanced) return;
@@ -5840,24 +6554,25 @@ void main() {
             }
             splash.setAttribute('aria-hidden', 'false');
             splash.classList.add('show');
+            // Boot screen: a few BIOS-style lines type out, then the logo, then the name in
+            // LED segments, then a blinking "tap to start".
+            const boot = document.getElementById('splash-boot');
+            const logo = document.getElementById('splash-logo');
+            if (logo) logo.style.visibility = 'hidden';
             title.textContent = '';
-            title.classList.add('caret');
-            // Let the logo's own entrance animation (600ms) play out before typing starts.
+            if (boot) {
+                boot.textContent = '90FRAME BIOS v1.0  (C)1997\nMEMORY TEST ...... 640K OK\nCAMERAS ........... ' + String(CAMERA_ORDER.length).padStart(2, '0') + ' FOUND\nLOADING';
+                typewrite(boot, { maxMs: 1100, keepCaret: true });
+            }
             setTimeout(() => {
-                let i = 0;
-                const typeInterval = setInterval(() => {
-                    i++;
-                    title.textContent = APP_NAME.slice(0, i);
-                    if (i >= APP_NAME.length) {
-                        clearInterval(typeInterval);
-                        setTimeout(() => {
-                            title.classList.remove('caret');
-                            if (hint) hint.classList.add('show');
-                            splash.addEventListener('click', advance);
-                        }, 300); // caret keeps blinking a beat after the last character
-                    }
-                }, 70);
-            }, 650);
+                if (logo) logo.style.visibility = '';
+                title.textContent = APP_NAME;
+                typewrite(title, { maxMs: 650 });
+                setTimeout(() => {
+                    if (hint) hint.classList.add('show');
+                    splash.addEventListener('click', advance);
+                }, 800);
+            }, 1250);
         }
 
         // Wraps the app's real startup (defaulting into Live, which is what actually

@@ -1,30 +1,30 @@
 {
-  "name": "Film Camera",
-  "short_name": "Film Camera",
-  "description": "shoot it on film",
+  "name": "90'FRAME",
+  "short_name": "90'FRAME",
+  "description": "90s cameras, live on your phone",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#f2ebe0",
-  "theme_color": "#4a3942",
+  "background_color": "#030503",
+  "theme_color": "#030503",
   "orientation": "any",
   "icons": [
     {
-      "src": "icon.svg",
+      "src": "icon.svg?v=5",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "icon-180.png",
+      "src": "icon-180.png?v=5",
       "sizes": "180x180",
       "type": "image/png"
     },
     {
-      "src": "icon-512.png",
+      "src": "icon-512.png?v=5",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }
