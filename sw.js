@@ -1,5 +1,5 @@
 // Minimal service worker so the app can be installed (PWA)
-const CACHE = '90frame-v19';
+const CACHE = '90frame-v20';
 
 self.addEventListener('install', (e) => {
   e.waitUntil(

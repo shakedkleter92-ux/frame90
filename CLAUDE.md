@@ -30,9 +30,13 @@ Bump `CACHE` in `sw.js` (`90frame-vN`) **and** `__BUILD` / `__SW_URL`'s `?v=` ne
   `white`/`black`, sensor noise, `sharpen`, `jpegQ`) or `VIDEO_FORMATS` (tape bandwidth,
   chroma, `interlace`, analog noise, optional `tapeFx`, `kbps`, `audio`). `AUDIO_PROFILES`
   A/B/C(/C32) drive `buildRecordAudio()` (Web Audio chain on the mic for video only; film
-  presets keep the original sound). Presets now (12, three rows): FunSaver, Polaroid, Holga X-Pro,
-  Super 8, Video8, Hi8, MiniDV, the user's VHS references (`vhs92`, `vhsslp`, `vhsworn`),
-  NightShot, QuickTake. Added 2026-10-08: `polaroid` (600 instant film, 1:1, flash on, no
+  presets keep the original sound). **Two lists (user, 2026-10-09)** — `CAMERA_LISTS`: **Photo** =
+  old digital (DC20, QV-10, Cyber-shot DSC-F1, QuickCam, QuickTake) then film stills (FunSaver,
+  Polaroid, Holga X-Pro); **Video** = Super 8, Video8, Hi8, MiniDV, the user's VHS references
+  (`vhs92`, `vhsslp`, `vhsworn`), NightShot. The picker shows the current tab's list
+  (`activeCameraList()`: Live → capture mode; Upload → a loaded video = Video, else Photo);
+  each list remembers its own pick (`ACTIVE_IN_LIST`, synced by `syncCameraList()` on tab
+  change / upload load / clear). QuickCam uses look param `levels` (16 grays, shader 5a). Added 2026-10-08: `polaroid` (600 instant film, 1:1, flash on, no
   forced white border), `holga` (cross-processed slide film, 1:1, plastic-lens corners),
   `super8` (Kodachrome 40 cine film, 18 fps frame hold via `fps`, film grain, gate `weave` +
   `flicker` look params, audio `S8`). A film may set its own `px`/`formats` (instant and
@@ -45,7 +49,7 @@ Bump `CACHE` in `sw.js` (`90frame-vN`) **and** `__BUILD` / `__SW_URL`'s `?v=` ne
   user: nothing in the app may look sharp — a preset that renders crisp doesn't belong here**
   (Hi8/Video8/MiniDV were softened for this: Video8 320×240, Hi8 400×300, MiniDV soft 1.2;
   Video8 stays the softest, Hi8 between).  — and the 2000s models
-  before that. One picker, titled **CAMERA TYPE** (no number), one list for Photo, Video and Upload — the
+  before that. One picker, titled **CAMERA TYPE** (no number), showing the current tab's list — the
   panel has nothing else. **The 02 Adjust tab was removed on the user's request (2026-10-08)**: no
   sliders/toggles in the UI; `CONTROLS` / `PRESET_TOGGLES` remain only as fixed defaults that
   `combineLook()` reads (effect 100, grain 100, color 100, WB auto, tape FX off, camera sound;

@@ -3260,6 +3260,7 @@
             dropouts: 0,              // worn tape: share of scan lines with a dropout streak per frame
             weave: 0,                 // cine film: gate weave, native px of frame-to-frame jitter
             flicker: 0,               // cine film: frame-to-frame exposure flicker (0..1)
+            levels: 0,                // digital: tones the sensor/ADC could store (QuickCam: 16 grays); 0 = smooth
         };
 
         function hashKey(key) {
@@ -3281,6 +3282,11 @@
             polaroid600: { adj: { vignette: 14, blur: 14 }, soft: 0.6, flash: { power: 0.9, reach: 0.8, color: [1, 0.98, 0.94] } },
             // Holga 120: plastic meniscus lens — heavy fall-off, soft and fringed edges.
             holga: { adj: { vignette: 44, blur: 36, chroma: 14 }, soft: 0.5, flash: null },
+            // Early digicams: small fixed-focus lenses in front of tiny CCDs.
+            qv10: { adj: { vignette: 6, blur: 6 }, soft: 0.4, flash: null },          // Casio QV-10 (no flash)
+            dc20: { adj: { vignette: 10, blur: 10 }, soft: 0.5, flash: null },        // Kodak DC20 (no flash)
+            cyberf1: { adj: { vignette: 4 }, soft: 0.4, flash: { power: 0.8, reach: 0.7, color: [0.98, 0.99, 1.04] } }, // Sony DSC-F1
+            quickcam: { adj: { vignette: 18, blur: 8 }, soft: 0.5, flash: null },    // Connectix QuickCam: a webcam's plastic lens
             // Super 8 home-movie camera: zoom lens, the gate's rounded corners.
             super8cam: { adj: { vignette: 24, blur: 10 }, soft: 0.3, flash: null },
         };
@@ -3314,7 +3320,37 @@
         };
 
         // ── Digital still sensors ──
+        // All soft on purpose (the user's rule): tiny early CCDs, heavy JPEG, little detail.
         const SENSORS = {
+            qv10: { // Casio QV-10 · 1995 · 320×240, the first consumer digicam with a screen
+                px: [320, 240], jpegQ: 0.5,
+                adj: { exposure: 2, contrast: -6, saturation: -24, warmth: -10, fade: 8, grain: 18 },
+                look: {
+                    matrix: [[0.86, 0.16, -0.02], [0.08, 0.88, 0.04], [0.02, 0.14, 0.84]], gamma: [1.02, 0.97, 0.98],
+                    white: 0.86, black: 0.06, noiseType: 1, noiseColor: 0.8, soft: 1.4, sharpen: 0.2, chromaSub: [2, 2],
+                },
+            },
+            dc20: { // Kodak DC20 · 1996 · 493×373, fixed focus, warm Kodak color, blows highlights
+                px: [493, 373], jpegQ: 0.55,
+                adj: { exposure: 6, contrast: 10, saturation: -4, warmth: 26, grain: 14 },
+                look: {
+                    matrix: [[1.06, -0.02, -0.04], [0.02, 1.0, -0.02], [-0.02, 0.04, 0.98]],
+                    white: 0.82, black: 0.04, noiseType: 1, noiseColor: 0.6, soft: 1.3, sharpen: 0.3, chromaSub: [2, 2],
+                },
+            },
+            cyberf1: { // Sony Cyber-shot DSC-F1 · 1996 · 640×480, vivid color, sharpening halos on a soft image
+                px: [640, 480], jpegQ: 0.6,
+                adj: { contrast: 14, saturation: 18, warmth: -4, grain: 10 },
+                look: {
+                    matrix: [[1.12, -0.08, -0.04], [-0.04, 1.1, -0.06], [-0.02, -0.08, 1.1]],
+                    white: 0.9, black: 0.03, noiseType: 1, noiseColor: 0.5, soft: 1.6, sharpen: 1.0, chromaSub: [2, 2],
+                },
+            },
+            quickcam: { // Connectix QuickCam · 1994 · 320×240 grayscale webcam, 16 shades of gray
+                px: [320, 240], jpegQ: 0.6,
+                adj: { exposure: 4, contrast: 20, grain: 20 },
+                look: { mono: 1, levels: 16, white: 0.88, black: 0.06, noiseType: 1, noiseColor: 0, soft: 1.6, sharpen: 0.4 },
+            },
             quicktake100: { // 1994 · 640×480
                 px: [640, 480], jpegQ: 0.5,
                 adj: { exposure: -4, contrast: -4, saturation: -22, warmth: 10, fade: 6, grain: 16 },
@@ -3447,6 +3483,14 @@
             { body: 'vhsCam', video: 'vhsworn', sound: 'camcorder' });
         CAMERA('nightshot', 'NightShot', 'Sony Hi8 NightShot (1998)', 'Infrared night mode: glowing green-white, noisy.',
             { body: 'nightshot', video: 'nightshot', date: 'osd', sound: 'camcorder' });
+        CAMERA('dc20', 'DC20', 'Kodak DC20 (1996)', 'Tiny fixed-focus digicam: warm Kodak color, blown highlights, heavy JPEG.',
+            { body: 'dc20', sensor: 'dc20', sound: 'earlydigi' });
+        CAMERA('qv10', 'QV-10', 'Casio QV-10 (1995)', 'The first digicam with a screen: 320×240, muddy, washed out, cool.',
+            { body: 'qv10', sensor: 'qv10', sound: 'earlydigi' });
+        CAMERA('cyberf1', 'Cyber-shot', 'Sony Cyber-shot DSC-F1 (1996)', 'Vivid early digital color with sharpening halos on a soft 640×480.',
+            { body: 'cyberf1', sensor: 'cyberf1', sound: 'digicam' });
+        CAMERA('quickcam', 'QuickCam', 'Connectix QuickCam (1994)', 'The first webcam: black and white, only 16 shades of gray.',
+            { body: 'quickcam', sensor: 'quickcam', sound: 'earlydigi' });
         CAMERA('quicktake', 'QuickTake', 'Apple QuickTake 100 (1994)', '640×480 consumer digital: muddy, soft, noisy.',
             { body: 'quicktake', sensor: 'quicktake100', sound: 'earlydigi' });
 
@@ -3484,8 +3528,22 @@
         ];
         function lensIndex(key) { return Math.max(0, LENSES.findIndex((l) => l.key === key)); }
 
-        const DEFAULT_CAMERA_KEY = 'vhs92';
+        // Two camera lists (user, 2026-10-09): Photo = still cameras (old digital first, then
+        // film), Video = tape and cine film. The picker shows the one for the current tab —
+        // and in Upload, the one for what's loaded (a video → Video, a photo → Photo). Each
+        // list remembers its own pick.
+        const CAMERA_LISTS = {
+            photo: ['dc20', 'qv10', 'cyberf1', 'quickcam', 'quicktake', 'funsaver', 'polaroid', 'holga'],
+            video: ['super8', 'video8', 'hi8', 'minidv', 'vhs92', 'vhsslp', 'vhsworn', 'nightshot'],
+        };
+        const ACTIVE_IN_LIST = { photo: 'dc20', video: 'vhs92' };
+        const DEFAULT_CAMERA_KEY = ACTIVE_IN_LIST.photo;
         let ACTIVE_CAMERA_KEY = DEFAULT_CAMERA_KEY;
+        function activeCameraList() {
+            if (state.mode === 'live') return state.captureMode === 'video' ? 'video' : 'photo';
+            return state.srcVideo ? 'video' : 'photo';
+        }
+        function cameraListOf(key) { return CAMERA_LISTS.video.indexOf(key) >= 0 ? 'video' : 'photo'; }
         // 28mm: about the phone's own view, slightly tighter. Only the lens slider changes
         // this — never the camera picker.
         const DEFAULT_LENS_KEY = '28';
@@ -3584,7 +3642,7 @@ uniform float uAspect;
 uniform float uIntensity, uExposure, uContrast, uSaturation, uWarmth, uTint, uFade;
 uniform float uGrain, uGrainScale, uVignette, uHalation, uBlur, uChroma, uMono;
 uniform float uTime, uSeed, uDistort, uCircle;
-uniform float uSoft, uSharpen, uNoiseColor, uNoiseType, uTape, uInterlace, uDuo, uTapeFx, uDropouts, uWeave, uFlicker;
+uniform float uSoft, uSharpen, uNoiseColor, uNoiseType, uTape, uInterlace, uDuo, uTapeFx, uDropouts, uWeave, uFlicker, uLevels;
 uniform float uShoulder, uWhite, uBlack;
 uniform float uFlash, uFlashReach;
 uniform mat3 uMatrix;
@@ -3800,6 +3858,9 @@ void main() {
         col += nv * uGrain * 0.2 * w;
     }
 
+    // ── 5a. Few stored tones (QuickCam's 4-bit grays) — after the noise, which dithers them.
+    if (uLevels > 1.5) col = floor(clamp(col, 0.0, 1.0) * (uLevels - 1.0) + 0.5) / (uLevels - 1.0);
+
     // ── 5b. Worn tape: oxide dropouts — short bright streaks along single scan lines,
     // new ones every frame. Part of the look of a worn tape, not the optional layer below.
     if (uDropouts > 0.001) {
@@ -3930,7 +3991,7 @@ void main() {
                 'uNoiseType', 'uTapeFx', 'uFlash', 'uFlashReach', 'uFlashColor', 'uIntensity', 'uExposure', 'uContrast', 'uSaturation', 'uWarmth', 'uTint', 'uFade',
                 'uGrain', 'uGrainScale', 'uVignette', 'uHalation', 'uBlur', 'uChroma', 'uMono', 'uTime', 'uSeed', 'uDistort', 'uCircle',
                 'uMix', 'uGamma', 'uShadows', 'uHighlights', 'uHalColor',
-                'uSoft', 'uSharpen', 'uNoiseColor', 'uTape', 'uInterlace', 'uDuo', 'uDuoLo', 'uDuoHi', 'uDropouts', 'uWeave', 'uFlicker'
+                'uSoft', 'uSharpen', 'uNoiseColor', 'uTape', 'uInterlace', 'uDuo', 'uDuoLo', 'uDuoHi', 'uDropouts', 'uWeave', 'uFlicker', 'uLevels'
             ].forEach((n) => { U[n] = gl.getUniformLocation(prog, n); });
             gl.uniform1i(U.uTex, 0);
             gl.uniform1i(U.uPrev, 1);
@@ -4021,6 +4082,7 @@ void main() {
                 gl.uniform1f(U.uDropouts, L.dropouts || 0);
                 gl.uniform1f(U.uWeave, L.weave || 0);
                 gl.uniform1f(U.uFlicker, L.flicker || 0);
+                gl.uniform1f(U.uLevels, L.levels || 0);
                 gl.uniform1f(U.uDuo, L.duo ? 1 : 0);
                 gl.uniform3fv(U.uDuoLo, L.duo ? L.duo[0] : [0, 0, 0]);
                 gl.uniform3fv(U.uDuoHi, L.duo ? L.duo[1] : [1, 1, 1]);
@@ -4437,9 +4499,9 @@ void main() {
 
         // ── Camera picker (panel 01) ──
         // A fixed 4-column, max-3-row scrolling grid with a custom square scrollbar, built
-        // from CAMERA_ORDER — the same one list in Photo, Video and Upload.
+        // from the current tab's list (CAMERA_LISTS).
         const PICKERS = {
-            camera: { list: 'camera-presets', track: 'camera-scrollbar', thumb: 'camera-scrollbar-thumb', order: CAMERA_ORDER, items: CAMERAS, active: () => ACTIVE_CAMERA_KEY },
+            camera: { list: 'camera-presets', track: 'camera-scrollbar', thumb: 'camera-scrollbar-thumb', order: () => CAMERA_LISTS[activeCameraList()], items: CAMERAS, active: () => ACTIVE_CAMERA_KEY },
         };
 
         function renderPicker(kind) {
@@ -4447,7 +4509,7 @@ void main() {
             const el = document.getElementById(p.list);
             if (!el) return;
             el.innerHTML = '';
-            p.order.forEach((key) => {
+            (typeof p.order === 'function' ? p.order() : p.order).forEach((key) => {
                 const it = p.items[key];
                 const b = document.createElement('button');
                 b.type = 'button';
@@ -4542,9 +4604,22 @@ void main() {
         function setActiveCamera(key) {
             if (!CAMERAS[key]) return;
             ACTIVE_CAMERA_KEY = key;
+            ACTIVE_IN_LIST[cameraListOf(key)] = key;
             // Deliberately does NOT change the lens — picking a camera must never reframe
             // or zoom the picture; only the lens slider does that.
             __filmSettingsCache = null;
+            syncFilmUI();
+            refreshView();
+        }
+        // The tab (or the loaded upload) changed → show that list and its own camera.
+        function syncCameraList() {
+            const list = activeCameraList();
+            const key = ACTIVE_IN_LIST[list];
+            const listChanged = cameraListOf(ACTIVE_CAMERA_KEY) !== list;
+            if (!listChanged && key === ACTIVE_CAMERA_KEY) return;
+            ACTIVE_CAMERA_KEY = key;
+            __filmSettingsCache = null;
+            renderPicker('camera');
             syncFilmUI();
             refreshView();
         }
@@ -4646,6 +4721,7 @@ void main() {
             state.srcVideo = v;
             state.srcImage = null;
             state.videoNeedsTap = false;
+            syncCameraList(); // a video → the Video list
             updateUploadZoneVisibility();
             const fail = (msg) => { if (state.srcVideo === v) { clearUploadVideo(); updateUploadZoneVisibility(); renderUpload(); alert(msg); } };
             const timeout = setTimeout(() => { if (state.srcVideo === v && !state.srcImage) fail("This video couldn't be opened. Try a shorter clip, or one saved as MP4/MOV."); }, UPLOAD_VIDEO_TIMEOUT);
@@ -4724,6 +4800,7 @@ void main() {
             if (!v) return;
             state.srcVideo = null;
             state.srcImage = null;
+            syncCameraList(); // back to the Photo list
             state.videoNeedsTap = false;
             updateVideoTapHint();
             try { v.pause(); } catch (_) { }
@@ -5786,6 +5863,7 @@ void main() {
                 if (fi) fi.value = '';
             }
             state.mode = mode;
+            syncCameraList();
             document.body.classList.toggle('mode-upload', mode === 'image');
             document.querySelectorAll('.fm-btn[id^="fm-"]').forEach(b => b.classList.remove('active'));
             // Upload zone overlays the canvas, shown only in Upload mode with no photo loaded yet
@@ -5990,6 +6068,7 @@ void main() {
         function setCaptureMode(mode) {
             state.captureMode = (mode === 'video') ? 'video' : 'image';
             if (mobShutter) mobShutter.classList.toggle('mode-video', state.captureMode === 'video');
+            try { syncCameraList(); } catch (_) { } // (not yet defined during early init)
             updateModeRowActive();
             // Defensive: Photo and Video share one zoom-presets row (there's only one
             // camera stream underneath both), but re-render on every switch so it can
@@ -6883,7 +6962,7 @@ void main() {
         // PWA: register service worker for installability + reliable updates
         (function () {
             if (!('serviceWorker' in navigator)) return;
-            const __BUILD = 'v19';
+            const __BUILD = 'v20';
             try {
                 const bt = document.getElementById('build-tag');
                 if (bt) bt.textContent = __BUILD;
@@ -6917,7 +6996,7 @@ void main() {
             window.forceAppUpdate = resetServiceWorkerAndReload;
 
             // Versioned SW URL forces Safari to re-fetch updated sw.js
-            const __SW_URL = 'sw.js?v=19';
+            const __SW_URL = 'sw.js?v=20';
             navigator.serviceWorker.register(__SW_URL).then((reg) => {
                 function trySkipWaiting() {
                     if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
