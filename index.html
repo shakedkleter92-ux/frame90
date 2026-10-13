@@ -3330,9 +3330,18 @@
             tape: 0,                  // analog tape: luma bandwidth + color smear + line wobble
             interlace: 0,             // 480i fields (combing on motion)
             dropouts: 0,              // worn tape: share of scan lines with a dropout streak per frame
+            dropEdge: 0,              // extra dropouts toward the top/bottom of the frame (SLP tracking noise)
+            irGreen: 0,               // infrared (NightShot): vegetation glows — extra brightness where green leads
+            rgbSplit: 0,              // mistracked tape: red and blue land sideways of green (fraction of width)
+            trackBand: 0,             // mistracked tape: a drifting band of torn static (strength 0..1)
             weave: 0,                 // cine film: gate weave, native px of frame-to-frame jitter
             flicker: 0,               // cine film: frame-to-frame exposure flicker (0..1)
             levels: 0,                // digital: tones the sensor/ADC could store (QuickCam: 16 grays); 0 = smooth
+            blank: 0,                 // analog capture: black blanking bars at the left/right edges (fraction of width)
+            headSwitch: 0,            // analog tape: the head-switching strip along the bottom edge (fraction of height)
+            glow: null,               // [x, y, radius, strength] warm light flaring in from the frame edge (FunSaver), x/y 0..1 from top-left
+            glowColor: [1, 0.55, 0.22],
+            blueSat: 0,               // film: saturation change only where blue dominates (+ dense film skies, − washed-out cheap-lens skies); skin untouched
         };
 
         function hashKey(key) {
@@ -3358,38 +3367,30 @@
         const BODIES = {
             // Kodak FunSaver: one-element plastic lens — softer toward the edges, mild fall-off
             // (restrained: no chromatic aberration by default).
-            funsaver: { adj: { vignette: 12, blur: 10 }, soft: 0.5, flash: { power: 0.9, reach: 0.7, color: [1, 0.97, 1.0] } },
-            quicktake: { adj: { vignette: 8, blur: 6 }, soft: 0.6, flash: { power: 0.8, reach: 0.8, color: [1, 0.98, 1.02] } },
+            // Full strength, like the user's reference (2026-10-12: "I want the FunSaver like the
+            // reference"): near-black corners, soft center, heavily blurred edges, color fringing.
+            funsaver: { adj: { vignette: 92, blur: 60, chroma: 10 }, soft: 4.2, flash: { power: 0.9, reach: 0.7, color: [1, 0.97, 1.0] } },
             handycam: { adj: { vignette: 4 }, soft: 0, flash: null },
             handycamDV: { adj: { vignette: 3 }, soft: 0, flash: null },
             vhsCam: { adj: { vignette: 6 }, soft: 0, flash: null },
             nightshot: { adj: { vignette: 22 }, soft: 0, flash: null },
-            // Polaroid 600 box camera: plastic lens, flash on every shot.
-            polaroid600: { adj: { vignette: 14, blur: 14 }, soft: 0.6, flash: { power: 0.9, reach: 0.8, color: [1, 0.98, 0.94] } },
-            // Holga 120: plastic meniscus lens — heavy fall-off, soft and fringed edges.
-            holga: { adj: { vignette: 44, blur: 36, chroma: 14 }, soft: 0.5, flash: null },
             // ── The 24-camera library (user's spec, 2026-10-09) ──
             // SLRs with good zooms: near-clean optics, a little corner fall-off.
             nikonf90: { adj: { vignette: 4 }, soft: 0, flash: null },                 // Nikon F90/N90 — no built-in flash
             eos5: { adj: { vignette: 5 }, soft: 0, flash: FLASH.popup },              // Canon EOS 5/A2 — pop-up flash
             eos500: { adj: { vignette: 7, blur: 4 }, soft: 0.2, flash: FLASH.popup }, // Canon EOS 500 — kit EF 35-80 zoom, softer corners
             contaxg1: { adj: { vignette: 6, contrast: 4 }, soft: 0, flash: null },    // Contax G1 — Zeiss micro-contrast, no built-in flash
-            minilux: { adj: { vignette: 8 }, soft: 0, flash: FLASH.compact },         // Leica Minilux — 40mm Summarit
-            mju2: { adj: { vignette: 8, blur: 4 }, soft: 0.1, flash: FLASH.compact }, // Olympus mju-II — 35mm f/2.8
-            compact35: { adj: { vignette: 10, blur: 8 }, soft: 0.4, flash: FLASH.compact }, // a typical 90s 35mm point-and-shoot
-            instaxmini10: { adj: { vignette: 10, blur: 6 }, soft: 0.6, flash: FLASH.instax }, // Fujifilm Instax Mini 10
-            dc25: { adj: { vignette: 6, blur: 6 }, soft: 0.4, flash: FLASH.digicam },  // Kodak DC25
+            minilux: { adj: { vignette: 20 }, soft: 0, flash: FLASH.compact },        // Leica Minilux — 40mm Summarit (visible corner fall-off, per the user's reference; moderated)
+            mju2: { adj: { vignette: 20, blur: 6 }, soft: 0.4, flash: FLASH.compact }, // Olympus mju-II — 35mm f/2.8 (compact: softer, corner fall-off per the reference, moderated)
+            compact35: { adj: { vignette: 6, blur: 10 }, soft: 0.9, flash: FLASH.compact }, // a typical 90s 35mm point-and-shoot — simple optics: soft, softer edges, mild fall-off
+            instaxmini10: { adj: { vignette: 14, blur: 20 }, soft: 3.6, flash: FLASH.instax }, // Fujifilm Instax Mini 10 — plastic lens: very soft, dreamy (per the reference)
+            dc25: { adj: { vignette: 6, blur: 4 }, soft: 0.2, flash: FLASH.digicam },  // Kodak DC25
             mavicafd5: { adj: { vignette: 4 }, soft: 0.2, flash: FLASH.digicam },      // Sony Mavica MVC-FD5 — fixed 47mm-equiv. lens
             dc290: { adj: { vignette: 3 }, soft: 0, flash: FLASH.digicam },            // Kodak DC290 — 3x zoom
             camcorder: { adj: { vignette: 3 }, soft: 0, flash: null },                 // consumer single-CCD camcorder
             camcorder3ccd: { adj: { vignette: 2 }, soft: 0, flash: null },             // 3-CCD (VX1000, XL1, TRV900, GL1)
-            // Early digicams: small fixed-focus lenses in front of tiny CCDs.
-            qv10: { adj: { vignette: 6, blur: 6 }, soft: 0.4, flash: null },          // Casio QV-10 (no flash)
-            dc20: { adj: { vignette: 10, blur: 10 }, soft: 0.5, flash: null },        // Kodak DC20 (no flash)
-            cyberf1: { adj: { vignette: 4 }, soft: 0.4, flash: { power: 0.8, reach: 0.7, color: [0.98, 0.99, 1.04] } }, // Sony DSC-F1
-            quickcam: { adj: { vignette: 18, blur: 8 }, soft: 0.5, flash: null },    // Connectix QuickCam: a webcam's plastic lens
             // Super 8 home-movie camera: zoom lens, the gate's rounded corners.
-            super8cam: { adj: { vignette: 24, blur: 10 }, soft: 0.3, flash: null },
+            super8cam: { adj: { vignette: 55, blur: 14 }, soft: 0.3, flash: null },
         };
 
         // ── Film stocks (+ the lab scan) ──
@@ -3399,81 +3400,110 @@
         // Film stocks — independent of the camera body. Restrained: each stock's own color
         // and tone, grain that matches its speed, nothing pushed.
         const FILMS = {
-            gold400: { // what a 90s FunSaver came loaded with
-                adj: { contrast: 8, saturation: 10, warmth: 8, grain: 16 },
+            gold400: { // Kodak Gold 400 in the FunSaver
+                // Tuned to the user's reference render (2026-10-12; same scene): the low-fi one —
+                // heavy warm golden-orange cast, yellow-brown "muddy" greens, a washed-out
+                // gray-cyan sky (blueSat −0.6: blues only, skin stays believable ≈0.6), harsh
+                // contrast with near-black blacks (≈12,9,5) and nearly clipped warm whites,
+                // thick coarse grain (≈2.5× the SLR films).
+                adj: { contrast: 18, saturation: 6, warmth: 24, fade: 6, grain: 64 },
                 look: {
-                    matrix: [[1.05, -0.01, -0.04], [0.0, 1.02, -0.02], [-0.03, 0.01, 1.02]],
-                    shoulder: 0.4, gamma: [0.97, 1.0, 1.04], highlights: [0.02, 0.012, -0.015], grainSize: 2.0,
+                    matrix: [[0.74, 0.38, -0.12], [0.0, 0.98, 0.02], [0.04, 0.20, 0.76]],
+                    gamma: [1.03, 1.11, 1.12], shoulder: 0.35, shadows: [0.016, 0.01, -0.008], highlights: [0.02, 0.004, -0.015], grainSize: 2.4, blueSat: -0.6,
+                    glow: [0.9, 0.18, 0.32, 0.55], glowColor: [1, 0.55, 0.22], // the reference's orange flare, top-right
                 },
             },
-            gold200: { // Kodak Gold 200 — warm, friendly consumer color
-                adj: { contrast: 6, saturation: 8, warmth: 9, grain: 12 },
+            gold200: { // Kodak Gold 200 in a 90s 35mm point-and-shoot
+                // Tuned to the user's reference render (2026-10-12; same scene): Royal Gold's
+                // family look with softer contrast — the most lifted warm blacks (≈27,25,15),
+                // creamy warm whites, warmer and a little more saturated greens, a touch more
+                // grain; the softest optics of the film cameras (body).
+                adj: { exposure: -4, contrast: -4, saturation: 8, warmth: 15, fade: 17, grain: 30 },
                 look: {
-                    matrix: [[1.05, -0.01, -0.04], [0.0, 1.02, -0.02], [-0.03, 0.01, 1.02]],
-                    shoulder: 0.4, gamma: [0.98, 1.0, 1.03], highlights: [0.015, 0.01, -0.012], grainSize: 1.6,
+                    matrix: [[0.80, 0.26, -0.06], [-0.03, 1.0, 0.03], [0.04, 0.10, 0.86]],
+                    shoulder: 0.5, shadows: [0.035, 0.024, -0.016], highlights: [0.016, 0.006, -0.012], grainSize: 1.6,
                 },
             },
-            superia200: { // Fujicolor Superia 200 (1998) — cooler, clean greens
-                adj: { contrast: 6, saturation: 6, warmth: -3, tint: -2, grain: 10 },
+            superia200: { // Fujicolor Superia 200 (1998) on the Nikon F90
+                // Tuned to the user's reference render (2026-10-12), measured on patches:
+                // lifted olive blacks (≈21,22,14), clean slightly warm whites (≈251,249,245),
+                // a soft cyan-leaning sky (≈206°, sat ≈0.5), greens pulled toward olive, natural
+                // skin, fine but visible monochrome grain. Restrained saturation overall.
+                adj: { contrast: 4, saturation: -6, warmth: 2, fade: 16, grain: 28 },
                 look: {
-                    matrix: [[1.03, -0.01, -0.02], [-0.01, 1.04, -0.03], [-0.01, 0.0, 1.01]],
-                    shoulder: 0.45, gamma: [1.0, 0.985, 1.0], shadows: [0.0, 0.008, 0.012], grainSize: 1.5,
+                    matrix: [[0.86, 0.22, -0.08], [-0.04, 1.0, 0.04], [0.02, 0.07, 0.91]],
+                    shoulder: 0.45, shadows: [0.018, 0.022, -0.012], highlights: [0.012, 0.004, -0.012], grainSize: 1.6,
                 },
             },
-            superia400: { // Fujicolor Superia 400 (1998) — the mju-II's everyday film
-                adj: { contrast: 8, saturation: 8, warmth: -2, tint: -3, grain: 15 },
+            superia400: { // Fujicolor Superia 400 (1998) on the Olympus mju-II
+                // Tuned to the user's reference render (2026-10-12; same scene): the only cool
+                // one — neutral whites (≈248), cool green blacks (≈13,17,14), muted cool Fuji
+                // greens, darker midtones (≈46%), a deep saturated sky (blueSat, so skin stays
+                // natural ≈0.57), the most grain (consumer 400).
+                adj: { exposure: -2, contrast: 4, saturation: 2, warmth: -2, fade: 15, grain: 38 },
                 look: {
-                    matrix: [[1.03, -0.01, -0.02], [-0.01, 1.05, -0.04], [-0.01, 0.0, 1.01]],
-                    shoulder: 0.45, gamma: [1.0, 0.98, 0.99], shadows: [-0.004, 0.01, 0.014], grainSize: 1.8,
+                    matrix: [[0.94, 0.22, -0.16], [-0.02, 1.04, -0.02], [0.06, 0.14, 0.80]],
+                    gamma: [1.2, 1.18, 1.18], shoulder: 0.45, shadows: [0.0, 0.016, 0.0], highlights: [0.012, 0.008, 0.008], grainSize: 1.9, blueSat: 0.3,
                 },
             },
-            portra160nc: { // Kodak Portra 160NC (1998) — natural color, gentle contrast, skin first
-                adj: { contrast: -6, saturation: -8, warmth: 4, grain: 7 },
+            portra160nc: { // Kodak Portra 160NC (1998) on the Canon EOS 5
+                // Tuned to the user's reference render (2026-10-12; same scene as the F90's):
+                // vs Superia — warmer overall, a softer sky (×0.8 saturation), gentler warm
+                // highlights (≈250,248,241), the same lifted warm blacks (≈23,22,13), finer
+                // grain (×0.8), natural low-saturation skin.
+                adj: { contrast: -2, saturation: -12, warmth: 9, fade: 15, grain: 22 },
                 look: {
-                    matrix: [[1.0, 0.01, -0.01], [0.0, 1.0, 0.0], [0.0, 0.01, 0.99]],
-                    shoulder: 0.6, highlights: [0.01, 0.006, -0.004], grainSize: 1.3,
+                    matrix: [[0.80, 0.26, -0.06], [-0.03, 1.0, 0.03], [0.04, 0.10, 0.86]],
+                    shoulder: 0.6, shadows: [0.024, 0.018, -0.02], highlights: [0.012, 0.004, -0.014], grainSize: 1.4,
                 },
             },
-            portra400vc: { // Kodak Portra 400VC (1998) — the "vivid color" Portra
-                adj: { contrast: 6, saturation: 10, warmth: 3, grain: 13 },
+            portra400vc: { // Kodak Portra 400VC (1998) on the Leica Minilux
+                // Tuned to the user's reference render (2026-10-12; same scene): the most vivid
+                // and the darkest of the five — midtones well down (gray 50% → ≈42%) with
+                // bright whites kept (gamma, not exposure), a deep cyan-leaning sky (blues
+                // darkened through the matrix, ≈210°), warm low-blue blacks (≈16,15,7), warm
+                // greens, fine-to-medium 400-speed grain. The sky's extra depth comes from
+                // blueSat (blues only), so skin stays natural (sat ≈0.6).
+                adj: { exposure: -6, contrast: 4, saturation: 4, warmth: 8, fade: 13, grain: 32 },
                 look: {
-                    matrix: [[1.03, -0.01, -0.02], [0.0, 1.03, -0.03], [-0.01, 0.0, 1.01]],
-                    shoulder: 0.5, highlights: [0.01, 0.006, -0.004], grainSize: 1.7,
+                    matrix: [[0.94, 0.22, -0.16], [-0.02, 1.04, -0.02], [0.06, 0.14, 0.80]],
+                    gamma: [1.28, 1.28, 1.28], shoulder: 0.5, shadows: [0.02, 0.014, -0.016], highlights: [0.01, 0.0, -0.02], grainSize: 1.7, blueSat: 0.45,
                 },
             },
-            reala100: { // Fujicolor Reala 100 — neutral, accurate, very fine grain
-                adj: { contrast: 2, saturation: 2, grain: 5 },
-                look: { shoulder: 0.45, grainSize: 1.2 },
-            },
-            royalgold100: { // Kodak Royal Gold 100 — warm, saturated, fine grain
-                adj: { contrast: 6, saturation: 9, warmth: 7, grain: 7 },
+            reala100: { // Fujicolor Reala 100 on the Contax G1 (the body adds Zeiss micro-contrast)
+                // Tuned to the user's reference render (2026-10-12; same scene): the deepest
+                // blacks of the four (≈19,19,12), a deep saturated cyan-leaning sky like the
+                // F90's but darker, neutral whites (≈249,246,242), natural greens, fine grain
+                // (between Portra and Superia), the crispest rendering.
+                adj: { exposure: -4, contrast: 6, saturation: -4, warmth: 3, fade: 13, grain: 25 },
                 look: {
-                    matrix: [[1.04, -0.01, -0.03], [0.01, 1.01, -0.02], [-0.02, 0.01, 1.0]],
-                    shoulder: 0.4, highlights: [0.01, 0.006, -0.008], grainSize: 1.25,
+                    matrix: [[0.86, 0.22, -0.08], [-0.04, 1.0, 0.04], [0.02, 0.07, 0.91]],
+                    shoulder: 0.45, shadows: [0.016, 0.018, -0.008], highlights: [0.01, 0.004, -0.01], grainSize: 1.3,
                 },
             },
-            instaxmini: { // Instax Mini film (62×46mm, shown upright) — crisp, slightly cool, highlights go early
+            royalgold100: { // Kodak Royal Gold 100 on the Canon EOS 500
+                // Tuned to the user's reference render (2026-10-12; same scene): vs Portra —
+                // warmer still (cream whites ≈249,244,236, golden roofs, yellow-warm greens),
+                // ~20% more saturated overall, a touch darker with a deeper sky, warm blacks
+                // ≈25,22,13. Grain set at the F90's level (the reference shows more, but a
+                // 100-speed film shouldn't read grainier than a 200).
+                adj: { exposure: -5, saturation: 2, warmth: 14, fade: 17, grain: 28 },
+                look: {
+                    matrix: [[0.80, 0.26, -0.06], [-0.03, 1.0, 0.03], [0.04, 0.10, 0.86]],
+                    shoulder: 0.5, shadows: [0.035, 0.022, -0.02], highlights: [0.014, 0.002, -0.018], grainSize: 1.4,
+                },
+            },
+            instaxmini: { // Instax Mini film (62×46mm, shown upright) in the Instax Mini 10
+                // Tuned to the user's reference render (2026-10-12; same scene): pastel and
+                // dreamy — half the others' saturation, lifted slightly purple blacks (≈39,36,42),
+                // cool never-quite-white highlights (≈239,243,244) that wash out (strong
+                // shoulder), a pale sky, muted light teal-leaning greens, smooth fine grain;
+                // very soft (body).
                 px: [1240, 930], formats: ['4:3'],
-                adj: { contrast: 10, saturation: 6, warmth: -4, grain: 4 },
+                adj: { exposure: 16, contrast: -16, saturation: -45, warmth: -14, fade: 12, grain: 10 },
                 look: {
-                    matrix: [[1.02, 0.0, -0.02], [-0.01, 1.03, -0.02], [-0.01, 0.01, 1.0]],
-                    shoulder: 0.3, shadows: [-0.01, 0.005, 0.02], highlights: [-0.008, 0.0, 0.01], grainSize: 1, soft: 0.4,
-                },
-            },
-            polaroid600: { // integral instant film: creamy, low contrast, lifted blacks, cool shadows
-                px: [880, 880], formats: ['1:1'],
-                adj: { exposure: 4, contrast: -16, saturation: -16, warmth: 8, fade: 24, grain: 6 },
-                look: {
-                    matrix: [[0.94, 0.08, -0.02], [0.03, 0.95, 0.02], [0.0, 0.08, 0.92]],
-                    shoulder: 0.65, gamma: [0.98, 0.97, 1.02], shadows: [-0.015, 0.025, 0.04], highlights: [0.04, 0.025, -0.03], soft: 1.4, grainSize: 1,
-                },
-            },
-            xpro: { // slide film (E-6) cross-processed in C-41: yellow-green highlights, cyan shadows
-                px: [1000, 1000], formats: ['1:1'],
-                adj: { contrast: 32, saturation: 28, warmth: 4, tint: -12, grain: 22 },
-                look: {
-                    matrix: [[1.08, -0.02, -0.06], [0.02, 1.06, -0.08], [-0.06, 0.06, 1.0]],
-                    shoulder: 0.3, black: 0.03, gamma: [1.06, 0.94, 1.2], shadows: [-0.03, 0.01, 0.06], highlights: [0.03, 0.05, -0.08], soft: 1.5, grainSize: 1.4,
+                    matrix: [[1, 0, 0], [-0.04, 1.0, 0.04], [0, 0.08, 0.92]],
+                    gamma: [0.88, 0.86, 0.86], shoulder: 0.6, shadows: [0.025, 0.005, 0.035], highlights: [-0.005, 0.01, 0.014], grainSize: 1.2, soft: 0.4,
                 },
             },
         };
@@ -3481,62 +3511,40 @@
         // ── Digital still sensors ──
         // All soft on purpose (the user's rule): tiny early CCDs, heavy JPEG, little detail.
         const SENSORS = {
-            dc25: { // Kodak DC25 · 1996 · 493×373 CCD, CompactFlash — warm Kodak color, little range
-                px: [493, 373], jpegQ: 0.6,
-                adj: { exposure: 2, contrast: 6, saturation: -4, warmth: 8, grain: 6 },
+            dc25: { // Kodak DC25 · 1996 · 493×373 CCD, CompactFlash
+                // Tuned to the user's reference render (2026-10-12; same scene): a primitive
+                // sensor — whites clip hard (white 0.8: walls become flat white blocks), blacks
+                // go to 0, dark midtones, an electric saturated blue sky (blueSat over muted
+                // crosstalk color), muddy greens, color noise; viewed as hard pixels.
+                px: [493, 373], jpegQ: 0.6, pixelated: true,
+                adj: { exposure: -8, contrast: 20, saturation: -38, warmth: -6, grain: 30 },
                 look: {
-                    matrix: [[0.96, 0.06, -0.02], [0.03, 0.95, 0.02], [0.0, 0.06, 0.94]],
-                    white: 0.88, black: 0.04, noiseType: 1, noiseColor: 0.5, soft: 0.8, sharpen: 0.2, chromaSub: [2, 2],
+                    matrix: [[0.85, 0.2, -0.05], [0.1, 0.85, 0.05], [0.02, 0.1, 0.88]],
+                    white: 0.8, black: 0.06, gamma: [1.42, 1.42, 1.38], noiseType: 1, noiseColor: 0.8, soft: 0.4, sharpen: 0.2, chromaSub: [2, 2], blueSat: 1.6,
                 },
             },
             mavicafd5: { // Sony Mavica MVC-FD5 · 1997 · 640×480 JPEG on a floppy disk
-                px: [640, 480], jpegQ: 0.7,
-                adj: { contrast: 6, saturation: -2, warmth: -3, grain: 5 },
+                // Tuned to the user's reference render (2026-10-12; same scene): very soft
+                // (blurry, not pixelated), a pure saturated digital blue sky (blueSat over muted
+                // crosstalk color), crushed blacks and clipped whites, dark midtones, muddy greens,
+                // floppy-size JPEG blocks in busy areas.
+                px: [640, 480], jpegQ: 0.55,
+                adj: { exposure: -16, contrast: 18, saturation: -50, warmth: -4, grain: 14 },
                 look: {
-                    matrix: [[0.98, 0.04, -0.02], [0.02, 0.98, 0.0], [0.0, 0.04, 0.96]],
-                    white: 0.9, black: 0.03, noiseType: 1, noiseColor: 0.4, soft: 0.5, sharpen: 0.35, chromaSub: [2, 2],
+                    matrix: [[0.85, 0.2, -0.05], [0.1, 0.85, 0.05], [0.02, 0.1, 0.88]],
+                    white: 0.78, black: 0.07, gamma: [1.32, 1.32, 1.28], noiseType: 1, noiseColor: 0.6, soft: 2.2, sharpen: 0.1, chromaSub: [2, 2], blueSat: 3.2,
                 },
             },
-            dc290: { // Kodak DC290 · 1999 · 2.1 MP (1792×1200), good color, a touch warm
+            dc290: { // Kodak DC290 · 1999 · 2.1 MP (1792×1200)
+                // Tuned to the user's reference render (2026-10-12; same scene): the sharpest and
+                // most vivid digicam — Kodak's warm yellow-orange processing, a saturated but
+                // natural sky (≈67,135,216), slightly warm clipped whites, deep blacks, darker
+                // midtones, a little shadow noise.
                 px: [1792, 1200], jpegQ: 0.85,
-                adj: { contrast: 4, saturation: 4, warmth: 3, grain: 3 },
-                look: { white: 0.95, black: 0.02, noiseType: 1, noiseColor: 0.3, soft: 0.3, sharpen: 0.25, chromaSub: [2, 2] },
-            },
-            qv10: { // Casio QV-10 · 1995 · 320×240, the first consumer digicam with a screen
-                px: [320, 240], jpegQ: 0.5,
-                adj: { exposure: 2, contrast: -6, saturation: -24, warmth: -10, fade: 8, grain: 18 },
+                adj: { exposure: -4, contrast: 12, saturation: -14, warmth: 18, grain: 8 },
                 look: {
-                    matrix: [[0.86, 0.16, -0.02], [0.08, 0.88, 0.04], [0.02, 0.14, 0.84]], gamma: [1.02, 0.97, 0.98],
-                    white: 0.86, black: 0.06, noiseType: 1, noiseColor: 0.8, soft: 1.4, sharpen: 0.2, chromaSub: [2, 2],
-                },
-            },
-            dc20: { // Kodak DC20 · 1996 · 493×373, fixed focus, warm Kodak color, blows highlights
-                px: [493, 373], jpegQ: 0.55,
-                adj: { exposure: 6, contrast: 10, saturation: -4, warmth: 26, grain: 14 },
-                look: {
-                    matrix: [[1.06, -0.02, -0.04], [0.02, 1.0, -0.02], [-0.02, 0.04, 0.98]],
-                    white: 0.82, black: 0.04, noiseType: 1, noiseColor: 0.6, soft: 1.3, sharpen: 0.3, chromaSub: [2, 2],
-                },
-            },
-            cyberf1: { // Sony Cyber-shot DSC-F1 · 1996 · 640×480, vivid color, sharpening halos on a soft image
-                px: [640, 480], jpegQ: 0.6,
-                adj: { contrast: 14, saturation: 18, warmth: -4, grain: 10 },
-                look: {
-                    matrix: [[1.12, -0.08, -0.04], [-0.04, 1.1, -0.06], [-0.02, -0.08, 1.1]],
-                    white: 0.9, black: 0.03, noiseType: 1, noiseColor: 0.5, soft: 1.6, sharpen: 1.0, chromaSub: [2, 2],
-                },
-            },
-            quickcam: { // Connectix QuickCam · 1994 · 320×240 grayscale webcam, 16 shades of gray
-                px: [320, 240], jpegQ: 0.6,
-                adj: { exposure: 4, contrast: 20, grain: 20 },
-                look: { mono: 1, levels: 16, white: 0.88, black: 0.06, noiseType: 1, noiseColor: 0, soft: 1.6, sharpen: 0.4 },
-            },
-            quicktake100: { // 1994 · 640×480
-                px: [640, 480], jpegQ: 0.5,
-                adj: { exposure: -4, contrast: -4, saturation: -22, warmth: 10, fade: 6, grain: 16 },
-                look: {
-                    matrix: [[0.9, 0.12, -0.02], [0.06, 0.9, 0.04], [0.02, 0.1, 0.88]],
-                    white: 0.88, black: 0.05, noiseType: 1, noiseColor: 0.7, soft: 1, chromaSub: [3, 3],
+                    matrix: [[0.80, 0.26, -0.06], [-0.04, 1.0, 0.04], [0.0, 0.08, 0.92]],
+                    white: 0.92, black: 0.03, gamma: [1.25, 1.25, 1.25], noiseType: 1, noiseColor: 0.4, soft: 0.3, sharpen: 0.25, chromaSub: [2, 2], blueSat: 0.25,
                 },
             },
         };
@@ -3553,111 +3561,253 @@
         // and color separation. Timestamps and tape artifacts are off by default.
         const VIDEO_FORMATS = {
             tr2000e: { // Sony CCD-TR2000E · Hi8 · PAL · 1994–95 · 1/3" CCD
+                // Tuned to the user's reference frame (2026-10-12): warm consumer video — yellowish
+                // highlights (≈254,251,237), warm lifted blacks, a muted blue sky (≈82,130,189),
+                // warm greens, analog noise; capture blanking at the sides and the head-switching
+                // strip along the bottom; Hi8 playback OSD (date + time, "Hi8 PLAY").
                 px: [768, 576], jpegQ: 0.92, kbps: 2500, audio: 'afmStereo', stereo: true, tapeFx: true,
-                adj: { contrast: 2, saturation: -4, warmth: 2, grain: 6 },
-                look: { tape: 0.55, chromaSub: [4, 1], interlace: 1, noiseType: 2, white: 0.95, black: 0.02, sharpen: 0.25, soft: 0.3 },
+                adj: { exposure: -6, contrast: 10, saturation: -12, warmth: 12, fade: 8, grain: 14 },
+                look: {
+                    matrix: [[0.8, 0.28, -0.08], [0, 1, 0], [0.02, 0.08, 0.9]], gamma: [1.18, 1.18, 1.25],
+                    shadows: [0.02, 0.014, 0.004], highlights: [0.01, 0.01, -0.02],
+                    tape: 0.55, chromaSub: [4, 1], interlace: 1, noiseType: 2, white: 0.95, black: 0.0, sharpen: 0.25, soft: 0.3,
+                    blank: 0.011, headSwitch: 0.015,
+                },
             },
             ucx10hi: { // Canon UC-X10Hi · Hi8 · 1997 · 1/4" CCD, 22x stabilized zoom
+                // Tuned to the user's reference frame (2026-10-12): warmer than the Sony — more
+                // yellow highlights (≈254,249,230), deeper warm blacks (≈9,7,4), darker
+                // midtones, a more muted sky (blueSat −0.25), warmer more saturated greens, a
+                // little more noise, clear corner fall-off; no OSD, no capture bars.
                 px: [640, 480], jpegQ: 0.92, kbps: 2500, audio: 'afmMono', stereo: true, tapeFx: true,
-                adj: { contrast: 2, saturation: -6, warmth: -2, grain: 8 },
-                look: { tape: 0.6, chromaSub: [4, 1], interlace: 1, noiseType: 2, white: 0.94, black: 0.03, sharpen: 0.3, soft: 0.4 },
+                adj: { exposure: -8, contrast: 10, saturation: -6, warmth: 16, fade: 4, grain: 16, vignette: 30 },
+                look: {
+                    matrix: [[0.8, 0.28, -0.08], [0, 1, 0], [0.02, 0.08, 0.9]], gamma: [1.26, 1.26, 1.36], // midtones down, whites kept
+                    shadows: [0.016, 0.01, 0.0], highlights: [0.01, 0.008, -0.03], blueSat: -0.25,
+                    tape: 0.6, chromaSub: [4, 1], interlace: 1, noiseType: 2, white: 0.94, black: 0.0, sharpen: 0.3, soft: 0.4,
+                },
             },
             trv87: { // Sony CCD-TRV87 · Hi8 XR (≈440 lines) · 1999
+                // Tuned to the user's reference frame (2026-10-12): the warmest of the three Hi8s —
+                // the most yellow highlights (≈254,248,226), lifted warm blacks (≈15,13,7), the
+                // most saturated warm tones over a muted sky, the strongest corner fall-off,
+                // a little less noise and a touch sharper (XR); no OSD, no bars.
                 px: [640, 480], jpegQ: 0.92, kbps: 2500, audio: 'afmStereo', stereo: true, tapeFx: true,
-                adj: { contrast: 3, saturation: -2, warmth: 2, grain: 5 },
-                look: { tape: 0.5, chromaSub: [4, 1], interlace: 1, noiseType: 2, white: 0.95, black: 0.02, sharpen: 0.25, soft: 0.2 },
+                adj: { exposure: -7, contrast: 10, saturation: -3, warmth: 18, fade: 10, grain: 13, vignette: 40 },
+                look: {
+                    matrix: [[0.8, 0.28, -0.08], [0, 1, 0], [0.02, 0.08, 0.9]], gamma: [1.22, 1.22, 1.34],
+                    shadows: [0.024, 0.014, -0.006], highlights: [0.01, 0.008, -0.04], blueSat: -0.15,
+                    tape: 0.5, chromaSub: [4, 1], interlace: 1, noiseType: 2, white: 0.95, black: 0.0, sharpen: 0.25, soft: 0.2,
+                },
             },
             grsz7: { // JVC GR-SZ7 · S-VHS-C · 1994 · 570k-pixel CCD, f/1.2 (S-VHS luma, VHS color)
+                // Tuned to the user's reference frame (2026-10-12): warm and punchy like the
+                // TRV87 but with the deepest blacks of the tapes (≈8,7,3), a touch more saturation,
+                // milder corners, a little more noise and S-VHS edge crispness; capture blanking
+                // bars and the head-switching strip at the bottom, as in the reference; no OSD.
                 px: [640, 480], jpegQ: 0.92, kbps: 2500, audio: 'vhsLinear', stereo: false, tapeFx: true,
-                adj: { contrast: 4, saturation: -4, grain: 6 },
-                look: { tape: 0.55, chromaSub: [5, 1], interlace: 1, noiseType: 2, white: 0.94, black: 0.025, sharpen: 0.3, soft: 0.3 },
+                adj: { exposure: -7, contrast: 12, saturation: 1, warmth: 18, fade: 4, grain: 16, vignette: 20 },
+                look: {
+                    matrix: [[0.8, 0.28, -0.08], [0, 1, 0], [0.02, 0.08, 0.9]], gamma: [1.22, 1.22, 1.34],
+                    shadows: [0.012, 0.008, -0.006], highlights: [0.01, 0.008, -0.04], blueSat: -0.2,
+                    tape: 0.55, chromaSub: [5, 1], interlace: 1, noiseType: 2, white: 0.94, black: 0.0, sharpen: 0.35, soft: 0.25,
+                    blank: 0.011, headSwitch: 0.015,
+                },
             },
             pvl859: { // Panasonic Palmcorder PV-L859 · VHS-C · 1999 (≈240 lines)
+                // Tuned to the user's reference frame (2026-10-12): the softest and noisiest tape —
+                // lifted warm-gray blacks (≈24,21,16), clean slightly warm whites (≈254,254,243),
+                // a bluer sky than the Hi8s, warm greens, heavy grainy noise, VHS color smear;
+                // capture bars + head-switching strip, as in the reference; no OSD.
                 px: [640, 480], jpegQ: 0.92, kbps: 2000, audio: 'vhsLinear', stereo: false, tapeFx: true,
-                adj: { contrast: 4, saturation: -6, warmth: 3, grain: 9 },
-                look: { tape: 1.1, chromaSub: [5, 1], interlace: 1, noiseType: 2, white: 0.93, black: 0.03, sharpen: 0.35, soft: 0.6 },
+                adj: { exposure: -6, contrast: 8, saturation: -8, warmth: 12, fade: 16, grain: 24, vignette: 10 },
+                look: {
+                    matrix: [[0.8, 0.28, -0.08], [0, 1, 0], [0.02, 0.08, 0.9]], gamma: [1.2, 1.2, 1.26],
+                    shadows: [0.036, 0.03, 0.018], highlights: [0.01, 0.01, -0.015], blueSat: -0.2,
+                    tape: 0.7, chromaSub: [5, 1], interlace: 1, noiseType: 2, white: 0.93, black: 0.0, sharpen: 0.35, soft: 0.35,
+                    blank: 0.011, headSwitch: 0.015,
+                },
             },
             vx1000: { // Sony DCR-VX1000 · MiniDV · 1995 · 3-CCD
+                // Tuned to the user's reference frame (2026-10-12): clean digital SD — almost no
+                // noise, no fall-off, crisper than tape; natural (not warm) greens, a deep blue
+                // sky, slightly warm whites (≈252,248,230), near-neutral blacks.
                 px: [720, 480], anamorphic: true, formats: ['4:3'], jpegQ: 0.85, kbps: 3500, audio: 'dv16', stereo: true, tapeFx: false,
-                adj: { contrast: 4, saturation: 4, grain: 2 },
-                look: { noiseType: 1, noiseColor: 0.2, sharpen: 0.25, chromaSub: [4, 1], interlace: 1, white: 0.96, black: 0.015, soft: 0.3 },
+                adj: { exposure: -2, contrast: 8, saturation: -14, warmth: 6, fade: 6, grain: 2, vignette: -2 },
+                look: {
+                    matrix: [[0.88, 0.16, -0.04], [0, 1, 0], [0.02, 0.06, 0.92]], gamma: [1.3, 1.3, 1.4],
+                    shadows: [0.016, 0.02, 0.004], highlights: [0.004, 0.0, -0.045], blueSat: -0.25,
+                    noiseType: 1, noiseColor: 0.2, sharpen: 0.25, chromaSub: [4, 1], interlace: 1, white: 0.94, black: 0.0, soft: 0.3,
+                },
             },
             grdv1: { // JVC GR-DV1 · MiniDV · 1995 (Japan) / 1996 · the first consumer DV camcorder, single CCD
+                // Tuned to the user's reference frame (2026-10-12): a single-CCD DV — neutral
+                // whites that clip hard (≈253,253,251), slightly lifted blacks, a lighter muted
+                // sky, a little less saturation, several times the VX1000's noise and softer.
                 px: [720, 480], anamorphic: true, formats: ['4:3'], jpegQ: 0.85, kbps: 3500, audio: 'dv12', stereo: true, tapeFx: false,
-                adj: { contrast: 6, saturation: 2, warmth: 2, grain: 4 },
-                look: { noiseType: 1, noiseColor: 0.5, sharpen: 0.35, chromaSub: [4, 1], interlace: 1, white: 0.94, black: 0.02, soft: 0.5 },
+                adj: { exposure: 0, contrast: 6, saturation: -20, warmth: 2, fade: 10, grain: 12, vignette: 2 },
+                look: {
+                    matrix: [[0.88, 0.16, -0.04], [0, 1, 0], [0.02, 0.06, 0.92]], gamma: [1.32, 1.32, 1.38],
+                    shadows: [0.026, 0.028, 0.016], highlights: [0, 0, -0.005], blueSat: -0.3,
+                    noiseType: 1, noiseColor: 0.5, sharpen: 0.3, chromaSub: [4, 1], interlace: 1, white: 0.88, black: 0.0, soft: 0.6,
+                },
             },
-            pc1: { // Sony DCR-PC1 · MiniDV · 1998 · palm-size, single CCD
+            pc1: { // Sony DCR-PC1 · MiniDV · 1998 · palm-size, single CCD, Carl Zeiss zoom
+                // Tuned to the user's reference frame (2026-10-12): like the GR-DV1 (single-CCD
+                // noise, hard-clipping neutral whites) but warmer — warm blacks and greens, a
+                // lighter cyan-leaning sky — and crisper (the Zeiss lens), near the VX1000.
                 px: [720, 480], anamorphic: true, formats: ['4:3', '16:9'], jpegQ: 0.85, kbps: 3500, audio: 'dv12', stereo: true, tapeFx: false,
-                adj: { contrast: 4, saturation: 0, warmth: 2, grain: 4 },
-                look: { noiseType: 1, noiseColor: 0.5, sharpen: 0.3, chromaSub: [4, 1], interlace: 1, white: 0.94, black: 0.02, soft: 0.5 },
+                adj: { exposure: 0, contrast: 6, saturation: -19, warmth: 7, fade: 11, grain: 12, vignette: 0 },
+                look: {
+                    matrix: [[0.86, 0.18, -0.04], [0, 1, 0], [0.01, 0.08, 0.91]], gamma: [1.3, 1.3, 1.34],
+                    shadows: [0.03, 0.028, 0.008], highlights: [0, 0, -0.01], blueSat: -0.25,
+                    noiseType: 1, noiseColor: 0.5, sharpen: 0.35, chromaSub: [4, 1], interlace: 1, white: 0.88, black: 0.0, soft: 0.35,
+                },
             },
             xl1: { // Canon XL1 · MiniDV · 1997 · 3-CCD, interchangeable lenses
+                // Tuned to the user's reference frame (2026-10-12): the VX1000's cleanliness with
+                // more depth — darker midtones and more contrast, a deep saturated sky, warm
+                // not-quite-clipped whites (≈252,249,231), deep blacks, richer color.
                 px: [720, 480], anamorphic: true, formats: ['4:3', '16:9'], jpegQ: 0.85, kbps: 3500, audio: 'dv16', stereo: true, tapeFx: false,
-                adj: { contrast: 4, saturation: 6, warmth: -2, grain: 2 },
-                look: { noiseType: 1, noiseColor: 0.2, sharpen: 0.3, chromaSub: [4, 1], interlace: 1, white: 0.96, black: 0.015, soft: 0.2 },
+                adj: { exposure: -2, contrast: 10, saturation: -8, warmth: 6, fade: 5, grain: 2, vignette: -2 },
+                look: {
+                    matrix: [[0.88, 0.16, -0.04], [0, 1, 0], [0.02, 0.06, 0.92]], gamma: [1.38, 1.38, 1.46],
+                    shadows: [0.014, 0.02, 0.004], highlights: [0.0, -0.004, -0.06],
+                    noiseType: 1, noiseColor: 0.2, sharpen: 0.3, chromaSub: [4, 1], interlace: 1, white: 0.97, black: 0.0, soft: 0.2,
+                },
             },
             trv900: { // Sony DCR-TRV900 · MiniDV · 1998 · 3-CCD
+                // Tuned to the user's reference frame (2026-10-12): the most restrained 3-CCD —
+                // the least saturated, cooler greens, a lighter muted sky (≈82,118,168), slightly
+                // warm whites, deep blacks, darker midtones; the crispest of the DV cameras, with
+                // visible digital noise in flat areas.
                 px: [720, 480], anamorphic: true, formats: ['4:3', '16:9'], jpegQ: 0.85, kbps: 3500, audio: 'dv16', stereo: true, tapeFx: false,
-                adj: { contrast: 3, saturation: 4, warmth: 1, grain: 2 },
-                look: { noiseType: 1, noiseColor: 0.2, sharpen: 0.25, chromaSub: [4, 1], interlace: 1, white: 0.96, black: 0.015, soft: 0.25 },
+                adj: { exposure: -2, contrast: 10, saturation: -26, warmth: 2, fade: 5, grain: 10, vignette: 2 },
+                look: {
+                    matrix: [[0.9, 0.12, -0.02], [0, 1, 0], [0.02, 0.04, 0.94]], gamma: [1.38, 1.38, 1.44],
+                    shadows: [0.016, 0.022, 0.008], highlights: [0.0, 0.0, -0.045], blueSat: -0.2,
+                    noiseType: 1, noiseColor: 0.3, sharpen: 0.4, chromaSub: [4, 1], interlace: 1, white: 0.95, black: 0.0, soft: 0.1,
+                },
             },
             gl1: { // Canon GL1 · MiniDV · 1999 · 3-CCD, fluorite lens
+                // Tuned to the user's reference frame (2026-10-12): the XL1's Canon color (same
+                // warm whites, deep blacks, earthy greens) with a lighter, less saturated sky,
+                // a little less saturation overall and a touch crisper; clean.
                 px: [720, 480], anamorphic: true, formats: ['4:3', '16:9'], jpegQ: 0.85, kbps: 3500, audio: 'dv16', stereo: true, tapeFx: false,
-                adj: { contrast: 4, saturation: 5, warmth: -2, grain: 2 },
-                look: { noiseType: 1, noiseColor: 0.2, sharpen: 0.3, chromaSub: [4, 1], interlace: 1, white: 0.96, black: 0.015, soft: 0.2 },
+                adj: { exposure: -2, contrast: 10, saturation: -13, warmth: 6, fade: 5, grain: 2, vignette: -2 },
+                look: {
+                    matrix: [[0.88, 0.16, -0.04], [0, 1, 0], [0.02, 0.06, 0.92]], gamma: [1.38, 1.38, 1.46],
+                    shadows: [0.014, 0.02, 0.004], highlights: [0.0, -0.004, -0.06], blueSat: -0.2,
+                    noiseType: 1, noiseColor: 0.2, sharpen: 0.35, chromaSub: [4, 1], interlace: 1, white: 0.97, black: 0.0, soft: 0.15,
+                },
             },
             trv110: { // Sony DCR-TRV110 · Digital8 (DV on 8mm tape) · 1999 · single CCD
+                // Tuned to the user's reference frame (2026-10-12): the warmest, most saturated
+                // single-CCD DV — deep warm blacks, darker midtones, clipped slightly warm whites,
+                // a natural blue sky (≈95,134,190), single-CCD noise.
                 px: [720, 480], anamorphic: true, formats: ['4:3'], jpegQ: 0.85, kbps: 3500, audio: 'dv12', stereo: true, tapeFx: false,
-                adj: { contrast: 5, saturation: 0, warmth: 2, grain: 5 },
-                look: { noiseType: 1, noiseColor: 0.5, sharpen: 0.3, chromaSub: [4, 1], interlace: 1, white: 0.94, black: 0.02, soft: 0.5 },
+                adj: { exposure: 0, contrast: 8, saturation: -13, warmth: 8, fade: 5, grain: 12, vignette: 2 },
+                look: {
+                    matrix: [[0.84, 0.2, -0.04], [0, 1, 0], [0.01, 0.08, 0.91]], gamma: [1.38, 1.38, 1.42],
+                    shadows: [0.02, 0.016, 0.002], highlights: [0, 0, -0.015], blueSat: -0.25,
+                    noiseType: 1, noiseColor: 0.5, sharpen: 0.3, chromaSub: [4, 1], interlace: 1, white: 0.88, black: 0.0, soft: 0.45,
+                },
             },
-            video8: {
+            video8: { // Sony Handycam · Video8 — re-tuned to the user's 2026-10-12 reference: warm and
+                // faded — deep warm blacks (≈12,6,2), dark midtones, near-neutral whites, a pale
+                // muted sky (≈102,137,178), warm brownish greens, strong corner fall-off, analog
+                // noise and chroma noise, soft; no OSD.
                 px: [320, 240], jpegQ: 0.85, kbps: 700, audio: 'afmMono', stereo: false, tapeFx: true,
-                adj: { contrast: 4, saturation: -8, warmth: 4, grain: 12 },
-                look: { tape: 1, chromaSub: [4, 1], interlace: 1, noiseType: 2, white: 0.92, black: 0.03, sharpen: 0.3, soft: 1.1 },
+                adj: { exposure: -2, contrast: 12, saturation: -10, warmth: 14, fade: 2, grain: 18, vignette: 44 },
+                look: {
+                    matrix: [[0.8, 0.28, -0.08], [0, 1, 0], [0.02, 0.08, 0.9]], gamma: [1.38, 1.4, 1.36],
+                    shadows: [0.02, 0.008, -0.004], highlights: [0.004, 0.004, 0.0], blueSat: -0.35,
+                    tape: 1, chromaSub: [4, 1], interlace: 1, noiseType: 2, white: 0.94, black: 0.0, sharpen: 0.3, soft: 1.1,
+                },
             },
             hi8: {
                 px: [400, 300], jpegQ: 0.85, kbps: 800, audio: 'afmStereo', stereo: true, tapeFx: true,
                 adj: { contrast: 4, saturation: -4, warmth: 2, grain: 10 },
                 look: { tape: 0.75, chromaSub: [4, 1], interlace: 1, noiseType: 2, white: 0.93, black: 0.02, sharpen: 0.3, soft: 0.9 },
             },
-            minidv: {
-                px: [720, 480], anamorphic: true, formats: ['4:3', '16:9'], jpegQ: 0.7, kbps: 1500, audio: 'dv12', stereo: true, tapeFx: false,
-                adj: { contrast: 8, saturation: 2, warmth: -3, grain: 5 },
-                look: { noiseType: 1, noiseColor: 0.3, sharpen: 0.3, chromaSub: [4, 1], white: 0.94, black: 0.01, soft: 1.2 },
-            },
-            vhsc: { // the user's VHS-filter reference clips
-                px: [320, 240], jpegQ: 0.75, kbps: 700, audio: 'vhsLinear', stereo: false, tapeFx: true,
-                adj: { exposure: 6, contrast: 14, saturation: 18, warmth: 2, tint: 24, fade: 14, grain: 12 },
-                look: { soft: 1, chromaSub: [4, 1], tape: 0.8, sharpen: 1, interlace: 1, noiseType: 2, white: 0.93, shadows: [0.05, 0.0, 0.08], highlights: [0.05, 0.0, 0.05] },
-            },
-            vhsslp: { // the user's "PLAY Ch 01 … SLP" reference clip
-                px: [280, 210], jpegQ: 0.7, kbps: 500, audio: 'vhsLinearSLP', stereo: false, tapeFx: true,
-                adj: { exposure: 4, contrast: 26, saturation: 20, warmth: -30, tint: 26, fade: 10, grain: 16 },
-                look: { soft: 1.4, chromaSub: [5, 1], tape: 1, sharpen: 1.1, interlace: 1, noiseType: 2, white: 0.92, gamma: [1.0, 1.05, 0.85], shadows: [0.04, 0.0, 0.1], highlights: [0.0, 0.02, 0.06] },
-            },
-            vhsworn: { // the user's sunset-over-the-rails reference: a worn tape played back
-                px: [320, 240], jpegQ: 0.75, kbps: 600, audio: 'vhsWorn', stereo: false, tapeFx: true,
-                adj: { exposure: 2, contrast: 24, saturation: 36, warmth: 34, tint: -4, grain: 14, halation: 16 },
+            minidv: { // Sony Handycam · MiniDV (late 90s) — re-tuned to the user's 2026-10-12 reference:
+                // single-CCD consumer DV — crushed blacks, very dark midtones, neutral clipped
+                // whites, a pale muted sky, warm dark greens, moderate sensor noise, no fall-off;
+                // crisper than before (it was over-softened). No OSD.
+                px: [720, 480], anamorphic: true, formats: ['4:3', '16:9'], jpegQ: 0.75, kbps: 1500, audio: 'dv12', stereo: true, tapeFx: false,
+                adj: { exposure: 0, contrast: 12, saturation: -12, warmth: 8, grain: 10, vignette: 0 },
                 look: {
-                    matrix: [[1.12, -0.06, -0.06], [0.02, 1.0, -0.02], [-0.02, 0.06, 0.96]],
-                    soft: 1.3, chromaSub: [6, 1], tape: 1, sharpen: 0.9, interlace: 1, noiseType: 2, white: 0.9, black: 0.06,
-                    gamma: [0.9, 1.0, 1.12], shadows: [0.04, 0.012, -0.01], halColor: [1, 0.55, 0.2], dropouts: 0.035,
+                    matrix: [[0.84, 0.2, -0.04], [0, 1, 0], [0.01, 0.08, 0.91]], gamma: [1.5, 1.5, 1.34],
+                    highlights: [0, 0, -0.01], blueSat: -0.4,
+                    noiseType: 1, noiseColor: 0.4, sharpen: 0.3, chromaSub: [4, 1], interlace: 1, white: 0.9, black: 0.03, soft: 0.5,
+                },
+            },
+            vhsc: { // VHS-C 1992 — re-tuned to the user's 2026-10-12 reference frame (replaces the
+                // earlier pink-lilac look): warm, aged and more saturated than the PV-L859, deeper
+                // blacks (≈18,14,11), strong corner fall-off, heavy VHS noise, occasional dropout
+                // streaks; bars + head-switching; OSD "CAMERA 1 / PLAY ▶ / date / time".
+                px: [640, 480], jpegQ: 0.85, kbps: 1500, audio: 'vhsLinear', stereo: false, tapeFx: true,
+                adj: { exposure: -6, contrast: 10, saturation: 0, warmth: 14, fade: 10, grain: 26, vignette: 38 },
+                look: {
+                    matrix: [[0.8, 0.28, -0.08], [0, 1, 0], [0.02, 0.08, 0.9]], gamma: [1.2, 1.2, 1.26],
+                    shadows: [0.022, 0.016, 0.01], highlights: [0.01, 0.01, -0.02], blueSat: -0.1,
+                    tape: 0.75, chromaSub: [5, 1], interlace: 1, noiseType: 2, white: 0.93, black: 0.0, sharpen: 0.35, soft: 0.4,
+                    blank: 0.013, headSwitch: 0.018, dropouts: 0.006,
+                },
+            },
+            vhsslp: { // VHS at SLP — re-tuned to the user's 2026-10-12 reference (replaces the old
+                // violet look): a cool, played-to-death long-play tape — the softest picture
+                // (≈5 kHz-class luma), lifted bluish blacks, neutral whites, a saturated noisy blue
+                // sky over very muted greens, heavy snow, dropout streaks crowding the top and
+                // bottom, color smear, bars + head-switching; no OSD.
+                px: [320, 240], jpegQ: 0.8, kbps: 500, audio: 'vhsLinearSLP', stereo: false, tapeFx: true,
+                adj: { exposure: 0, contrast: 10, saturation: -40, warmth: -10, fade: 18, grain: 28, vignette: -4 },
+                look: {
+                    matrix: [[0.95, 0.05, 0.0], [0, 1, 0], [0, 0, 1]], gamma: [1.2, 1.18, 1.14],
+                    shadows: [0.032, 0.032, 0.036], highlights: [0, 0.006, 0.006], blueSat: 0.45,
+                    soft: 1.4, chromaSub: [5, 1], tape: 1.1, sharpen: 0.35, interlace: 1, noiseType: 2, white: 0.92, black: 0.0,
+                    blank: 0.013, headSwitch: 0.02, dropouts: 0.02, dropEdge: 9,
+                },
+            },
+            vhsworn: { // a worn-out VHS tape — re-tuned to the user's 2026-10-12 reference (replaces the
+                // earlier orange-sunset look): mistracking playback — red/cyan channel split, a
+                // drifting band of torn static, a tall wavy head-switching zone at the bottom,
+                // dense snow, dropouts; cool colors (deep bluish blacks, a saturated sky over
+                // near-colorless greens), very soft; bars; no OSD.
+                px: [320, 240], jpegQ: 0.8, kbps: 600, audio: 'vhsWorn', stereo: false, tapeFx: true,
+                adj: { exposure: 0, contrast: 12, saturation: -40, warmth: -10, fade: 12, grain: 48, vignette: -2 },
+                look: {
+                    matrix: [[0.95, 0.05, 0.0], [0, 1, 0], [0, 0, 1]], gamma: [1.2, 1.16, 1.12],
+                    shadows: [0.014, 0.02, 0.034], highlights: [0, 0.006, 0.006], blueSat: 0.35,
+                    soft: 1.3, chromaSub: [5, 1], tape: 1.1, sharpen: 0.35, interlace: 1, noiseType: 2, white: 0.92, black: 0.0,
+                    blank: 0.013, headSwitch: 0.1, dropouts: 0.02, dropEdge: 4, rgbSplit: 0.0035, trackBand: 1,
                 },
             },
             super8: { // Kodachrome 40 Super 8 — real film, 18 fps, no tape and no fields
+                // Tuned to the user's 2026-10-12 reference: classic Kodachrome — crushed black
+                // shadows, very dark midtones, a deep saturated sky (blueSat), warm glowing
+                // highlights (≈253,236,204), warm earthy yellow-brown greens, heavy organic
+                // grain, soft lens, strong gate vignette, gate weave + flicker.
                 px: [400, 300], fps: 18, jpegQ: 0.85, kbps: 900, audio: 'super8', stereo: false, tapeFx: false,
-                adj: { contrast: 18, saturation: 14, warmth: 12, grain: 30 },
+                adj: { contrast: 20, saturation: 0, warmth: 22, grain: 45 },
                 look: {
-                    matrix: [[1.1, -0.06, -0.04], [-0.02, 1.04, -0.02], [-0.02, -0.04, 1.06]],
-                    shoulder: 0.5, black: 0.03, gamma: [0.96, 1.0, 1.04], highlights: [0.03, 0.015, -0.02], noiseType: 0, grainSize: 1.7, soft: 1.4, weave: 0.8, flicker: 0.05,
+                    matrix: [[0.80, 0.28, -0.08], [0.08, 0.92, 0.0], [-0.02, 0.04, 0.98]],
+                    shoulder: 0.45, black: 0.05, gamma: [1.45, 1.45, 1.38], highlights: [0.02, -0.01, -0.09], blueSat: 1.0,
+                    noiseType: 0, grainSize: 1.7, soft: 1.4, weave: 0.8, flicker: 0.05,
                 },
             },
-            nightshot: { // Hi8 NightShot (infrared)
+            nightshot: { // Hi8 NightShot (infrared) — re-tuned to the user's 2026-10-12 reference: daylight IR —
+                // foliage reflects infrared and glows pale green-white (the Wood effect), the blue
+                // sky goes nearly black (mix weights green strongly and blue negatively), the
+                // dome glows (≈236,254,236), phosphor-green monochrome, IR blooming halos, heavy
+                // analog grain, soft, vignette; no OSD.
                 px: [400, 300], jpegQ: 0.92, kbps: 900, audio: 'afmStereo', stereo: true, tapeFx: true,
-                adj: { exposure: 8, contrast: 24, grain: 30, halation: 20 },
-                look: { soft: 0.8, mono: 1, sharpen: 0.4, interlace: 1, tape: 0.4, chromaSub: [3, 1], noiseType: 2, halColor: [0.9, 1, 0.9], duo: [[0.0, 0.05, 0.0], [0.82, 1.0, 0.78]] },
+                adj: { exposure: 10, contrast: 18, grain: 34, halation: 24 },
+                look: {
+                    mono: 1, mix: [0.25, 1.75, -1.5], irGreen: 1, gamma: [0.8, 0.8, 0.8],
+                    soft: 0.8, sharpen: 0.3, interlace: 1, tape: 0, chromaSub: [1, 1], noiseType: 2, halColor: [0.9, 1, 0.9],
+                    duo: [[0.006, 0.026, 0.008], [0.9, 1.0, 0.9]],
+                },
             },
         };
 
@@ -3752,6 +3902,9 @@
                 anamorphic: !!medium.anamorphic,
                 formats: parts.formats || medium.formats || [kind === 'film' ? '3:2' : (Math.abs(px[0] / px[1] - 1.5) < 0.02 ? '3:2' : '4:3')],
                 jpegQ: kind === 'film' ? FILM_SCAN.jpegQ : medium.jpegQ,
+                // Viewed big as hard pixels (no smoothing) — how a tiny early-digicam file
+                // looks blown up (DC25, per the user's reference).
+                pixelated: !!medium.pixelated,
                 kbps: medium.kbps || (kind === 'film' ? 3000 : 1200),
                 // Sound with video: the format's own; a digital still camera's built-in mic
                 // (A); film cameras have none, so the original sound is kept.
@@ -3763,16 +3916,13 @@
                 flash: body.flash || (kind === 'video' ? FLASH.videoLight : FLASH.external), flashOn: !!parts.flashOn,
                 date: parts.date || false, dateOn: !!parts.dateOn,
                 sound: parts.sound,
+                frame: parts.frame || null, // a physical print border on saved photos (Instax)
             };
             CAMERA_ORDER.push(key);
         }
 
         CAMERA('funsaver', 'FunSaver', 'Kodak FunSaver single-use (90s) · Kodak Gold 400', 'Simple plastic lens on Kodak 400 film; its direct flash is one tap away.',
             { body: 'funsaver', film: 'gold400', sound: 'disposable' });
-        CAMERA('polaroid', 'Polaroid', 'Polaroid 600 instant (90s)', 'Creamy instant film: soft, faded blacks, cool shadows, flash.',
-            { body: 'polaroid600', film: 'polaroid600', flashOn: true, sound: 'onestep' });
-        CAMERA('holga', 'Holga X-Pro', 'Holga 120 · cross-processed slide film', 'Plastic lens and dark corners; yellow-green highlights, cyan shadows.',
-            { body: 'holga', film: 'xpro', sound: 'toy' });
         CAMERA('super8', 'Super 8', 'Super 8 home movie · Kodachrome 40', 'Real film at 18 fps: organic grain, gate weave, warm Kodachrome.',
             { body: 'super8cam', video: 'super8', sound: 'super8' });
         CAMERA('video8', 'Video8', 'Sony Handycam · Video8', 'Soft analog home video, low color resolution, interlaced.',
@@ -3781,13 +3931,13 @@
             { body: 'handycam', video: 'hi8', date: 'osd', sound: 'camcorder' });
         CAMERA('minidv', 'MiniDV', 'Sony Handycam · MiniDV (late 90s)', 'Clean digital SD: 720×480, 4:1:1 color, DV compression.',
             { body: 'handycamDV', video: 'minidv', date: 'osd', sound: 'camcorder' });
-        CAMERA('vhs92', "VHS '92", 'VHS-C camcorder (1992)', 'Faded pink-lilac tape, edge halos, CAMERA1 / PLAY on screen.',
+        CAMERA('vhs92', "VHS '92", 'VHS-C camcorder (1992)', 'Warm aged VHS-C tape, heavy noise, CAMERA 1 / PLAY on screen.',
             { body: 'vhsCam', video: 'vhsc', date: 'cam92', dateOn: true, sound: 'camcorder' });
-        CAMERA('vhsslp', 'VHS SLP', 'VHS tape, SLP long-play', 'Played-back tape: violet-blue cast, bleeding color.',
-            { body: 'vhsCam', video: 'vhsslp', date: 'slp', dateOn: true, sound: 'camcorder' });
-        CAMERA('vhsworn', 'VHS Worn', 'Worn VHS tape, played back', 'Hot saturated color, red bleeding right, tape dropouts.',
+        CAMERA('vhsslp', 'VHS SLP', 'VHS tape, SLP long-play', 'Worn long-play tape: very soft, cool, snow and dropouts.',
+            { body: 'vhsCam', video: 'vhsslp', date: 'slp', sound: 'camcorder' });
+        CAMERA('vhsworn', 'VHS Worn', 'Worn VHS tape, played back', 'Mistracking tape: torn static, red/cyan split, wavy bottom.',
             { body: 'vhsCam', video: 'vhsworn', sound: 'camcorder' });
-        CAMERA('nightshot', 'NightShot', 'Sony Hi8 NightShot (1998)', 'Infrared night mode: glowing green-white, noisy.',
+        CAMERA('nightshot', 'NightShot', 'Sony Hi8 NightShot (1998)', 'Daylight infrared: glowing white foliage, black sky, green phosphor.',
             { body: 'nightshot', video: 'nightshot', date: 'osd', sound: 'camcorder' });
         // The 24-camera library (user's spec, 2026-10-09). Models and years checked against
         // documented sources; where the spec's model couldn't be verified it was replaced by a
@@ -3808,16 +3958,16 @@
             { body: 'mju2', film: 'superia400', sound: 'mju2' });
         CAMERA('gold200', 'Gold 200', 'Kodak Gold 200 · 35mm point-and-shoot', 'The everyday 90s print film: warm, friendly color, moderate grain.',
             { body: 'compact35', film: 'gold200', sound: 'compact' });
-        CAMERA('instax', 'Instax', 'Fujifilm Instax Mini 10 (1998) · Instax Mini film', 'Instant print: crisp, slightly cool, highlights go early.',
-            { body: 'instaxmini10', film: 'instaxmini', sound: 'instax' });
+        CAMERA('instax', 'Instax', 'Fujifilm Instax Mini 10 (1998) · Instax Mini film', 'Instant print: pastel, dreamy and soft, in its white card.',
+            { body: 'instaxmini10', film: 'instaxmini', frame: 'instaxMini', sound: 'instax' });
         CAMERA('dc25', 'DC25', 'Kodak DC25 (1996)', '493×373 digicam: warm Kodak color, little highlight and shadow detail.',
-            { body: 'dc25', sensor: 'dc25', sound: 'earlydigi' });
+            { body: 'dc25', sensor: 'dc25', date: 'dc25', dateOn: true, sound: 'earlydigi' });
         CAMERA('mavica', 'Mavica', 'Sony Mavica MVC-FD5 (1997)', '640×480 JPEG on a floppy disk: neutral color, clipped highlights.',
             { body: 'mavicafd5', sensor: 'mavicafd5', sound: 'mavica' });
         CAMERA('dc290', 'DC290', 'Kodak DC290 (1999)', '2.1-megapixel late-90s digicam: good color, a touch warm.',
             { body: 'dc290', sensor: 'dc290', sound: 'digicam' });
         CAMERA('tr2000', 'TR2000', 'Sony CCD-TR2000E Handycam (1994–95) · Hi8 PAL', 'Hi8 on a 1/3" CCD: soft color detail, restrained analog noise.',
-            { body: 'camcorder', video: 'tr2000e', date: 'osd', sound: 'camcorder' });
+            { body: 'camcorder', video: 'tr2000e', date: 'hi8', dateOn: true, sound: 'camcorder' });
         CAMERA('ucx10', 'UC-X10', 'Canon UC-X10Hi (1997) · Hi8', 'Hi8 on a smaller 1/4" CCD: a little noisier, cooler color.',
             { body: 'camcorder', video: 'ucx10hi', date: 'osd', sound: 'camcorder' });
         CAMERA('trv87', 'TRV87', 'Sony CCD-TRV87 Handycam (1999) · Hi8 XR', 'The last word in Hi8: Hi8 XR detail, clean analog color.',
@@ -3842,16 +3992,6 @@
             { body: 'camcorder', video: 'trv110', date: 'osd', sound: 'camcorder' });
 
         // ── The earlier presets (on hold for a day, then back in the lists on the user's request) ──
-        CAMERA('dc20', 'DC20', 'Kodak DC20 (1996)', 'Tiny fixed-focus digicam: warm Kodak color, blown highlights, heavy JPEG.',
-            { body: 'dc20', sensor: 'dc20', sound: 'earlydigi' });
-        CAMERA('qv10', 'QV-10', 'Casio QV-10 (1995)', 'The first digicam with a screen: 320×240, muddy, washed out, cool.',
-            { body: 'qv10', sensor: 'qv10', sound: 'earlydigi' });
-        CAMERA('cyberf1', 'Cyber-shot', 'Sony Cyber-shot DSC-F1 (1996)', 'Vivid early digital color with sharpening halos on a soft 640×480.',
-            { body: 'cyberf1', sensor: 'cyberf1', sound: 'digicam' });
-        CAMERA('quickcam', 'QuickCam', 'Connectix QuickCam (1994)', 'The first webcam: black and white, only 16 shades of gray.',
-            { body: 'quickcam', sensor: 'quickcam', sound: 'earlydigi' });
-        CAMERA('quicktake', 'QuickTake', 'Apple QuickTake 100 (1994)', '640×480 consumer digital: muddy, soft, noisy.',
-            { body: 'quicktake', sensor: 'quicktake100', sound: 'earlydigi' });
 
         // ── User controls (panel 02) ──
         // Sensible defaults that keep image quality. Flash and date are per preset (each
@@ -3893,8 +4033,7 @@
         // list remembers its own pick.
         const CAMERA_LISTS = {
             // The 24-camera library, then the earlier presets (back on the user's request, 2026-10-09).
-            photo: ['f90', 'eos5', 'eos500', 'contaxg1', 'minilux', 'mju2', 'gold200', 'funsaver', 'instax', 'dc25', 'mavica', 'dc290',
-                'polaroid', 'holga', 'dc20', 'qv10', 'cyberf1', 'quickcam', 'quicktake'],
+            photo: ['f90', 'eos5', 'eos500', 'contaxg1', 'minilux', 'mju2', 'gold200', 'funsaver', 'instax', 'dc25', 'mavica', 'dc290'],
             video: ['tr2000', 'ucx10', 'trv87', 'grsz7', 'pvl859', 'vx1000', 'grdv1', 'pc1', 'xl1', 'trv900', 'gl1', 'trv110',
                 'vhs92', 'vhsslp', 'vhsworn', 'super8', 'video8', 'hi8', 'minidv', 'nightshot'],
         };
@@ -4004,7 +4143,10 @@ uniform float uAspect;
 uniform float uIntensity, uExposure, uContrast, uSaturation, uWarmth, uTint, uFade;
 uniform float uGrain, uGrainScale, uVignette, uHalation, uBlur, uChroma, uMono;
 uniform float uTime, uSeed, uDistort, uCircle;
-uniform float uSoft, uSharpen, uNoiseColor, uNoiseType, uTape, uInterlace, uDuo, uTapeFx, uDropouts, uWeave, uFlicker, uLevels;
+uniform float uSoft, uSharpen, uNoiseColor, uNoiseType, uTape, uInterlace, uDuo, uTapeFx, uDropouts, uWeave, uFlicker, uLevels, uBlueSat;
+uniform vec4 uGlow;
+uniform float uBlank, uHeadSwitch, uDropEdge, uRgbSplit, uTrackBand, uIrGreen;
+uniform vec3 uGlowColor;
 uniform float uShoulder, uWhite, uBlack;
 uniform float uFlash, uFlashReach;
 uniform mat3 uMatrix;
@@ -4028,7 +4170,17 @@ vec3 sensor(vec2 uv) {
     if (uSoft < 0.5) return c;
     vec2 q = o * 1.6;
     vec3 c2 = (src(uv + vec2(q.x, 0.0)) + src(uv - vec2(q.x, 0.0)) + src(uv + vec2(0.0, q.y)) + src(uv - vec2(0.0, q.y))) * 0.25;
-    return mix(c, c2, 0.4);
+    vec3 r = mix(c, c2, 0.4);
+    if (uSoft < 2.0) return r;
+    // Very soft lenses (Instax, FunSaver): a fuller disc of 12 more taps so the blur stays
+    // smooth — the 8 sparse taps above leave a visible mesh at this size.
+    vec3 acc = vec3(0.0);
+    for (int i = 0; i < 12; i++) {
+        float a = float(i) * 0.5236 + 0.26;
+        float rr = (mod(float(i), 2.0) < 0.5) ? 0.7 : 1.25;
+        acc += src(uv + vec2(cos(a), sin(a)) * o * rr);
+    }
+    return mix(r, acc / 12.0, 0.65);
 }
 
 // Lens: barrel distortion (fisheye zoom) or the globe fisheye (uCircle 2: the whole frame
@@ -4074,6 +4226,23 @@ void main() {
     vec2 px = 1.0 / uNative;
     // Tape timebase error: each scan line lands a fraction of a pixel off.
     if (uTape > 0.001) uv.x += (hash(vec2(floor(vUv.y * uNative.y), floor(uTime * 30.0))) - 0.5) * px.x * 1.2 * uTape;
+    // Analog playback: the video heads switch over in the last lines of each field — the
+    // bottom strip lands shifted sideways and torn (Hi8/VHS head-switching noise).
+    float hsBand = 0.0;
+    if (uHeadSwitch > 0.0001 && vUv.y > 1.0 - uHeadSwitch) {
+        hsBand = (vUv.y - (1.0 - uHeadSwitch)) / uHeadSwitch;
+        uv.x += hsBand * 0.035 + (hash(vec2(floor(vUv.y * uNative.y), floor(uTime * 30.0))) - 0.5) * 0.012;
+        // A tall strip (badly worn tape) also waves; the thin strips barely move.
+        uv.x += sin(vUv.y * uNative.y * 0.35 + uTime * 7.0) * 0.07 * hsBand * min(1.0, uHeadSwitch * 10.0);
+    }
+    // Tracking band: a slowly drifting stripe of torn lines (each line shoved sideways).
+    float tbMask = 0.0;
+    if (uTrackBand > 0.001) {
+        float tbY = 0.24 + 0.06 * sin(uTime * 0.35) + 0.03 * sin(uTime * 1.3);
+        tbMask = smoothstep(0.06, 0.0, abs(vUv.y - tbY)) * uTrackBand;
+        float tl = floor(vUv.y * uNative.y);
+        uv.x += (hash(vec2(tl, floor(uTime * 30.0) + 5.0)) - 0.5) * 0.08 * tbMask;
+    }
     // Cine film: each frame sits slightly differently in the gate (weave, mostly vertical).
     float cineF = floor(uTime * 18.0);
     if (uWeave > 0.001) uv += (vec2(hash(vec2(cineF, 1.3)), hash(vec2(cineF, 7.7))) - 0.5) * px * uWeave * vec2(0.6, 1.0);
@@ -4098,6 +4267,12 @@ void main() {
             cc = src((floor(uv / cs) + 0.5) * cs);
         }
         col = vec3(dot(col, LUMA)) + cc - vec3(dot(cc, LUMA));
+    }
+    // Mistracked tape: red and blue fields land sideways of green (red/cyan edges).
+    if (uRgbSplit > 0.0001) {
+        vec2 so = vec2(uRgbSplit, 0.0);
+        // Red alone slips (green + blue stay together) → red / cyan fringes, as on tape.
+        col.r += src(uv - so * 2.0).r - src(uv).r;
     }
     // In-camera edge enhancement.
     if (uSharpen > 0.001) {
@@ -4163,9 +4338,17 @@ void main() {
     col *= uExposure;
     if (uFlicker > 0.001) col *= 1.0 + (hash(vec2(cineF, 3.1)) - 0.5) * uFlicker;
     col = uMatrix * col;
-    if (uMono > 0.5) col = vec3(dot(col, uMix));
+    // Mono via a channel mix; daylight infrared also lifts vegetation, which reflects IR
+    // strongly even in shade (chlorophyll) — detected as "green leads red and blue".
+    if (uMono > 0.5) col = vec3(dot(col, uMix) + uIrGreen * clamp((col.g - max(col.r, col.b)) * 6.0, 0.0, 1.0) * 0.55);
     float l = dot(col, LUMA);
     col = mix(vec3(l), col, uSaturation);
+    // Film blues: saturation changed only where blue clearly leads (skies, water) — denser
+    // (+) or washed out (−); skin, foliage and neutrals are left alone.
+    if (abs(uBlueSat) > 0.001) {
+        float bw = clamp((col.b - max(col.r, col.g)) * 4.0, 0.0, 1.0);
+        col = mix(vec3(dot(col, LUMA)), col, 1.0 + uBlueSat * bw);
+    }
     col.r *= 1.0 + uWarmth * 0.14;
     col.g *= 1.0 + uWarmth * 0.03 - uTint * 0.09;
     col.b *= 1.0 - uWarmth * 0.16;
@@ -4189,6 +4372,14 @@ void main() {
     if (uVignette > 0.001) {
         float d = length(cen) * 1.4142;
         col *= 1.0 - uVignette * smoothstep(0.3, 1.05, d) * 0.95;
+    }
+
+    // Flare: stray light from a cheap lens flaring in at one edge, added the way light adds
+    // on film (screen blend) — the user's FunSaver reference has it top-right.
+    if (uGlow.w > 0.001) {
+        vec2 gd = (vUv - uGlow.xy) * vec2(ar, 1.0);
+        float gg = uGlow.w * exp(-dot(gd, gd) / (uGlow.z * uGlow.z));
+        col = 1.0 - (1.0 - col) * (1.0 - clamp(uGlowColor * gg, 0.0, 1.0));
     }
 
     // ── 5. Grain / noise (three different physical sources) ──
@@ -4228,8 +4419,9 @@ void main() {
     if (uDropouts > 0.001) {
         float df = floor(uTime * 30.0);
         float dl = floor(vUv.y * uNative.y);
-        if (hash(vec2(dl + 7.0, df)) < uDropouts) {
-            float x0 = hash(vec2(df, dl + 1.7)), len = 0.015 + 0.06 * hash(vec2(dl, df + 4.0));
+        float edgeD = clamp((0.14 - min(vUv.y, 1.0 - vUv.y)) / 0.14, 0.0, 1.0);
+        if (hash(vec2(dl + 7.0, df)) < uDropouts * (1.0 + uDropEdge * edgeD * edgeD)) {
+            float x0 = hash(vec2(df, dl + 1.7)), len = (0.015 + 0.06 * hash(vec2(dl, df + 4.0))) * (1.0 + 2.0 * edgeD * uDropEdge / max(uDropEdge, 1.0));
             float dx = (vUv.x - x0) / len;
             if (dx > 0.0 && dx < 1.0) col = mix(col, vec3(0.92, 0.9, 0.95), 0.75 * (1.0 - dx * dx));
         }
@@ -4250,9 +4442,20 @@ void main() {
         }
     }
 
+    if (tbMask > 0.001) {
+        // Static in the band: bright and dark dashes along the lines.
+        // Thin dashes along each scan line (native pixels), mostly bright, some dark.
+        vec2 tc = floor(vUv * uNative / vec2(2.0 + 6.0 * hash(vec2(floor(vUv.y * uNative.y), 9.0)), 1.0));
+        float sn = hash(tc + floor(uTime * 30.0) * 3.1);
+        vec3 dash = sn > 0.62 ? vec3(0.85 + 0.15 * sn) : (sn < 0.12 ? vec3(0.05) : col);
+        col = mix(col, dash, tbMask);
+    }
+    if (hsBand > 0.0) col = mix(col, vec3(dot(col, LUMA)) * 0.85 + (hash(floor(gl_FragCoord.xy / vec2(4.0, 1.0)) + floor(uTime * 30.0)) - 0.5) * 0.15, 0.35 + 0.4 * hsBand);
     col = clamp(col, 0.0, 1.0);
     if (uDuo > 0.5) col = mix(uDuoLo, uDuoHi, dot(col, LUMA));
     col = mix(orig, col, uIntensity);
+    // Capture blanking: the analog line's black edges (a touch wider on the left).
+    if (uBlank > 0.0001 && (vUv.x < uBlank * 1.3 || vUv.x > 1.0 - uBlank)) col = vec3(0.015);
     if (uCircle > 0.5) {
         vec2 pc = cen * vec2(ar, 1.0);
         float rc = length(pc) / (min(ar, 1.0) * 0.5 * (uCircle > 1.5 ? 1.08 : 1.0));
@@ -4353,7 +4556,7 @@ void main() {
                 'uNoiseType', 'uTapeFx', 'uFlash', 'uFlashReach', 'uFlashColor', 'uIntensity', 'uExposure', 'uContrast', 'uSaturation', 'uWarmth', 'uTint', 'uFade',
                 'uGrain', 'uGrainScale', 'uVignette', 'uHalation', 'uBlur', 'uChroma', 'uMono', 'uTime', 'uSeed', 'uDistort', 'uCircle',
                 'uMix', 'uGamma', 'uShadows', 'uHighlights', 'uHalColor',
-                'uSoft', 'uSharpen', 'uNoiseColor', 'uTape', 'uInterlace', 'uDuo', 'uDuoLo', 'uDuoHi', 'uDropouts', 'uWeave', 'uFlicker', 'uLevels'
+                'uSoft', 'uSharpen', 'uNoiseColor', 'uTape', 'uInterlace', 'uDuo', 'uDuoLo', 'uDuoHi', 'uDropouts', 'uWeave', 'uFlicker', 'uLevels', 'uBlueSat', 'uGlow', 'uGlowColor', 'uBlank', 'uHeadSwitch', 'uDropEdge', 'uRgbSplit', 'uTrackBand', 'uIrGreen'
             ].forEach((n) => { U[n] = gl.getUniformLocation(prog, n); });
             gl.uniform1i(U.uTex, 0);
             gl.uniform1i(U.uPrev, 1);
@@ -4445,6 +4648,15 @@ void main() {
                 gl.uniform1f(U.uWeave, L.weave || 0);
                 gl.uniform1f(U.uFlicker, L.flicker || 0);
                 gl.uniform1f(U.uLevels, L.levels || 0);
+                gl.uniform1f(U.uBlueSat, L.blueSat || 0);
+                gl.uniform4fv(U.uGlow, L.glow || [0, 0, 1, 0]);
+                gl.uniform1f(U.uBlank, L.blank || 0);
+                gl.uniform1f(U.uHeadSwitch, L.headSwitch || 0);
+                gl.uniform1f(U.uDropEdge, L.dropEdge || 0);
+                gl.uniform1f(U.uRgbSplit, L.rgbSplit || 0);
+                gl.uniform1f(U.uTrackBand, L.trackBand || 0);
+                gl.uniform1f(U.uIrGreen, L.irGreen || 0);
+                gl.uniform3fv(U.uGlowColor, L.glowColor || [1, 0.55, 0.22]);
                 gl.uniform1f(U.uDuo, L.duo ? 1 : 0);
                 gl.uniform3fv(U.uDuoLo, L.duo ? L.duo[0] : [0, 0, 0]);
                 gl.uniform3fv(U.uDuoHi, L.duo ? L.duo[1] : [1, 1, 1]);
@@ -4485,7 +4697,7 @@ void main() {
             if (!s.date) return;
             const d = new Date();
             const p2 = (n) => String(n).padStart(2, '0');
-            if (s.date === 'osd' || s.date === 'cam92' || s.date === 'slp') {
+            if (s.date === 'osd' || s.date === 'cam92' || s.date === 'slp' || s.date === 'hi8') {
                 // Camcorder / VCR on-screen display, burned into the picture: white blocky caps,
                 // softly glowing with a dark shadow, like the reference clips.
                 const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -4508,22 +4720,49 @@ void main() {
                 };
                 const L = ix + pad, R = ix + iw - pad, T = iy + pad + fs * 0.8 + (topInset || 0);
                 const B = iy + ih - pad - (dateInset || 0), lh = fs * 1.12;
-                if (s.date === 'osd') {
+                if (s.date === 'hi8') {
+                    // Sony Hi8 playback OSD, per the user's reference: date + 12-hour time
+                    // bottom-left ("OCT.12 1994" / "09:24:15 AM"), "Hi8" / "PLAY" top-right.
+                    const h12 = d.getHours() % 12 || 12;
+                    put(MON[d.getMonth()] + '.' + p2(d.getDate()) + ' ' + d.getFullYear(), L, B - lh);
+                    put(p2(h12) + ':' + p2(d.getMinutes()) + ':' + p2(d.getSeconds()) + (d.getHours() < 12 ? ' AM' : ' PM'), L, B);
+                    put('Hi8', R, T, 'right');
+                    put('PLAY', R, T + lh, 'right');
+                } else if (s.date === 'osd') {
                     const h12 = d.getHours() % 12 || 12;
                     put((d.getHours() < 12 ? 'AM ' : 'PM ') + h12 + ':' + p2(d.getMinutes()) + ':' + p2(d.getSeconds()), L, B);
                     put(MON[d.getMonth()] + '. ' + d.getDate() + ' ' + d.getFullYear(), L, B - lh);
                 } else if (s.date === 'cam92') {
-                    put('CAMERA1', L, T);
-                    put('PLAY \u25B6', L, T + lh);
-                    put(osdCounter(), L, T + lh * 2);
-                    put(p2(d.getHours()) + ':' + p2(d.getMinutes()), L, B - lh);
-                    put(p2(d.getDate()) + '.' + p2(d.getMonth() + 1) + '.' + d.getFullYear() + ' ' + DAY[d.getDay()], L, B);
+                    // Per the user's 2026-10-12 reference: "CAMERA 1" top-left, "PLAY ▶"
+                    // top-right, "OCT.12 1992"-style date bottom-left, 12-hour time bottom-right.
+                    const h12 = d.getHours() % 12 || 12;
+                    put('CAMERA 1', L, T);
+                    put('PLAY \u25B6', R, T, 'right');
+                    put(MON[d.getMonth()] + '.' + p2(d.getDate()) + ' ' + d.getFullYear(), L, B);
+                    put(p2(h12) + ':' + p2(d.getMinutes()) + (d.getHours() < 12 ? ' AM' : ' PM'), R, B, 'right');
                 } else {
                     put('PLAY', L, T);
                     put('Ch 01', ix + iw * 0.36, T);
                     put(osdCounter(), R, T, 'right');
                     put('SLP', R, B, 'right');
                 }
+                ctx.restore();
+                return;
+            }
+            // 'dc25' = Kodak DC25's stamp per the user's reference: white digital MM/DD/YY,
+            // bottom-right, drawn at the camera's own pixel size so it enlarges as blocks.
+            if (s.date === 'dc25') {
+                const fs = Math.max(8, Math.round(ih * 0.065));
+                ctx.save();
+                ctx.font = fs + "px 'VT323', ui-monospace, monospace";
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'alphabetic';
+                const t = p2(d.getMonth() + 1) + '/' + p2(d.getDate()) + '/' + String(d.getFullYear()).slice(2);
+                const tx = ix + iw - fs * 0.9, ty = iy + ih - fs * 0.6 - (dateInset || 0);
+                ctx.fillStyle = 'rgba(0,0,0,.45)';
+                ctx.fillText(t, tx + 1, ty + 1);
+                ctx.fillStyle = 'rgba(244,244,240,.92)';
+                ctx.fillText(t, tx, ty);
                 ctx.restore();
                 return;
             }
@@ -4655,7 +4894,7 @@ void main() {
             if (gridCanvas.width !== bw) gridCanvas.width = bw;
             if (gridCanvas.height !== bh) gridCanvas.height = bh;
             gctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            gctx.imageSmoothingEnabled = true;
+            gctx.imageSmoothingEnabled = !activeFilmSettings().camera.pixelated; // hard pixels (DC25)
 
             if (state.mode === 'live') {
                 gctx.fillStyle = THEME.lcd;
@@ -5481,14 +5720,14 @@ void main() {
         function buildDownloadCanvas() {
             const s = activeFilmSettings();
             const cnv = document.createElement('canvas');
-            if (state.mode === 'live' && liveCoverCanvas && liveCoverCanvas.width > 2) return squarePixels(composeWithOverlays(cnv, liveCoverCanvas, s), getLiveTargetRatioValue());
+            if (state.mode === 'live' && liveCoverCanvas && liveCoverCanvas.width > 2) return printFrame(squarePixels(composeWithOverlays(cnv, liveCoverCanvas, s), getLiveTargetRatioValue()));
             const src = state.srcImage;
             if (!src) { cnv.width = 2; cnv.height = 2; return cnv; }
             const d = uploadFrame(src);
             film.render(src, { outW: d.w, outH: d.h, native: d, aspect: d.aspect, crop: uploadLensCrop(src, d.aspect), mirror: false, settings: s, time: state.uploadSeed, still: true });
             // film.canvas now holds the export render; the preview copy (uploadPreview) is
             // separate, so the screen is unaffected.
-            return squarePixels(composeWithOverlays(cnv, film.canvas, s), d.aspect);
+            return printFrame(squarePixels(composeWithOverlays(cnv, film.canvas, s), d.aspect));
         }
 
         // Saves a still the way the camera did: a JPEG at its quality, at its own pixel
@@ -5500,7 +5739,9 @@ void main() {
                 if (!blob) return;
                 const long = Math.max(cnv.width, cnv.height);
                 if (long >= 960) { cb(blob); return; }
-                const k = Math.ceil(960 / long);
+                const pixelated = !!activeFilmSettings().camera.pixelated;
+                // Hard-pixel cameras are enlarged further (≈5×, like the reference), as blocks.
+                const k = Math.ceil((pixelated ? 2400 : 960) / long);
                 const url = URL.createObjectURL(blob);
                 const img = new Image();
                 img.onload = () => {
@@ -5508,7 +5749,7 @@ void main() {
                     const big = document.createElement('canvas');
                     big.width = cnv.width * k; big.height = cnv.height * k;
                     const x = big.getContext('2d');
-                    x.imageSmoothingEnabled = true;
+                    x.imageSmoothingEnabled = !pixelated;
                     x.drawImage(img, 0, 0, big.width, big.height);
                     big.toBlob((b2) => { if (b2) cb(b2); }, 'image/jpeg', 0.92);
                 };
@@ -6113,7 +6354,34 @@ void main() {
             const src = getLiveSource();
             if (!src) return null;
             const d = liveNativeDims();
-            return squarePixels(composeWithOverlays(document.createElement('canvas'), renderLiveFilm(src, d.w, d.h), activeFilmSettings()), getLiveTargetRatioValue());
+            return printFrame(squarePixels(composeWithOverlays(document.createElement('canvas'), renderLiveFilm(src, d.w, d.h), activeFilmSettings()), getLiveTargetRatioValue()));
+        }
+
+        // A camera whose pictures came out as physical prints gets its print around the saved
+        // photo (the viewfinder shows only the picture, like the real camera). Instax Mini:
+        // a 54×86 mm card around a 46×62 mm image — 4 mm sides, a thin top and the thick
+        // bottom strip (≈6 / ≈18 mm). A landscape shot sits in the card held sideways.
+        function printFrame(cnv) {
+            const cam = activeFilmSettings().camera;
+            if (cam.frame !== 'instaxMini' || !cnv) return cnv;
+            const land = cnv.width > cnv.height;
+            const iw = land ? cnv.height : cnv.width;           // the image, upright
+            const k = iw / 46;                                    // px per mm
+            const cw = Math.round(54 * k), ch = Math.round(86 * k), side = Math.round(4 * k), top = Math.round(6 * k);
+            const out = document.createElement('canvas');
+            out.width = land ? ch : cw; out.height = land ? cw : ch;
+            const x = out.getContext('2d');
+            // Card: glossy off-white with a faint top-to-bottom sheen.
+            const g = x.createLinearGradient(0, 0, 0, out.height);
+            g.addColorStop(0, '#f7f6f1'); g.addColorStop(1, '#efeee8');
+            x.fillStyle = g; x.fillRect(0, 0, out.width, out.height);
+            // Held sideways, the thin top is on the left and the thick strip on the right.
+            const ix = land ? top : side, iy = land ? side : top;
+            x.drawImage(cnv, ix, iy);
+            // The image window's slightly raised edge.
+            x.strokeStyle = 'rgba(0,0,0,.10)'; x.lineWidth = Math.max(1, k * 0.15);
+            x.strokeRect(ix, iy, cnv.width, cnv.height);
+            return out;
         }
 
         async function startCamera() {
@@ -7615,7 +7883,7 @@ void main() {
         // PWA: register service worker for installability + reliable updates
         (function () {
             if (!('serviceWorker' in navigator)) return;
-            const __BUILD = 'v21';
+            const __BUILD = 'v22';
             try {
                 const bt = document.getElementById('build-tag');
                 if (bt) bt.textContent = __BUILD;
@@ -7649,7 +7917,7 @@ void main() {
             window.forceAppUpdate = resetServiceWorkerAndReload;
 
             // Versioned SW URL forces Safari to re-fetch updated sw.js
-            const __SW_URL = 'sw.js?v=21';
+            const __SW_URL = 'sw.js?v=22';
             navigator.serviceWorker.register(__SW_URL).then((reg) => {
                 function trySkipWaiting() {
                     if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });

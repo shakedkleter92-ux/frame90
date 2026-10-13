@@ -54,10 +54,129 @@ Bump `CACHE` in `sw.js` (`90frame-vN`) **and** `__BUILD` / `__SW_URL`'s `?v=` ne
   film grain on digital, no tape noise on DV, flash / timestamps / borders / tape FX off by
   default, no intensity slider (user: keep UI as is). Film = Kodak Photo CD scan 3072×2048
   (`FILM_SCAN`); analog tape at full SD (640×480 / PAL 768×576) limited by `tape` bandwidth +
-  `chromaSub` smear; DV 720×480 anamorphic. The earlier presets are **back** (user, 2026-10-09:
-  "I like the old filters"), after the 12 new ones in each list — Photo: Polaroid, Holga X-Pro,
-  DC20, QV-10, Cyber-shot, QuickCam, QuickTake (19 in all); Video: VHS '92, VHS SLP, VHS Worn,
-  Super 8, Video8, Hi8, MiniDV, NightShot (20). The picker scrolls. The picker shows the current
+  `chromaSub` smear; DV 720×480 anamorphic. **Per-camera tuning to the user's reference renders** (2026-10-12 →, one camera at a
+  time: the user sends a camera + the prompt they gave an image AI + its rendered image):
+  measure the reference (sky / whites / darkest 5% / foliage hue+sat / flat-area grain std),
+  run test patches (gray ramp, sky, foliage, skin, red) through the preset, and adjust the
+  film/sensor until the patch outputs match those traits — without over-fitting to the
+  reference's scene (e.g. its dry olive foliage). Done: **F90 · Superia 200** (lifted olive
+  blacks ≈21,22,14, warm whites ≈251,249,245, sky ≈212° sat ≈0.56, greens toward olive, fine
+  visible grain; deep blues kept blue). **EOS 5 · Portra 160NC** (same scene as the F90 reference, so tuned relative to it: warmer,
+  sky ×0.8 saturation, softer warm highlights ≈250,248,241, same lifted warm blacks ≈23,22,13,
+  grain ×0.8). **EOS 500 · Royal Gold 100** (vs Portra: warmer still — cream whites ≈249,244,236,
+  golden roofs, yellow-warm greens — ~20% more saturated, a touch darker/deeper sky, warm
+  blacks ≈25,22,13; grain kept at the F90's level although the reference shows more — a
+  100-speed film shouldn't read grainier than a 200). Order of the three, coolest → warmest:
+  F90, EOS 5, EOS 500. **Contax G1 · Reala 100** (the deepest blacks of the four ≈18,18,12 / most contrast,
+  a deep saturated sky like the F90's but darker, neutral whites ≈248,246,242, natural greens,
+  fine grain between Portra and Superia; the crispest — body adds micro-contrast). **Leica Minilux · Portra 400VC** (the most vivid and darkest: midtones down via gamma 1.28
+  with whites kept, a deep cyan-leaning sky via the matrix, warm low-blue blacks, 400-speed
+  grain, body vignette 20 — the reference showed ~27% darker corners, moderated per the spec's
+  "no extreme vignetting"; the sky's extra depth via `blueSat` 0.45 so skin stays ≈0.6).
+  **Olympus mju-II · Superia 400** (the only cool one: neutral whites ≈248, cool green blacks
+  ≈13,17,14, muted cool greens, midtones ≈46%, deep sky via `blueSat` 0.3, the most grain —
+  consumer 400; body: compact softness, vignette 20). **`blueSat`** (look param, shader color
+  stage) = extra saturation only where blue clearly leads (skies, water) — added because
+  deepening the sky with global saturation or the matrix pushed skin orange. **Kodak Gold 200 · 35mm compact** (Royal Gold's family look with softer contrast: the
+  most lifted warm blacks ≈28,26,17, creamy warm whites, warmer greens, a touch more grain;
+  body `compact35` = the softest film-camera optics, soft 0.9 / blur 10, mild vignette 6). **FunSaver · Gold 400** (the low-fi one: heavy warm golden cast, muddy yellow-brown
+  greens, a washed-out gray-cyan sky via `blueSat` −0.6 — `blueSat` works both ways — harsh
+  contrast with near-black blacks ≈12,9,5 and near-clipped warm whites, thick grain ≈2.5× the
+  SLR films; then **full strength on the user's request** ("I want the FunSaver like the
+  reference"): body vignette 92 (near-black corners), soft 4.2, blur 60, chroma 10, and the
+  reference's orange flare top-right via look param **`glow`** [x, y, radius, strength] +
+  `glowColor` (screen-blended stray light; FunSaver only — the one exception to "no leaks").
+  **Instax Mini 10 · Instax Mini** (pastel and dreamy: saturation −45, lifted slightly purple
+  blacks ≈39,36,42, cool never-white highlights ≈239,243,244 with a strong shoulder, pale sky,
+  muted light teal greens, smooth fine grain; body soft 3.6 / blur 20 — very blurry, like the
+  reference). `sensor()` adds a 12-tap disc when `uSoft` ≥ 2 so heavy softness stays smooth
+  (the sparse 8 taps left a mesh pattern). **Kodak DC25** (primitive sensor per the reference: whites clip hard at `white` 0.8,
+  blacks to 0, dark midtones, an electric blue sky ≈43,132,254 via `blueSat` 1.6 over muted
+  crosstalk color, muddy greens, color noise). Sensor flag **`pixelated`** → `cam.pixelated`:
+  `cameraJpeg()` enlarges ≈5× (to ~2400px) with smoothing off, and `renderView()` draws the
+  preview without smoothing — hard pixels, like the reference. **Date stamp on by default for
+  the DC25** (`date: 'dc25'`: white VT323 MM/DD/YY bottom-right, drawn at native size so it
+  enlarges as blocks) — the user's reference/prompt include it, an exception to "no stamps". **Sony Mavica FD5** (very soft — blurry, not pixelated — pure saturated digital blue via
+  `blueSat` 3.2 over muted crosstalk color, crushed blacks / clipped whites, dark midtones,
+  muddy greens, floppy-size JPEG q 0.55). **Kodak DC290** (the sharpest and most vivid digicam:
+  Kodak's warm yellow-orange processing, a saturated but natural sky ≈67,135,216, slightly
+  warm clipped whites, deep blacks, a little shadow noise). Digital-camera softness must be
+  judged at native size (patch/A-B renders at the film scan size understate it).
+  **Video, tuned to reference frames (2026-10-12 →):** **Sony CCD-TR2000E** (warm consumer
+  video: yellowish highlights ≈254,251,237, warm lifted blacks, a muted sky ≈82,130,189, warm
+  greens, analog noise; OSD **`date: 'hi8'`** on by default — "OCT.12 2026" / "04:25:52 PM"
+  bottom-left, "Hi8" / "PLAY" top-right, live clock — as in the reference). New tape look
+  params: **`blank`** (black capture-blanking bars at the left/right edges, fraction of width;
+  left ×1.3) and **`headSwitch`** (the bottom strip shifted and torn, fraction of height).
+  **Canon UC-X10Hi** (warmer than the Sony: yellow highlights ≈254,249,230, deeper warm blacks
+  ≈9,7,4, darker midtones, a more muted sky via `blueSat` −0.25, warmer greens, a little more
+  noise, vignette 30 via the format's `adj`; no OSD, no bars — as in its reference; midtones
+  darkened with gamma, not exposure, so whites stay ≈255,250,231). **Sony CCD-TRV87** (the
+  warmest Hi8: most yellow highlights ≈254,248,226, lifted warm blacks ≈15,13,7, most saturated
+  warm tones over a muted sky, the strongest vignette 40, a little less noise and a touch
+  sharper — XR; no OSD). Lesson: darken video midtones with `gamma`; `exposure` dims the whites. **JVC GR-SZ7**
+  (like the TRV87's warmth but the deepest tape blacks ≈8,7,3, a touch more saturation, milder
+  vignette 20, a little more noise and S-VHS edge crispness; `blank` + `headSwitch` on, as in
+  its reference; OSD off). **Panasonic PV-L859** (lifted warm-gray blacks ≈22,21,18, clean slightly warm whites
+  ≈253,253,242, a bluer sky than the Hi8s, the heaviest grain; `tape` 0.7 / soft 0.35 — the
+  first try at tape 1.1 smeared far more than its reference, which keeps about the same detail
+  as the other tapes; bars + head-switching on, OSD off). **Sony DCR-VX1000** (clean digital SD: grain 2, no
+  vignette, crisper than tape; natural not-warm greens, a deep less-saturated sky via `blueSat`
+  −0.25, slightly warm whites ≈255,254,242, near-neutral blacks; midtones via gamma 1.3). **JVC GR-DV1** (single-CCD DV: neutral hard-clipping whites ≈253,253,251, slightly lifted
+  blacks, a lighter muted sky via `blueSat` −0.3, less saturation, grain 12 — several times
+  the VX1000's noise — and softer, soft 0.6). **Sony DCR-PC1** (GR-DV1's single-CCD noise and clipped whites, but warmer
+  blacks/greens, a lighter cyan-leaning sky via `blueSat` −0.25, and crisper — soft 0.35,
+  sharpen 0.35 — near the VX1000). **Canon XL1** (the VX1000's cleanliness with more depth: gamma 1.38,
+  a deep saturated sky, warm not-quite-clipped whites ≈252,249,231 — white 0.97 — deep blacks). **Sony DCR-TRV900** (the most restrained 3-CCD: saturation −26, cooler greens, a lighter
+  muted sky ≈82,118,168, slightly warm whites, deep blacks; the crispest DV — soft 0.1, sharpen
+  0.4 — with visible sensor noise, grain 10, as in its reference). **Canon GL1** (the XL1's Canon color —
+  same warm whites ≈252,249,231, deep blacks, earthy greens — with a lighter less saturated sky
+  ≈76,116,167 via `blueSat` −0.2, saturation −13, a touch crisper; clean). **Sony DCR-TRV110**
+  (Digital8 — the warmest, most saturated single-CCD DV: deep warm blacks, darker midtones,
+  clipped slightly warm whites, a natural sky ≈95,134,190, single-CCD noise). **All 12 spec
+  video cameras tuned.** **VHS '92 re-tuned** to a new user reference (2026-10-12), replacing the old
+  pink-lilac look: warm aged VHS-C — more saturated than the PV-L859, blacks ≈15,13,11, vignette
+  38, heavy noise, occasional `dropouts` 0.006, bars + head-switching, 640×480; OSD `cam92` now
+  "CAMERA 1" top-left, "PLAY ▶" top-right, "OCT.12 2026" bottom-left, "04:57 PM" bottom-right.
+  **VHS SLP re-tuned** (2026-10-12, replacing the violet look): a cool, worn long-play tape —
+  the softest picture (320×240, soft 1.4, tape 1.1), lifted bluish blacks, neutral whites, a
+  saturated sky via `blueSat` 0.45 over near-colorless greens (saturation −40), heavy snow,
+  dropout streaks crowding the top/bottom (new look param **`dropEdge`**, multiplies the
+  dropout rate toward the frame's top and bottom 14%), bars + head-switching; **OSD off**
+  (its prompt says no text). Lesson: strong `blueSat` + bluish `shadows` + tape smear made
+  purple blotches and blue halos — keep `blueSat` ≤ 0.5 and `sharpen` low on smeared tapes.
+  **VHS Worn re-tuned** (2026-10-12, replacing the orange-sunset look): a mistracking worn tape —
+  SLP's cool palette with deeper bluish blacks and much more snow (grain 48), plus new look
+  params **`rgbSplit`** (red alone slips sideways by 2× this fraction of width → red/cyan
+  fringes) and **`trackBand`** (a band of torn lines + dashes of static drifting around y≈0.24),
+  and a tall wavy head-switching zone (`headSwitch` 0.1; the strip now waves with amplitude
+  scaled by its height, so the thin 0.015 strips on other presets barely move). Old
+  `glow`-free, `dropouts` 0.02 with `dropEdge` 4; OSD off.
+  **Super 8 re-tuned** (2026-10-12 reference; a different scene, so measured by hand): classic
+  Kodachrome — crushed blacks, very dark midtones (gamma 1.45), a deep saturated sky
+  (`blueSat` 1.0), warm glowing highlights ≈255,252,225, warm earthy greens, heavy film grain
+  45, soft, gate vignette 55 (body), weave + flicker kept. **Video8 re-tuned** (2026-10-12): warm and faded — deep
+  warm blacks, dark midtones (gamma 1.4), near-neutral whites, a pale muted sky via `blueSat`
+  −0.35, warm brownish greens, vignette 44, analog noise, soft (320×240); OSD off. **MiniDV
+  (Handycam) re-tuned** (2026-10-12): crushed blacks, very dark midtones (gamma 1.5), neutral
+  clipped whites, a pale muted sky via `blueSat` −0.4, warm dark greens, moderate noise, no
+  vignette, soft 0.5 (was an over-soft 1.2); OSD off.
+  **NightShot re-tuned** (2026-10-12) to **daylight infrared**: mono via `mix` [0.25, 1.75,
+  −1.5] (blue sky → near black, clouds stay bright) plus new look param **`irGreen`** (adds
+  glow where green leads red and blue — vegetation reflects IR even in shade, the Wood
+  effect); phosphor-green `duo` [≈2,7,2 → 230,255,230], IR halation, heavy analog grain,
+  vignette; `tape` 0 and `chromaSub` [1,1] — any color smear gets amplified by the strong mix
+  into smeared brightness. OSD off. Hi8 (Handycam) is the one earlier preset not re-tuned yet. The earlier **video** presets are back after the 12
+  new ones (user, 2026-10-09: "I like the old filters") — VHS '92, VHS SLP, VHS Worn, Super 8,
+  Video8, Hi8, MiniDV, NightShot (20 in Video; the picker scrolls). The earlier **photo** presets
+  (Polaroid, Holga X-Pro, DC20, QV-10, Cyber-shot, QuickCam, QuickTake) were **deleted** on the
+  user's request (2026-10-12) — Photo is exactly the spec's 12. **Print frames**: a camera
+  whose pictures were physical prints gets that print around the *saved* photo (`frame` part →
+  `printFrame()` in `captureLivePhoto()` / `buildDownloadCanvas()`; the viewfinder shows only
+  the picture, like the real camera). Only the Instax has one: the real Instax Mini card, 54×86
+  mm around a 46×62 mm image (4 mm sides, ≈6 mm top, ≈18 mm bottom strip), off-white; a
+  landscape shot sits in the card held sideways (thick strip on the right). The 35mm films were
+  printed borderless and the digicams are files, so they get none. The picker shows the current
   tab's list (`activeCameraList()`: Live → capture mode; Upload → a loaded video = Video, else
   Photo); each list remembers its pick (`ACTIVE_IN_LIST`, `syncCameraList()`).
   **Flash button** `#mob-flash` — top row, left of the menu button (user: aligned to the top,
@@ -68,14 +187,11 @@ Bump `CACHE` in `sw.js` (`90frame-vN`) **and** `__BUILD` / `__SW_URL`'s `?v=` ne
   Photo, kept on in Video (`syncVideoTorch()`). **Back camera** = torch (tried even when
   `getCapabilities()` doesn't list it — iOS 17.5+/18 Safari can switch it but reports it
   unreliably); **front camera** = the screen: `#screen-flash` (whole screen warm white for the
-  shot, frame taken 300 ms in) / `#screen-ring` (white ring around the live frame in Video). Added 2026-10-08: `polaroid` (600 instant film, 1:1, flash on, no
-  forced white border), `holga` (cross-processed slide film, 1:1, plastic-lens corners),
-  `super8` (Kodachrome 40 cine film, 18 fps frame hold via `fps`, film grain, gate `weave` +
-  `flicker` look params, audio `S8`). A film may set its own `px`/`formats` (instant and
-  120 aren't Picture CD scans of 35mm); `FORMAT_RATIO` has `1:1`. `vhsworn` (VHS
-  Worn, 2026-10-08, from a sunset-over-rails clip) = hot saturated warm tape, long red bleed and
-  constant oxide dropouts (look param `dropouts`, shader stage 5b — part of that preset's look,
-  separate from the optional `tapeFx` layer); no OSD. The user's "CAMERA1 / PLAY / SOURCE IPHONE"
+  shot, frame taken 300 ms in) / `#screen-ring` (white ring around the live frame in Video). Added 2026-10-08: `super8` (Kodachrome 40 cine film, 18 fps frame hold
+  via `fps`, film grain, gate `weave` + `flicker` look params). A film may set its own
+  `px`/`formats` (Instax isn't a 35mm scan); `FORMAT_RATIO` has `1:1` (unused since the square
+  Polaroid/Holga were deleted). `dropouts` (look param, shader stage 5b: oxide-dropout streaks, part of a
+  preset's look, separate from the optional `tapeFx` layer) was added 2026-10-08 for VHS Worn. The user's "CAMERA1 / PLAY / SOURCE IPHONE"
   references are the same filter as `vhs92` — not added again. (History: on 2026-10-08 the user removed Mavica FD5, DC290, Gold 200 and Superia 400 as
   too sharp and ruled "nothing may look sharp"; on 2026-10-09 their 24-camera spec brought
   those back and replaced that rule with "realistic, keep detail".) One picker, titled **CAMERA TYPE** (no number), showing the current tab's list — the
@@ -120,7 +236,11 @@ Bump `CACHE` in `sw.js` (`90frame-vN`) **and** `__BUILD` / `__SW_URL`'s `?v=` ne
   (`getLiveFrameRect()`, `LIVE_FRAME_TOP/BOTTOM`) on a dark surround. The back camera is
   requested at 3:4 so the stream is the whole sensor. First launch opens at 1× zoom (the old
   0.5× default only existed to undo the 9:16 crop of the sensor). An earlier *landscape*
-  4:3 contain-fit frame was rejected as "wide" — keep it upright.
+  4:3 contain-fit frame was rejected as "wide" — keep it upright. **Ratios are fixed per camera** (user,
+  2026-10-12, confirmed "keep it as it is now"): each camera's real ratio — 35mm film & DC290
+  2:3, DC25 / Mavica / video 3:4 (upright 4:3), Instax 3:4 in its card, MiniDV 4:3 or 16:9 —
+  always upright in Live; uploads keep their own orientation. Reference renders being
+  landscape is not a reason to change this; tuning touches color/tone/texture only.
 - **UPLOAD VIDEO** (user, 2026-10-08) — Upload accepts photos *and* videos. A video plays
   muted on a loop (`state.srcVideo`); each new frame is copied into the `state.srcImage`
   canvas (≤1280px), so every photo path (crop, lens, compare, camera switch) works unchanged,
