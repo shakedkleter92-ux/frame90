@@ -298,6 +298,28 @@ Bump `CACHE` in `sw.js` (`90frame-vN`) **and** `__BUILD` / `__SW_URL`'s `?v=` ne
   from the last recorded frame in `toggleVideoRecording()`) used by the FAB and the grid —
   a `<video>` element as a thumbnail shows black on iOS until played.
 
+## Campaign content (`campaign/`, 2026-11-12)
+
+The user runs an Instagram campaign from `90FRAME_BRAND_GUIDELINES.md`; a GPT agent makes
+the photos (`campaign/*.png`), Claude processes them with the **real app** — never
+imitations. Notes to the GPT agent live in `campaign/CLAUDE-TOOLS.md`. Tools in
+`campaign/tools/` (headless Playwright Chromium from the npx cache + PIL; no ffmpeg — MP4
+via MediaRecorder, `captureStream(0)` + `requestFrame()` because a timed captureStream
+freezes headless, then `mp4-remux.py` de-fragments it; verify videos with AVFoundation,
+not Chromium, which can't decode H.264). Layout of `campaign/content/` (user, 2026-11-12): `originals/{photos,videos}`, `app-demos/`
+(`videos/` = clips in the real app through all 20 video cameras, `walkthroughs/`,
+`screenshots/`), `filter-videos/{videos,photos}` (no UI) — nothing else; lens versions and
+photo app videos were deleted on request. `build-videos.sh` + `clips.txt` (clips from
+`short vidio/`, then `short vidio/finels/` = the user's favourites), `build-content.sh` +
+`looks.txt` (photos). **Walkthroughs** (`walkthrough.cjs`, `walkthrough-final.cjs`): real
+Chrome (plays H.264) with a fake camera and Playwright's clock **paused** and stepped 1/30 s
+per frame (unpaused, timers/OSD clocks race), CSS animations stepped to it, the upload
+seeked per frame; `tap-marks.py` draws phosphor radar pings, `tv-off.py` adds the old-TV
+switch-on/off. User rules: every action once (filters once per media, lenses once), only
+`finels` clips, short; `walkthrough-final` = the user's exact order. Other decisions: **no
+checkerboard grid**, **film looks only** for photos, transitions = **short gentle old-TV
+channel change**, **never crop the clips** (DV cameras in 16:9 + 24mm lens where possible).
+
 ## Conventions
 
 Same as `../grid_symbol_maker/CLAUDE.md` (one file; only the mobile layout path is reachable;

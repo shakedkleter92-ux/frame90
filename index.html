@@ -8018,7 +8018,8 @@ void main() {
                 }
                 initApp();
             }
-            playSplashThen(proceedPastSplash);
+            if (['party', 'love', 'roadtrip', 'beach', 'cafe', 'dance', 'diner', 'mapstop', 'guitar', 'laundry', 'coastman', 'busstop', 'diner-man', 'cassette', 'lakeside', 'nightbus', 'market', 'car-candid', 'stairwell-candid', 'cafe-candid', 'train-candid'].includes(new URLSearchParams(location.search).get('demo'))) initApp();
+            else playSplashThen(proceedPastSplash);
         })();
 
         // Splash: logo entrance animation, then the app name typed out, then waits for a tap
@@ -8085,7 +8086,42 @@ void main() {
         function initApp() {
             if (appInitialized) return;
             appInitialized = true;
-            switchToMode('live');
+            const demo = new URLSearchParams(location.search).get('demo');
+            const demoPhotos = {
+                party: 'friends-party-square.png',
+                love: 'couple-golden-hour.png',
+                roadtrip: 'coastal-road-trip.png',
+                beach: 'friends-at-the-beach.png',
+                cafe: 'cafe-rainy-day.png',
+                dance: 'friends-dancing-at-home.png',
+                diner: 'friends-late-night-diner.png',
+                mapstop: 'road-trip-map-stop.png',
+                guitar: 'friends-playing-guitar.png',
+                laundry: 'woman-laundromat.png',
+                coastman: 'man-coastal-morning.png',
+                busstop: 'woman-rainy-bus-stop.png',
+                'diner-man': 'man-morning-diner.png',
+                cassette: 'man-cassette-car.png',
+                lakeside: 'woman-lakeside.png',
+                nightbus: 'friends-night-bus.png',
+                market: 'friends-flea-market.png',
+                'car-candid': 'woman-car-candid.png',
+                'stairwell-candid': 'man-stairwell-candid.png',
+                'cafe-candid': 'woman-cafe-candid.png',
+                'train-candid': 'man-train-candid.png',
+            };
+            if (demoPhotos[demo]) {
+                switchToMode('image');
+                fetch('campaign/' + demoPhotos[demo] + '?v=square-crop-1')
+                    .then(response => {
+                        if (!response.ok) throw new Error('Could not load the square demo photo');
+                        return response.blob();
+                    })
+                    .then(blob => loadFile(new File([blob], demoPhotos[demo], { type: 'image/png' })))
+                    .catch(err => alert(err.message));
+            } else {
+                switchToMode('live');
+            }
             if (typeof updateMobileButtonsForMode === 'function') updateMobileButtonsForMode();
         }
     </script>
