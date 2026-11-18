@@ -3312,6 +3312,37 @@
 
         /* Lens slider removed (user, 2026-11-18). Zoom (presets + pinch dial) stays. */
         #mob-side-slider-wrap { display: none !important; }
+
+        /* ═══ Even bottom spacing (16px between every row) — see LIVE_FRAME_BOTTOM. */
+        #mob-capture-mode { bottom: 87px; }
+        #mob-zoom-presets { bottom: 122px; }
+        #cam-strip { bottom: 166px; }
+        body.mode-upload #cam-strip { bottom: 122px; }
+        #cam-groups { margin-bottom: 16px; }
+        /* a clearer step between camera groups */
+        .cam-sep { margin: 8px 12px; }
+
+        /* ═══ SELECTED = WHITE (user, 2026-11-18): every chosen state in the app glows white,
+           so it stands apart from the green HUD. */
+        :root { --sel: #f3f6f1; --sel-glow: 0 0 8px rgba(255, 255, 255, .45); }
+        .cam-item.active, .pal-tgt.active, .mob-zoom-preset.active, #booth-frames button.active,
+        #caption-btn.on, #caption-box button.on, #mob-flash.on {
+            background: var(--sel) !important;
+            border-color: var(--sel) !important;
+            box-shadow: var(--sel-glow) !important;
+            color: var(--void) !important;
+            -webkit-text-fill-color: var(--void) !important;
+            text-shadow: none !important;
+        }
+        #mob-flash.on svg path { fill: var(--void); }
+        .cam-group.active,
+        .mob-mode-label.active,
+        #mob-capture-mode.on-light-bg .mob-mode-label.active {
+            color: var(--sel) !important;
+            -webkit-text-fill-color: var(--sel) !important;
+            text-shadow: 0 0 6px rgba(255, 255, 255, .5), 0 1px 2px rgba(0, 0, 0, .8) !important;
+            border-bottom-color: var(--sel) !important;
+        }
 </style>
 </head>
 
@@ -5212,9 +5243,12 @@ void main() {
         // "the picture being full screen is weird".)
         // Bottom reserve = shutter row + mode labels + zoom presets + the camera strip
         // (was 184 before the strip, 2026-11-18).
-        const LIVE_FRAME_TOP = 56, LIVE_FRAME_BOTTOM = 256;
-        // Upload has no zoom presets, so the strip sits lower and the picture gets the room.
-        const UPLOAD_FRAME_BOTTOM = 222;
+        // Bottom stack, one even gap (BOTTOM_GAP) between every row (user, 2026-11-18):
+        // shutter row (top 71 from the bottom) · modes · [zoom, Live only] · camera icons ·
+        // group tabs · picture. The picture sits right on the band's bottom edge so the gap
+        // above the tabs is the same as the others.
+        const LIVE_FRAME_TOP = 56, LIVE_FRAME_BOTTOM = 280;
+        const UPLOAD_FRAME_BOTTOM = 236;
         function getLiveFrameRect(W, H) {
             const ar = getLiveTargetRatioValue();
             const top = isMobileLayout() ? LIVE_FRAME_TOP : 0;
@@ -5222,7 +5256,7 @@ void main() {
             let cw = W, ch = W / ar;
             if (ch > availH) { ch = availH; cw = ch * ar; }
             cw = Math.round(cw); ch = Math.round(ch);
-            return { dx: Math.round((W - cw) / 2), dy: Math.round(top + (availH - ch) / 2), cw, ch };
+            return { dx: Math.round((W - cw) / 2), dy: Math.round(top + (isMobileLayout() ? availH - ch : (availH - ch) / 2)), cw, ch };
         }
 
         // The picture through a real JPEG at quality q (async) → ImageBitmap, or null where
@@ -5657,7 +5691,7 @@ void main() {
             const availH = Math.max(2, H - top - bot);
             const sc = Math.min((W - pad * 2) / d.aspect, availH);
             const w = Math.max(2, Math.round(d.aspect * sc)), h = Math.max(2, Math.round(sc));
-            state.uploadRect = { x: Math.round((W - w) / 2), y: Math.round(top + (availH - h) / 2), w, h };
+            state.uploadRect = { x: Math.round((W - w) / 2), y: Math.round(top + (isMobileLayout() ? availH - h : (availH - h) / 2)), w, h };
             const k = Math.min(1, (h * viewDpr()) / d.h);
             const outW = Math.max(2, Math.round(d.w * k)), outH = Math.max(2, Math.round(d.h * k));
             const s = activeFilmSettings();
@@ -5675,7 +5709,7 @@ void main() {
                 const ar = f.width / f.height;
                 const sc2 = Math.min((W - pad * 2) / ar, availH);
                 const w2 = Math.max(2, Math.round(ar * sc2)), h2 = Math.max(2, Math.round(sc2));
-                state.uploadRect = { x: Math.round((W - w2) / 2), y: Math.round(top + (availH - h2) / 2), w: w2, h: h2 };
+                state.uploadRect = { x: Math.round((W - w2) / 2), y: Math.round(top + (isMobileLayout() ? availH - h2 : (availH - h2) / 2)), w: w2, h: h2 };
             }
             renderView();
             if (v) {
@@ -5710,7 +5744,7 @@ void main() {
             const ar = strip.width / strip.height;
             const sc = Math.min((W - pad * 2) / ar, availH);
             const w = Math.max(2, Math.round(ar * sc)), h = Math.max(2, Math.round(sc));
-            state.uploadRect = { x: Math.round((W - w) / 2), y: Math.round(top + (availH - h) / 2), w, h };
+            state.uploadRect = { x: Math.round((W - w) / 2), y: Math.round(top + (isMobileLayout() ? availH - h : (availH - h) / 2)), w, h };
             uploadPreview.width = strip.width; uploadPreview.height = strip.height;
             uploadPreview.getContext('2d').drawImage(strip, 0, 0);
             ++__uploadJpegSeq;
@@ -9008,7 +9042,7 @@ void main() {
         // PWA: register service worker for installability + reliable updates
         (function () {
             if (!('serviceWorker' in navigator)) return;
-            const __BUILD = 'v32';
+            const __BUILD = 'v33';
             try {
                 const bt = document.getElementById('build-tag');
                 if (bt) bt.textContent = __BUILD;
@@ -9042,7 +9076,7 @@ void main() {
             window.forceAppUpdate = resetServiceWorkerAndReload;
 
             // Versioned SW URL forces Safari to re-fetch updated sw.js
-            const __SW_URL = 'sw.js?v=32';
+            const __SW_URL = 'sw.js?v=33';
             navigator.serviceWorker.register(__SW_URL).then((reg) => {
                 function trySkipWaiting() {
                     if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
