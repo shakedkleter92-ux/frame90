@@ -333,7 +333,7 @@ it reads over any image; selected = inverted (solid green, black text); viewfind
 brackets + center cross drawn around the live frame (`drawViewfinderMarks()`, screen only).
 The theme is the "PHOSPHOR HUD THEME" block at the end of the `<style>` + the `:root` vars —
 restyle there; old variable names (`--cream`, `--plum`, `--lcd`, `--ink`…) are remapped onto it.
-The shutter is the same 44px square as the Upload key (the 64px one was out of proportion);
+**Fonts are bundled** (2026-11-18): VT323 + DSEG14 in `fonts/`, cached by `sw.js` — no Google Fonts (it was never cached offline). Canvas text never triggers a web-font load, so both faces are `document.fonts.load()`ed at startup; camcorder OSD = VT323 ×1.3, film date-back = DSEG14. Film grain = smooth value noise (`vnoise`, ×1.345 to keep each preset's tuned std), not square cells. Picker chips 19px / 40px tall; lens slider dims (.45) until touched. The shutter is the same 44px square as the Upload key (the 64px one was out of proportion);
 mode labels (VIDEO / PHOTO / UPLOAD) are small, 15px. **Typing animation only on the splash** (`typewrite()`; user: typing everywhere was too much).
 Splash = BIOS-style boot lines typed out → logo → "90'FRAME" in DSEG14 (LED segments,
 bundled in `fonts/`, OFL) → blinking "TAP TO START". **Rejected, don't bring back**: the
