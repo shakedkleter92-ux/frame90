@@ -3268,6 +3268,9 @@
             color: var(--hud); -webkit-text-fill-color: var(--hud); font-family: var(--font-ui); font-size: 18px; cursor: pointer;
         }
         #caption-box button.on { background: var(--hud); color: var(--void); -webkit-text-fill-color: var(--void); }
+        #caption-box { flex-wrap: wrap; }
+        #caption-input { flex-basis: 100%; }
+        #caption-box .cap-al { min-width: 40px; padding: 0 6px; }
 
         /* Booth frame count 2/3/4 (+ PHOTOS in Upload): top left, only with a booth camera. */
         #booth-frames {
@@ -3436,6 +3439,7 @@
     <button id="caption-btn" type="button" aria-label="Caption on the card">Aa TEXT</button>
     <div id="caption-box" hidden>
         <input id="caption-input" type="text" maxlength="36" placeholder="write on the card…" autocomplete="off" />
+        <button type="button" class="cap-al" data-align="left" aria-label="Align left">⟸</button><button type="button" class="cap-al" data-align="center" aria-label="Center">≡</button><button type="button" class="cap-al" data-align="right" aria-label="Align right">⟹</button>
         <button type="button" id="caption-date">DATE</button>
         <button type="button" id="caption-ok">OK</button>
     </div>
@@ -5994,6 +5998,7 @@ void main() {
             const c = instaxCaption();
             const btn = document.getElementById('caption-btn'); if (btn) btn.classList.toggle('on', !!(c.text || c.date));
             const d = document.getElementById('caption-date'); if (d) d.classList.toggle('on', INSTAX_CAPTION.date !== false);
+            document.querySelectorAll('#caption-box .cap-al').forEach((b) => b.classList.toggle('on', b.dataset.align === (INSTAX_CAPTION.align || 'center')));
         }
         (function initCaption() {
             const btn = document.getElementById('caption-btn'), box = document.getElementById('caption-box'), inp = document.getElementById('caption-input');
@@ -6007,6 +6012,7 @@ void main() {
             inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { box.hidden = true; inp.blur(); } });
             document.getElementById('caption-date').addEventListener('click', () => { INSTAX_CAPTION.date = INSTAX_CAPTION.date === false; INSTAX_CAPTION.on = true; save(); });
             document.getElementById('caption-ok').addEventListener('click', () => { box.hidden = true; inp.blur(); });
+            box.querySelectorAll('.cap-al').forEach((b) => b.addEventListener('click', () => { INSTAX_CAPTION.align = b.dataset.align; INSTAX_CAPTION.on = true; save(); }));
         })();
         function syncBoothFrames() {
             try { syncCaptionUI(); } catch (_) { }
@@ -7396,26 +7402,42 @@ void main() {
         function drawInstaxCard(x, cx, cy, cw, ch, k, win, land, when) {
             x.save();
             x.beginPath(); x.rect(cx, cy, cw, ch); x.rect(win.x, win.y, win.w, win.h); x.clip('evenodd');
-            const g = x.createLinearGradient(cx, cy, cx + cw * 0.3, cy + ch);
-            g.addColorStop(0, '#f8f7f2'); g.addColorStop(.55, '#f1f0ea'); g.addColorStop(1, '#ebe9e2');
+            // Aged Instax border: a faded cream that yellows from the edges inward (instant
+            // borders yellow / brown from the outside in), subtle — not a new-white card.
+            const g = x.createRadialGradient(cx + cw * .45, cy + ch * .42, Math.min(cw, ch) * .2, cx + cw / 2, cy + ch / 2, Math.hypot(cw, ch) * .58);
+            g.addColorStop(0, '#f3efe2'); g.addColorStop(.7, '#eee7d5'); g.addColorStop(1, '#e3d8bd');
             x.fillStyle = g; x.fillRect(cx, cy, cw, ch);
-            const paper = texImage('paper');
-            if (paper) {
-                x.globalCompositeOperation = 'overlay'; x.globalAlpha = 0.55;
-                const s2 = Math.max(cw / paper.width, ch / paper.height);
-                x.drawImage(paper, cx, cy, paper.width * s2, paper.height * s2);
-                x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1;
+            // real surface: paper fibre + a mottled, slightly uneven tone (scans, 'overlay')
+            [['paper', 1], ['grain-wall', .55], ['blotch', .12, 'multiply-inv']].forEach(([n, a, mode]) => {
+                const im = texImage(n);
+                if (!im) return;
+                const s2 = Math.max(cw / im.width, ch / im.height);
+                if (mode === 'multiply-inv') {
+                    // the blotch scan is light-on-black: as 'soft-light' it gives faint stains
+                    x.globalCompositeOperation = 'soft-light';
+                } else x.globalCompositeOperation = 'overlay';
+                x.globalAlpha = a;
+                x.drawImage(im, cx, cy, im.width * s2, im.height * s2);
+            });
+            x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1;
+            // a few specks caught in the surface
+            const rnd = texRng(Math.round((cw + ch) * 7) + (TEX_SEED & 1023));
+            for (let i2 = 0; i2 < 26; i2++) {
+                x.fillStyle = 'rgba(70,60,45,' + (0.12 + rnd() * 0.25).toFixed(2) + ')';
+                x.beginPath(); x.arc(cx + rnd() * cw, cy + rnd() * ch, k * (0.04 + rnd() * 0.09), 0, 6.283); x.fill();
             }
-            // edges a touch darker where the card was handled
-            const e = x.createRadialGradient(cx + cw / 2, cy + ch / 2, Math.min(cw, ch) * 0.45, cx + cw / 2, cy + ch / 2, Math.hypot(cw, ch) * 0.55);
-            e.addColorStop(0, 'rgba(120,110,95,0)'); e.addColorStop(1, 'rgba(120,110,95,.10)');
-            x.fillStyle = e; x.fillRect(cx, cy, cw, ch);
+            // the card's edge: lit on top/left, a hint of shade bottom/right
+            x.lineWidth = Math.max(1, k * 0.25);
+            x.strokeStyle = 'rgba(255,255,250,.55)'; x.beginPath(); x.moveTo(cx, cy + ch); x.lineTo(cx, cy); x.lineTo(cx + cw, cy); x.stroke();
+            x.strokeStyle = 'rgba(90,75,50,.22)'; x.beginPath(); x.moveTo(cx + cw, cy); x.lineTo(cx + cw, cy + ch); x.lineTo(cx, cy + ch); x.stroke();
             x.restore();
-            // the image window's raised lip
-            x.strokeStyle = 'rgba(0,0,0,.12)'; x.lineWidth = Math.max(1, k * 0.15);
-            x.strokeRect(win.x, win.y, win.w, win.h);
-            x.strokeStyle = 'rgba(255,255,255,.6)'; x.lineWidth = Math.max(1, k * 0.1);
-            x.strokeRect(win.x - k * 0.2, win.y - k * 0.2, win.w + k * 0.4, win.h + k * 0.4);
+            // the image window: recessed, a thin shadow on its top/left edge
+            x.save();
+            x.strokeStyle = 'rgba(40,32,20,.28)'; x.lineWidth = Math.max(1, k * 0.18);
+            x.beginPath(); x.moveTo(win.x, win.y + win.h); x.lineTo(win.x, win.y); x.lineTo(win.x + win.w, win.y); x.stroke();
+            x.strokeStyle = 'rgba(255,255,248,.6)'; x.lineWidth = Math.max(1, k * 0.14);
+            x.beginPath(); x.moveTo(win.x + win.w, win.y); x.lineTo(win.x + win.w, win.y + win.h); x.lineTo(win.x, win.y + win.h); x.stroke();
+            x.restore();
             // caption
             const cap = instaxCaption();
             if (!cap.text && !cap.date) return;
@@ -7423,15 +7445,18 @@ void main() {
             // US style, as the user asked: "June 16 2026 2 PM" (minutes only when not :00).
             const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
             const h12 = d.getHours() % 12 || 12, mm = d.getMinutes();
-            const stamp = MONTHS[d.getMonth()] + ' ' + d.getDate() + ' ' + d.getFullYear() + '  ' + h12 + (mm ? ':' + p2(mm) : '') + ' ' + (d.getHours() < 12 ? 'AM' : 'PM');
+            // time first, then the date with the month abbreviated: "2:35 PM  Nov 16 2026"
+            const stamp = h12 + (mm ? ':' + p2(mm) : '') + ' ' + (d.getHours() < 12 ? 'AM' : 'PM') + '  ' + MONTHS[d.getMonth()].slice(0, 3) + ' ' + d.getDate() + ' ' + d.getFullYear();
             x.save();
             // strip: below the window (upright) / right of it (sideways, text turned)
             const stripLen = land ? ch : cw, stripTop = land ? (win.x + win.w) : (win.y + win.h), stripEnd = land ? cx + cw : cy + ch;
             const mid = (stripTop + stripEnd) / 2;
             if (land) { x.translate(mid, cy + ch / 2); x.rotate(-Math.PI / 2); } else x.translate(cx + cw / 2, mid);
-            x.textAlign = 'center'; x.textBaseline = 'middle';
+            const align = INSTAX_CAPTION.align || 'center';
+            const ax = align === 'left' ? -stripLen * 0.4 : align === 'right' ? stripLen * 0.4 : 0;
+            x.textAlign = align; x.textBaseline = 'middle';
             x.fillStyle = 'rgba(46,42,38,.78)';
-            const big = k * 2.7, small = k * 1.9;
+            const big = k * 2.3, small = k * 1.5;
             const lines = [];
             if (cap.text) lines.push([cap.text, big]);
             if (cap.date) lines.push([stamp, small]);
@@ -7440,10 +7465,10 @@ void main() {
             lines.forEach(([t, fs]) => {
                 x.font = fs + "px 'Cutive Mono', 'Courier New', monospace";
                 // fit the strip's width
-                while (x.measureText(t).width > stripLen * 0.84 && fs > k) { fs *= 0.92; x.font = fs + "px 'Cutive Mono', 'Courier New', monospace"; }
+                while (x.measureText(t).width > stripLen * 0.8 && fs > k) { fs *= 0.92; x.font = fs + "px 'Cutive Mono', 'Courier New', monospace"; }
                 y += fs * 1.45 / 2;
-                x.globalAlpha = 0.9; x.fillText(t, 0, y);
-                x.globalAlpha = 0.25; x.fillText(t, k * 0.06, y + k * 0.05);   // ink spread
+                x.globalAlpha = 0.9; x.fillText(t, ax, y);
+                x.globalAlpha = 0.25; x.fillText(t, ax + k * 0.06, y + k * 0.05);   // ink spread
                 x.globalAlpha = 1;
                 y += fs * 1.45 / 2;
             });
@@ -9048,7 +9073,7 @@ void main() {
         // PWA: register service worker for installability + reliable updates
         (function () {
             if (!('serviceWorker' in navigator)) return;
-            const __BUILD = 'v36';
+            const __BUILD = 'v37';
             try {
                 const bt = document.getElementById('build-tag');
                 if (bt) bt.textContent = __BUILD;
@@ -9082,7 +9107,7 @@ void main() {
             window.forceAppUpdate = resetServiceWorkerAndReload;
 
             // Versioned SW URL forces Safari to re-fetch updated sw.js
-            const __SW_URL = 'sw.js?v=36';
+            const __SW_URL = 'sw.js?v=37';
             navigator.serviceWorker.register(__SW_URL).then((reg) => {
                 function trySkipWaiting() {
                     if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
