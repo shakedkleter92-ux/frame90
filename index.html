@@ -3328,14 +3328,16 @@
         :root { --sel: #f3f6f1; --sel-glow: 0 0 8px rgba(255, 255, 255, .45); }
         .cam-item.active, .pal-tgt.active, .mob-zoom-preset.active, #booth-frames button.active,
         #caption-btn.on, #caption-box button.on, #mob-flash.on {
-            background: var(--sel) !important;
+            /* outline + text turn white, no fill (user, 2026-11-18) */
+            background: rgba(3, 5, 3, .55) !important;
             border-color: var(--sel) !important;
-            box-shadow: var(--sel-glow) !important;
-            color: var(--void) !important;
-            -webkit-text-fill-color: var(--void) !important;
-            text-shadow: none !important;
+            box-shadow: 0 0 6px rgba(255, 255, 255, .35), inset 0 0 6px rgba(255, 255, 255, .12) !important;
+            color: var(--sel) !important;
+            -webkit-text-fill-color: var(--sel) !important;
+            text-shadow: 0 0 6px rgba(255, 255, 255, .5), 0 1px 2px rgba(0, 0, 0, .8) !important;
         }
-        #mob-flash.on svg path { fill: var(--void); }
+        .cam-item.active svg { filter: drop-shadow(0 0 2px rgba(255, 255, 255, .5)) !important; }
+        #mob-flash.on svg path { fill: var(--sel); }
         .cam-group.active,
         .mob-mode-label.active,
         #mob-capture-mode.on-light-bg .mob-mode-label.active {
@@ -9046,7 +9048,7 @@ void main() {
         // PWA: register service worker for installability + reliable updates
         (function () {
             if (!('serviceWorker' in navigator)) return;
-            const __BUILD = 'v35';
+            const __BUILD = 'v36';
             try {
                 const bt = document.getElementById('build-tag');
                 if (bt) bt.textContent = __BUILD;
@@ -9080,7 +9082,7 @@ void main() {
             window.forceAppUpdate = resetServiceWorkerAndReload;
 
             // Versioned SW URL forces Safari to re-fetch updated sw.js
-            const __SW_URL = 'sw.js?v=35';
+            const __SW_URL = 'sw.js?v=36';
             navigator.serviceWorker.register(__SW_URL).then((reg) => {
                 function trySkipWaiting() {
                     if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
