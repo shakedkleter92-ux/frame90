@@ -303,11 +303,18 @@ Bump `CACHE` in `sw.js` (`90frame-vN`) **and** `__BUILD` / `__SW_URL`'s `?v=` ne
 User decisions that override older notes above: **camera strip** along the bottom (`#cam-strip`:
 group tabs FILM/INSTANT/DIGITAL · 8MM/VHS/DV/CINE + a row of chips with thin line icons per body
 type, `CAM_ICONS`/`CAM_ICON_OF`/`CAM_GROUPS`) replaces the ☰ menu and the top camera-name badge
-(both hidden; full name shows as a toast on switching and atop the ADJ sheet). **ADJ sheet**
-(tap the selected chip or ADJ): per-camera STRENGTH and GRAIN, global print TEXTURE
-none/dust/fold/worn/paper + amount (`USER_ADJ`, localStorage `90frame_adj`; procedural,
-seeded by `TEX_SEED`, stills only, default none) — this reverses "no intensity slider" and
-"no scratches". **Lens slider removed** (looked like a crop); the lens is fixed at `26` (= phone,
+(both hidden; full name shows as a toast on switching and atop the ADJ sheet). **No user controls** (an ADJ sheet with sliders was built and then removed on request: "too
+complicated"). Instead each camera carries a **built-in surface texture** (`CAM_TEXTURE` /
+`cameraTexture()`, procedural `buildTexture()`, applied in `composeWithOverlays()`, seeded by
+`TEX_SEED`, rolled after each Live shot): `print` (SLR lab prints: light dust), `shoebox`
+(compacts/disposables: dust, soft crease, worn corners), `instant` (Instax: dust, gloss sheen,
+faint fingerprint), `booth` (matte paper, uneven development), `crt-ag` (Sony = Trinitron
+aperture grille + damping wires) / `crt-sm` (shadow mask) for digicams and all video (scanlines
+at h/240, glass vignette + reflection), `cine` (Super 8 gate dirt, 5 variants cycling ≈6/s).
+This reverses "no scanlines / no scratches". **Photo booth**: cameras `booth` (B&W direct
+positive look) and `boothc` (faded colour) in group BOOTH; the shutter runs `runPhotoBooth()`
+(3-2-1, four flashes, `boothStrip()` = 4 frames on paper → one gallery image). In Upload a booth
+camera gives a single frame. **Lens slider removed** (looked like a crop); the lens is fixed at `26` (= phone,
 no crop); zoom presets / pinch dial stay. Frame band: `LIVE_FRAME_TOP` 56, `LIVE_FRAME_BOTTOM`
 256 (Live and Upload). Photobooth mode is next.
 
