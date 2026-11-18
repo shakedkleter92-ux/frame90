@@ -5666,6 +5666,13 @@ void main() {
 
         // Paints the current state onto the on-screen canvas: Live = the latest camera frame
         // scaled up into its frame; Upload = the processed photo, contain-fit.
+        // FX slider: vertically centred on the picture (not the screen) — user, 2026-11-18.
+        function placeFxSlider(cy) {
+            const w = document.getElementById('mob-side-slider-wrap');
+            if (!w || cy == null) return;
+            const mt = document.getElementById('main').getBoundingClientRect().top;
+            w.style.top = Math.round(mt + cy) + 'px';
+        }
         function renderView() {
             const m = document.getElementById('main');
             const W = Math.max(1, m.clientWidth), H = Math.max(1, m.clientHeight);
@@ -5680,6 +5687,7 @@ void main() {
                 gctx.fillStyle = THEME.lcd;
                 gctx.fillRect(0, 0, W, H);
                 const r = getLiveFrameRect(W, H);
+                placeFxSlider(r.dy + r.ch / 2);
 
                 const raw = state.comparing ? getLiveSource() : null;
                 if (raw) {
@@ -5709,6 +5717,7 @@ void main() {
             gctx.fillStyle = state.bg;
             gctx.fillRect(0, 0, W, H);
             const ur = state.uploadRect;
+            if (ur) placeFxSlider(ur.y + ur.h / 2);
             if (state.srcImage && ur && state.comparing) {
                 const src = state.srcImage, c = uploadLensCrop(src, ur.w / ur.h);
                 gctx.drawImage(src, c.x * src.width, c.y * src.height, c.w * src.width, c.h * src.height, ur.x, ur.y, ur.w, ur.h);
@@ -9130,7 +9139,7 @@ void main() {
         // PWA: register service worker for installability + reliable updates
         (function () {
             if (!('serviceWorker' in navigator)) return;
-            const __BUILD = 'v38';
+            const __BUILD = 'v39';
             try {
                 const bt = document.getElementById('build-tag');
                 if (bt) bt.textContent = __BUILD;
@@ -9164,7 +9173,7 @@ void main() {
             window.forceAppUpdate = resetServiceWorkerAndReload;
 
             // Versioned SW URL forces Safari to re-fetch updated sw.js
-            const __SW_URL = 'sw.js?v=38';
+            const __SW_URL = 'sw.js?v=39';
             navigator.serviceWorker.register(__SW_URL).then((reg) => {
                 function trySkipWaiting() {
                     if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
