@@ -12,3 +12,14 @@ High-passed / levelled derivatives, bundled for the app's built-in camera textur
 - `leak-gold.jpg` — Unsplash photo uahOnTdODf8 — https://unsplash.com/photos/uahOnTdODf8
 
 Unsplash License: free to use, modify and use commercially; no attribution required (given here anyway).
+
+Added for one distinct set per camera (all Unsplash License):
+- `grime.jpg` — https://unsplash.com/photos/TDqtIst6SNg
+- `haze-soft.jpg` — https://unsplash.com/photos/Y7ViJ0580s8
+- `dots.jpg` — Unsplash photo-1776278515583 ("a black background with many small white dots")
+- `chalk.jpg` — https://unsplash.com/photos/h-LcVG8W1XY
+- `blotch.jpg` — https://unsplash.com/photos/cGNCepznaV8
+- `cracks.jpg` — https://unsplash.com/photos/dwy2meBFqW8
+- `haze.jpg` — https://unsplash.com/photos/u5-kLZViGyo
+- `wrinkle.jpg` (high-passed) — https://unsplash.com/photos/zgA8aaDng5w
+- `grain-wall.jpg` (high-passed) — https://unsplash.com/photos/-gWSFS8rrVg

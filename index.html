@@ -4301,27 +4301,36 @@
         // on black), smudge (inverted grime/streaks), leak-red / leak-gold (light leaks),
         // all blended with 'screen' so only the light marks show.
         // Layers: [file, strength, blend ('overlay' default | 'screen')].
+        // Every camera has its OWN overlay set (user, 2026-11-18: "don't use the same one
+        // for every filter") — no two cameras share a dust/scratch/haze scan.
         const CAM_TEXTURE = {
-            f90: [['paper', 0.35], ['filmdust', 0.35, 'screen'], ['scratches', 0.18, 'screen']],
-            eos5: [['paper', 0.35], ['filmdust', 0.35, 'screen'], ['scratches', 0.18, 'screen']],
-            eos500: [['paper', 0.4], ['filmdust', 0.4, 'screen'], ['scratches', 0.2, 'screen']],
-            contaxg1: [['paper', 0.3], ['filmdust', 0.3, 'screen'], ['scratches', 0.15, 'screen']],
-            minilux: [['paper', 0.35], ['filmdust', 0.35, 'screen'], ['scratches', 0.18, 'screen']],
-            mju2: [['fold', 0.35], ['filmdust', 0.45, 'screen'], ['scratches', 0.25, 'screen'], ['smudge', 0.15, 'screen'], ['leak-gold', 0.12, 'screen']],
-            gold200: [['fold', 0.45], ['paper', 0.3], ['filmdust', 0.5, 'screen'], ['scratches', 0.3, 'screen'], ['smudge', 0.2, 'screen'], ['leak-gold', 0.2, 'screen']],
-            funsaver: [['crinkle', 0.45], ['filmdust', 0.6, 'screen'], ['scratches', 0.35, 'screen'], ['smudge', 0.3, 'screen'], ['leak-red', 0.35, 'screen']],
-            instax: [['filmdust', 0.35, 'screen'], ['smudge', 0.1, 'screen']],
-            booth: [['paper', 0.9], ['filmdust', 0.3, 'screen']], boothc: [['paper', 0.8], ['filmdust', 0.3, 'screen']],
+            f90: [['filmdust', 0.5, 'screen']],                                              // fine lab dust
+            eos5: [['scratches', 0.35, 'screen'], ['haze-soft', 0.15, 'screen']],             // light scratches, soft fog
+            eos500: [['dots', 0.6, 'screen'], ['haze', 0.15, 'screen']],                     // white specks, haze
+            contaxg1: [['chalk', 0.35, 'screen']],                                            // faint marks and a smear
+            minilux: [['blotch', 0.18, 'screen'], ['grain-wall', 0.45]],                      // soft uneven print, paper grain
+            mju2: [['fold', 0.35], ['cracks', 0.35, 'screen']],                               // wallet fold, cracked emulsion
+            gold200: [['smudge', 0.3, 'screen'], ['leak-gold', 0.2, 'screen']], // shoebox print, gold leak
+            funsaver: [['crinkle', 0.45], ['grime', 0.4, 'screen'], ['leak-red', 0.35, 'screen']], // crumpled, grimy, red leak
+            instax: [['wrinkle', 0.3]],                                                      // the glossy film's surface
+            booth: [['paper', 0.9]],                                                          // matte booth paper
+            boothc: [['grain-wall', 0.6]],                                                    // colour booth paper, uneven
             dc25: 'crt-sm', mavica: 'crt-ag', dc290: 'crt-sm',
             super8: 'cine',
         };
         const CRT_AMOUNT = { dc25: 0.6, mavica: 0.55, dc290: 0.45 };
-        const TEX_IMG = {};
-        ['fold', 'crinkle', 'paper', 'filmdust', 'scratches', 'smudge', 'leak-red', 'leak-gold'].forEach((n) => {
-            const im = new Image();
-            im.onload = () => { TEX_IMG[n] = im; try { refreshView(); } catch (_) { } };
-            im.src = 'textures/' + n + '.jpg?v=1';
-        });
+        // Loaded on first use (only the active camera's scans), cached by the service worker.
+        const TEX_IMG = {}, __texLoading = {};
+        function texImage(n) {
+            if (TEX_IMG[n]) return TEX_IMG[n];
+            if (!__texLoading[n]) {
+                __texLoading[n] = true;
+                const im = new Image();
+                im.onload = () => { TEX_IMG[n] = im; try { refreshView(); } catch (_) { } };
+                im.src = 'textures/' + n + '.jpg?v=2';
+            }
+            return null;
+        }
         function cameraTexture(cam) {
             let t = CAM_TEXTURE[cam.key];
             if (Array.isArray(t)) return { layers: t };
@@ -5454,7 +5463,8 @@ void main() {
                 // Real paper scans, cover-fit; flipped/rotated by TEX_SEED so prints differ.
                 const v = TEX_SEED >>> 0;
                 t.layers.forEach(([name, a, blend], li) => {
-                    const im = TEX_IMG[name];
+                    if (!a) return;
+                    const im = texImage(name);
                     if (!im) return;
                     const bits = (v >>> (li * 3)) & 7;
                     const rot = (w > h) !== (im.width > im.height);    // match orientation
@@ -8857,7 +8867,7 @@ void main() {
         // PWA: register service worker for installability + reliable updates
         (function () {
             if (!('serviceWorker' in navigator)) return;
-            const __BUILD = 'v30';
+            const __BUILD = 'v31';
             try {
                 const bt = document.getElementById('build-tag');
                 if (bt) bt.textContent = __BUILD;
@@ -8891,7 +8901,7 @@ void main() {
             window.forceAppUpdate = resetServiceWorkerAndReload;
 
             // Versioned SW URL forces Safari to re-fetch updated sw.js
-            const __SW_URL = 'sw.js?v=30';
+            const __SW_URL = 'sw.js?v=31';
             navigator.serviceWorker.register(__SW_URL).then((reg) => {
                 function trySkipWaiting() {
                     if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });

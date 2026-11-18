@@ -308,7 +308,8 @@ complicated"). Instead each camera carries a **built-in surface texture** (`CAM_
 `applyTexture()` in `composeWithOverlays()`). Film/print cameras use **real scans** in `textures/`
 (see `textures/CREDITS.md`: Resource Boy kraft paper → fold/crinkle/paper high-passed to gray,
 'overlay'; Unsplash → filmdust/scratches/smudge/leak-red/leak-gold, 'screen'), whole-frame,
-flipped per `TEX_SEED`; strengths per camera (SLRs light, disposable heaviest). The first
+flipped per `TEX_SEED`; **every camera has its own overlay set — no two share a scan** (user);
+scans load lazily (`texImage()`), not precached; SLRs lighter, FunSaver heaviest. The first
 procedural dirt was rejected ("unnatural, only on the border"). Screens stay procedural:
 `crt-ag` (Sony = Trinitron grille + damping wires) / `crt-sm` for digicams and all video;
 `cine` = Super 8 gate dirt (5 variants cycling). **Instax card shows in the preview** too
