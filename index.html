@@ -3218,6 +3218,50 @@
 
         body.mode-upload #cam-strip { bottom: 126px; }
 
+        /* ═══ CRT power cycle between the boot screen and the app (1.25 s total):
+           0–430 ms  the boot screen squashes to a bright line, then to a dot (TV off);
+           430+      black halves part from the centre line like a tube warming up,
+                     a burst of phosphor static, the line blooms and fades. */
+        #crt-fx { position: fixed; inset: 0; z-index: 1090; /* just under the splash (1100): black behind it while it collapses */ pointer-events: none; display: none; }
+        #crt-fx.run { display: block; }
+        #crt-fx .crt-half { position: absolute; left: 0; right: 0; height: 50%; background: #000; opacity: 0; }
+        #crt-fx .crt-half.top { top: 0; }
+        #crt-fx .crt-half.bot { bottom: 0; }
+        #crt-fx .crt-line {
+            position: absolute; left: 0; right: 0; top: 50%; height: 2px; margin-top: -1px;
+            background: #f2fff4;
+            box-shadow: 0 0 8px 2px rgba(190, 255, 205, .9), 0 0 30px 6px rgba(70, 242, 122, .55);
+            opacity: 0;
+        }
+        #crt-fx .crt-static {
+            position: absolute; inset: 0; opacity: 0;
+            background-size: 160px 240px; image-rendering: pixelated;
+            mix-blend-mode: screen;
+        }
+        #crt-fx.run .crt-half.top { animation: crt-half-top 1.25s cubic-bezier(.16, 1, .3, 1) forwards; }
+        #crt-fx.run .crt-half.bot { animation: crt-half-bot 1.25s cubic-bezier(.16, 1, .3, 1) forwards; }
+        #crt-fx.run .crt-line { animation: crt-line 1.25s linear forwards; }
+        #crt-fx.run .crt-static { animation: crt-static 1.25s steps(1) forwards, crt-static-jitter .08s steps(2) infinite; }
+        @keyframes crt-half-top { 0%, 44% { opacity: 1; transform: none; } 100% { opacity: 1; transform: translateY(-100%); } }
+        @keyframes crt-half-bot { 0%, 44% { opacity: 1; transform: none; } 100% { opacity: 1; transform: translateY(100%); } }
+        @keyframes crt-line {
+            0% { opacity: 0; transform: scaleX(1); }
+            18% { opacity: 1; transform: scaleX(1); }
+            30% { opacity: 1; transform: scaleX(.012) scaleY(2.5); }
+            36% { opacity: 1; transform: scaleX(.012) scaleY(2.5); }
+            46% { opacity: 1; transform: scaleX(1) scaleY(1.5); }
+            70% { opacity: .55; transform: scaleX(1) scaleY(6); }
+            100% { opacity: 0; transform: scaleX(1) scaleY(14); }
+        }
+        @keyframes crt-static { 0%, 40% { opacity: 0; } 44% { opacity: .55; } 56% { opacity: .35; } 64% { opacity: .18; } 72% { opacity: .08; } 80%, 100% { opacity: 0; } }
+        @keyframes crt-static-jitter { 0% { background-position: 0 0; } 50% { background-position: 53px 91px; } 100% { background-position: 17px 37px; } }
+        #splash-screen.crt-off { animation: crt-off .43s cubic-bezier(.7, 0, .84, 0) forwards; transition: none; }
+        @keyframes crt-off {
+            0% { transform: none; filter: none; }
+            60% { transform: scale(1, .006); filter: brightness(3) saturate(.4); }
+            100% { transform: scale(.01, .006); filter: brightness(5); }
+        }
+
         /* Photo booth countdown: big phosphor numerals over the frame. */
         #booth-count {
             position: fixed;
@@ -3314,8 +3358,9 @@
         #booth-frames .bf-clear { margin-left: 0; min-width: 32px; }
         #booth-frames button:disabled { opacity: .35; }
 
-        /* Lens slider removed (user, 2026-11-18). Zoom (presets + pinch dial) stays. */
-        #mob-side-slider-wrap { display: none !important; }
+        /* The side slider = FX filter strength (lens slider removed, 2026-11-18). It sits
+           over the picture's right edge, dim until touched (rule further up). */
+        body.recording #mob-side-slider-wrap, body.booth-run #mob-side-slider-wrap { display: none !important; }
 
         /* ═══ Even bottom spacing (16px between every row) — see LIVE_FRAME_BOTTOM. */
         #mob-capture-mode { bottom: 87px; }
@@ -3356,6 +3401,7 @@
     <!-- Splash: plays every launch before anything asks for permission — logo entrance
          animation, then the app name typed out, then waits for a tap. Purely decorative;
          carries no state of its own. -->
+    <div id="crt-fx" aria-hidden="true"><div class="crt-half top"></div><div class="crt-half bot"></div><div class="crt-static"></div><div class="crt-line"></div></div>
     <div id="splash-screen" aria-hidden="true">
         <!-- Hierarchy: name → logo → tap hint. Nothing else. -->
         <pre id="splash-boot"></pre>
@@ -3409,9 +3455,9 @@
          Snaps between LENSES (fisheye at the bottom → 135mm tele on top); each camera starts
          on the lens it shipped with. Tapping the LENS label steps to the next one. -->
     <div id="mob-side-slider-wrap" style="display:none">
-        <span id="side-val">50mm</span>
-        <input type="range" id="side-slider" min="0" max="7" value="5" step="1" aria-label="Lens" />
-        <button type="button" id="side-param" aria-label="Next lens">LENS</button>
+        <span id="side-val">100%</span>
+        <input type="range" id="side-slider" min="0" max="100" value="100" step="1" aria-label="Filter strength" />
+        <button type="button" id="side-param" aria-label="Filter strength back to 100%">FX</button>
     </div>
     <div id="compare-tag">ORIGINAL</div>
     <!-- Frame format pill (top center): only for cameras that really shot more than one
@@ -4398,7 +4444,7 @@
             mju2: [['fold', 0.35], ['cracks', 0.35, 'screen']],                               // wallet fold, cracked emulsion
             gold200: [['smudge', 0.3, 'screen'], ['leak-gold', 0.2, 'screen']], // shoebox print, gold leak
             funsaver: [['crinkle', 0.45], ['grime', 0.4, 'screen'], ['leak-red', 0.35, 'screen']], // crumpled, grimy, red leak
-            instax: [['wrinkle', 0.3]],                                                      // the glossy film's surface
+            instax: [['wrinkle', 0.14]],                                                      // the glossy film's surface
             booth: [['paper', 0.9]],                                                          // matte booth paper
             boothc: [['grain-wall', 0.6]],                                                    // colour booth paper, uneven
             dc25: 'crt-sm', mavica: 'crt-ag', dc290: 'crt-sm',
@@ -4426,6 +4472,17 @@
                 return { kind: sony ? 'crt-ag' : 'crt-sm', amount: /dv/i.test((cam.parts && cam.parts.video) || '') ? 0.4 : 0.5 };
             }
             return null;
+        }
+        // FX: one filter-strength slider (user, 2026-11-18 — a single simple control), per
+        // camera, 0..100: scales the look (mix with the original) and its surface texture.
+        const FX_LEVEL = (() => { try { return JSON.parse(localStorage.getItem('90frame_fx') || '{}'); } catch (_) { return {}; } })();
+        function fxLevel(key) { const v = FX_LEVEL[key]; return v == null ? 100 : v; }
+        function setFx(v) {
+            FX_LEVEL[ACTIVE_CAMERA_KEY] = Math.max(0, Math.min(100, Math.round(v)));
+            try { localStorage.setItem('90frame_fx', JSON.stringify(FX_LEVEL)); } catch (_) { }
+            __filmSettingsCache = null;
+            syncLensSlider();
+            refreshView();
         }
         function presetToggle(cam, k) {
             const o = PRESET_TOGGLES[cam.key];
@@ -4527,9 +4584,11 @@
                 const r = PARAM_RANGE[k] || [0, 100];
                 adj[k] = Math.max(r[0], Math.min(r[1], v));
             });
-            adj.intensity = CONTROLS.intensity;
+            const fx = fxLevel(cam.key) / 100;
+            adj.intensity = CONTROLS.intensity * fx;
             const look = Object.assign({}, cam.look, { colorMul: CONTROLS.color / 100 });
             const texture = cameraTexture(cam);
+            if (texture) texture.scale = fx;
             const flashOn = !!cam.flash && presetToggle(cam, 'flash');
             return {
                 key: cam.key + '_' + lens.key, camera: cam, lens,
@@ -5548,6 +5607,8 @@ void main() {
         const __texMap = new Map();
         function applyTexture(ctx, w, h, t) {
             if (!t || w < 8 || h < 8) return;
+            const sc = t.scale == null ? 1 : t.scale;
+            if (sc <= 0.001) return;
             if (t.layers) {
                 // Real paper scans, cover-fit; flipped/rotated by TEX_SEED so prints differ.
                 const v = TEX_SEED >>> 0;
@@ -5561,7 +5622,7 @@ void main() {
                     const k = Math.max(w / iw, h / ih) * (1 + (bits & 1) * 0.15);
                     ctx.save();
                     ctx.globalCompositeOperation = blend || 'overlay';
-                    ctx.globalAlpha = Math.min(1, a);
+                    ctx.globalAlpha = Math.min(1, a * sc);
                     ctx.translate(w / 2, h / 2);
                     if (rot) ctx.rotate(Math.PI / 2);
                     ctx.scale(bits & 2 ? -1 : 1, bits & 4 ? -1 : 1);
@@ -5580,11 +5641,11 @@ void main() {
                 if (__texMap.size > 8) __texMap.delete(__texMap.keys().next().value);
             }
             ctx.save();
-            ctx.globalAlpha = Math.min(1, t.amount * 1.2);
+            ctx.globalAlpha = Math.min(1, t.amount * sc * 1.2);
             ctx.globalCompositeOperation = 'overlay';
             ctx.drawImage(tex.relief, 0, 0);
             ctx.globalCompositeOperation = 'source-over';
-            ctx.globalAlpha = t.amount;
+            ctx.globalAlpha = t.amount * sc;
             ctx.drawImage(tex.marks, 0, 0);
             ctx.restore();
         }
@@ -5641,7 +5702,7 @@ void main() {
                     gctx.fillStyle = '#000';
                     gctx.fillRect(r.dx, r.dy, r.cw, r.ch);
                 }
-                drawViewfinderMarks(r);
+                // (viewfinder corner marks removed on request, 2026-11-18)
                 return;
             }
 
@@ -5959,12 +6020,13 @@ void main() {
             try { updateFlashButton(); syncVideoTorch(); } catch (_) { }
         }
 
+        // The side slider is the FX (filter strength) control now — the lens is fixed.
         function syncLensSlider() {
-            const lens = LENSES[lensIndex(ACTIVE_LENS_KEY)];
+            const v = fxLevel(ACTIVE_CAMERA_KEY);
             const input = document.getElementById('side-slider');
             const val = document.getElementById('side-val');
-            if (input && document.activeElement !== input) input.value = String(lensIndex(ACTIVE_LENS_KEY));
-            if (val) { val.textContent = lens.label; val.title = lens.name + ' — ' + lens.feel; }
+            if (input && document.activeElement !== input) input.value = String(v);
+            if (val) val.textContent = v + '%';
         }
 
         // Big centered "85mm · Portrait" label while the lens changes, so the change in
@@ -6221,14 +6283,9 @@ void main() {
         on('mob-film-badge', 'click', () => toggleMobilePanel());
 
         // ── Lens: the side slider snaps between LENSES (fisheye at the bottom, tele on top) ──
-        on('side-slider', 'input', function () {
-            const lens = LENSES[Math.max(0, Math.min(LENSES.length - 1, Math.round(+this.value)))];
-            if (lens.key !== ACTIVE_LENS_KEY) setActiveLens(lens.key);
-        });
-        // Tapping the LENS label steps to the next lens (wraps around).
-        on('side-param', 'click', () => {
-            setActiveLens(LENSES[(lensIndex(ACTIVE_LENS_KEY) + 1) % LENSES.length].key);
-        });
+        on('side-slider', 'input', function () { setFx(+this.value); });
+        // Tapping FX puts the filter back to full strength.
+        on('side-param', 'click', () => setFx(100));
         // Fill mode switch (desktop panel switcher; unreachable on phone-only format,
         // kept for the inert desktop code path) – תמיד עוברים דרך switchToMode
         on('fm-image', 'click', () => switchToMode('image'));
@@ -7408,7 +7465,7 @@ void main() {
             g.addColorStop(0, '#f3efe2'); g.addColorStop(.7, '#eee7d5'); g.addColorStop(1, '#e3d8bd');
             x.fillStyle = g; x.fillRect(cx, cy, cw, ch);
             // real surface: paper fibre + a mottled, slightly uneven tone (scans, 'overlay')
-            [['paper', 1], ['grain-wall', .55], ['blotch', .12, 'multiply-inv']].forEach(([n, a, mode]) => {
+            [['paper', .7], ['grain-wall', .35], ['blotch', .08, 'multiply-inv']].forEach(([n, a, mode]) => {
                 const im = texImage(n);
                 if (!im) return;
                 const s2 = Math.max(cw / im.width, ch / im.height);
@@ -9073,7 +9130,7 @@ void main() {
         // PWA: register service worker for installability + reliable updates
         (function () {
             if (!('serviceWorker' in navigator)) return;
-            const __BUILD = 'v37';
+            const __BUILD = 'v38';
             try {
                 const bt = document.getElementById('build-tag');
                 if (bt) bt.textContent = __BUILD;
@@ -9107,7 +9164,7 @@ void main() {
             window.forceAppUpdate = resetServiceWorkerAndReload;
 
             // Versioned SW URL forces Safari to re-fetch updated sw.js
-            const __SW_URL = 'sw.js?v=37';
+            const __SW_URL = 'sw.js?v=38';
             navigator.serviceWorker.register(__SW_URL).then((reg) => {
                 function trySkipWaiting() {
                     if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
@@ -9237,13 +9294,31 @@ void main() {
                 // so iOS allows the shutter sounds later.
                 if (typeof shutterSound !== 'undefined') shutterSound.unlock();
                 splash.removeEventListener('click', advance);
-                splash.classList.add('fade-out');
+                // CRT power cycle (user, 2026-11-18: "not a fade — something impressive"):
+                // the boot screen collapses to a bright line and a dot like a TV switching
+                // off, then the app comes on like a tube warming up — a glowing line opens
+                // into the picture through a burst of static.
+                const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+                const fx = document.getElementById('crt-fx');
+                if (fx && !reduce) {
+                    const st = fx.querySelector('.crt-static');
+                    if (st && !st.style.backgroundImage) {
+                        const c = document.createElement('canvas'); c.width = 160; c.height = 240;
+                        const g = c.getContext('2d'), d = g.createImageData(160, 240);
+                        for (let i = 0; i < d.data.length; i += 4) { const v = Math.random() * 255; d.data[i] = v * .85; d.data[i + 1] = v; d.data[i + 2] = v * .9; d.data[i + 3] = 255; }
+                        g.putImageData(d, 0, 0);
+                        st.style.backgroundImage = 'url(' + c.toDataURL() + ')';
+                    }
+                    fx.classList.remove('run'); void fx.offsetWidth; fx.classList.add('run');
+                    splash.classList.add('crt-off');
+                    setTimeout(() => fx.classList.remove('run'), 1300);
+                } else splash.classList.add('fade-out');
                 setTimeout(() => {
-                    splash.classList.remove('show', 'fade-out');
+                    splash.classList.remove('show', 'fade-out', 'crt-off');
                     splash.setAttribute('aria-hidden', 'true');
                     if (hint) hint.classList.remove('show');
                     next();
-                }, 500); // matches the CSS opacity transition duration
+                }, reduce || !fx ? 500 : 430);
             }
             splash.setAttribute('aria-hidden', 'false');
             splash.classList.add('show');
