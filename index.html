@@ -52,10 +52,11 @@
         /* VT323 (SIL OFL, Peter Hull) — the UI / OSD face, bundled locally like DSEG14 so
            the installed PWA keeps it offline (it used to come from Google Fonts, and the
            service worker never cached that, so offline it fell back to a system mono). */
-        /* Special Elite (Apache 2.0, Astigmatic) — typewriter type for the Instax caption. */
+        /* Cutive Mono (SIL OFL, Vernon Adams) — typewriter type for the Instax caption
+           (user's pick, 2026-11-18; replaced Special Elite). */
         @font-face {
-            font-family: 'Special Elite';
-            src: url('fonts/SpecialElite-Regular.woff2') format('woff2');
+            font-family: 'Cutive Mono';
+            src: url('fonts/CutiveMono-Regular.woff2') format('woff2');
             font-weight: 400;
             font-display: swap;
         }
@@ -3259,7 +3260,7 @@
         #caption-input {
             flex: 1; min-width: 0; height: 36px; padding: 0 8px;
             background: transparent; border: 1px solid var(--hud-dim); color: var(--hud);
-            font-family: 'Special Elite', 'Courier New', monospace; font-size: 16px; outline: none; border-radius: 0;
+            font-family: 'Cutive Mono', 'Courier New', monospace; font-size: 16px; outline: none; border-radius: 0;
         }
         #caption-input:focus { border-color: var(--hud); }
         #caption-box button {
@@ -3563,7 +3564,7 @@
         if (document.fonts && document.fonts.load) {
             document.fonts.load("20px 'VT323'").catch(() => {});
             document.fonts.load("700 20px 'DSEG14'").catch(() => {});
-            document.fonts.load("20px 'Special Elite'").catch(() => {});
+            document.fonts.load("20px 'Cutive Mono'").catch(() => {});
         }
         // Surface runtime errors (helps when something stops all buttons)
         (function () {
@@ -7432,9 +7433,9 @@ void main() {
             const total = lines.reduce((a, l) => a + l[1] * 1.45, 0);
             let y = -total / 2;
             lines.forEach(([t, fs]) => {
-                x.font = fs + "px 'Special Elite', 'Courier New', monospace";
+                x.font = fs + "px 'Cutive Mono', 'Courier New', monospace";
                 // fit the strip's width
-                while (x.measureText(t).width > stripLen * 0.84 && fs > k) { fs *= 0.92; x.font = fs + "px 'Special Elite', 'Courier New', monospace"; }
+                while (x.measureText(t).width > stripLen * 0.84 && fs > k) { fs *= 0.92; x.font = fs + "px 'Cutive Mono', 'Courier New', monospace"; }
                 y += fs * 1.45 / 2;
                 x.globalAlpha = 0.9; x.fillText(t, 0, y);
                 x.globalAlpha = 0.25; x.fillText(t, k * 0.06, y + k * 0.05);   // ink spread
@@ -9042,7 +9043,7 @@ void main() {
         // PWA: register service worker for installability + reliable updates
         (function () {
             if (!('serviceWorker' in navigator)) return;
-            const __BUILD = 'v33';
+            const __BUILD = 'v34';
             try {
                 const bt = document.getElementById('build-tag');
                 if (bt) bt.textContent = __BUILD;
@@ -9076,7 +9077,7 @@ void main() {
             window.forceAppUpdate = resetServiceWorkerAndReload;
 
             // Versioned SW URL forces Safari to re-fetch updated sw.js
-            const __SW_URL = 'sw.js?v=33';
+            const __SW_URL = 'sw.js?v=34';
             navigator.serviceWorker.register(__SW_URL).then((reg) => {
                 function trySkipWaiting() {
                     if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
