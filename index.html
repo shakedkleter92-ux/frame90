@@ -3055,6 +3055,132 @@
             pointer-events: none;
             box-shadow: 0 0 0 200vmax #fffaf0;
         }
+
+        /* ═══ CAMERA STRIP (user, 2026-11-18, after comparing with Tezza): the cameras sit
+           in a row along the bottom, above the shutter — one tap, no menu — each with a
+           16×12 pixel-art icon of its body type, plus group tabs that jump along the row.
+           Phosphor HUD: thin outlines, selected = inverted. The ☰ panel keeps its grid. */
+        #cam-strip {
+            display: none;
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 160px;
+            z-index: 86;
+        }
+
+        body.cam-strip-on #cam-strip { display: block; }
+
+        body.zoom-dial-active #cam-strip,
+        body.recording #cam-strip,
+        body.comparing #cam-strip {
+            display: none !important;
+        }
+
+        #cam-groups {
+            display: flex;
+            justify-content: center;
+            gap: 14px;
+            margin-bottom: 6px;
+        }
+
+        .cam-group {
+            border: none;
+            background: transparent;
+            padding: 2px 2px 1px;
+            cursor: pointer;
+            font-family: var(--font-ui);
+            font-size: 16px;
+            letter-spacing: .1em;
+            color: var(--hud-mid);
+            -webkit-text-fill-color: var(--hud-mid);
+            text-shadow: 0 0 1px rgba(0, 0, 0, .9), 0 1px 2px rgba(0, 0, 0, .8);
+            border-bottom: var(--line) solid transparent;
+        }
+
+        .cam-group.active {
+            color: var(--hud);
+            -webkit-text-fill-color: var(--hud);
+            text-shadow: var(--glow);
+            border-bottom-color: var(--hud);
+        }
+
+        #cam-row {
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding: 2px 16px;
+            scroll-snap-type: x proximity;
+            scroll-padding: 0 16px;
+            scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
+            /* the row fades out at both edges, so it reads as "keeps going" */
+            -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+            mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+        }
+
+        #cam-row::-webkit-scrollbar { display: none; }
+
+        /* a hairline between groups */
+        .cam-sep {
+            flex: 0 0 1.5px;
+            align-self: stretch;
+            margin: 6px 2px;
+            background: var(--hud-dim);
+        }
+
+        .cam-item {
+            flex: 0 0 auto;
+            min-width: 62px;
+            height: 58px;
+            padding: 6px 6px 3px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            gap: 3px;
+            scroll-snap-align: start;
+            cursor: pointer;
+            background: rgba(3, 5, 3, .55);
+            border: 1px solid var(--hud-dim);
+            color: var(--hud);
+            -webkit-text-fill-color: var(--hud);
+            font-family: var(--font-ui);
+            font-size: 16px;
+            line-height: 1;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            white-space: nowrap;
+            text-shadow: 0 0 4px rgba(70, 242, 122, .4);
+            transition: background .12s ease-out, border-color .12s ease-out;
+        }
+
+        .cam-item svg {
+            width: 32px;
+            height: 24px;
+            shape-rendering: crispEdges;
+            filter: drop-shadow(0 0 3px rgba(70, 242, 122, .55));
+        }
+
+        .cam-item:active { border-color: var(--hud); }
+
+        .cam-item.active {
+            background: var(--hud);
+            border-color: var(--hud);
+            box-shadow: 0 0 8px rgba(70, 242, 122, .45);
+            color: var(--void);
+            -webkit-text-fill-color: var(--void);
+            text-shadow: none;
+        }
+
+        .cam-item.active svg { filter: none; }
+
+        .cam-group:focus-visible,
+        .cam-item:focus-visible {
+            outline: var(--line) solid var(--hud);
+            outline-offset: 2px;
+        }
 </style>
 </head>
 
@@ -3138,6 +3264,11 @@
         <button type="button" class="mob-mode-label" data-cap-mode="video">Video</button>
         <button type="button" class="mob-mode-label active" data-cap-mode="image">Photo</button>
         <button type="button" class="mob-mode-label" data-app-mode="image">Upload</button>
+    </div>
+    <!-- Camera strip: group tabs + a scrolling row of cameras with pixel icons (one tap). -->
+    <div id="cam-strip" aria-label="Camera type">
+        <div id="cam-groups"></div>
+        <div id="cam-row"></div>
     </div>
     <!-- Gallery: shows the latest shot as a live thumbnail (an empty film frame until then) -->
     <button id="mob-gallery" aria-label="Gallery" type="button" style="display:none"><span class="gallery-empty-frame"></span></button>
@@ -4845,7 +4976,9 @@ void main() {
         // controls, centered — like looking at a real camera's picture, not a phone screen.
         // (The user replaced the old full-screen 9:16 canvas on purpose, 2026-10-08:
         // "the picture being full screen is weird".)
-        const LIVE_FRAME_TOP = 72, LIVE_FRAME_BOTTOM = 184;
+        // Bottom reserve = shutter row + mode labels + zoom presets + the camera strip
+        // (was 184 before the strip, 2026-11-18).
+        const LIVE_FRAME_TOP = 72, LIVE_FRAME_BOTTOM = 256;
         function getLiveFrameRect(W, H) {
             const ar = getLiveTargetRatioValue();
             const top = isMobileLayout() ? LIVE_FRAME_TOP : 0;
@@ -4991,10 +5124,13 @@ void main() {
             const m = document.getElementById('main');
             const W = Math.max(1, m.clientWidth), H = Math.max(1, m.clientHeight);
             const pad = isMobileLayout() ? 16 : 32;
+            // Same band as Live's frame: between the top buttons and the camera strip.
+            const top = isMobileLayout() ? LIVE_FRAME_TOP : pad, bot = isMobileLayout() ? LIVE_FRAME_BOTTOM : pad;
             const d = uploadFrame(src);
-            const sc = Math.min((W - pad * 2) / d.aspect, H - pad * 2);
+            const availH = Math.max(2, H - top - bot);
+            const sc = Math.min((W - pad * 2) / d.aspect, availH);
             const w = Math.max(2, Math.round(d.aspect * sc)), h = Math.max(2, Math.round(sc));
-            state.uploadRect = { x: Math.round((W - w) / 2), y: Math.round((H - h) / 2), w, h };
+            state.uploadRect = { x: Math.round((W - w) / 2), y: Math.round(top + (availH - h) / 2), w, h };
             const k = Math.min(1, (h * viewDpr()) / d.h);
             const outW = Math.max(2, Math.round(d.w * k)), outH = Math.max(2, Math.round(d.h * k));
             const s = activeFilmSettings();
@@ -5166,6 +5302,7 @@ void main() {
                 el.appendChild(b);
             });
             syncPickerScrollbar(kind);
+            if (kind === 'camera') { try { renderCamStrip(); } catch (_) { } }
         }
 
         // Positions/sizes a picker's custom square scroll indicator from its list's real
@@ -5246,7 +5383,140 @@ void main() {
         function syncFilmUI() {
             syncPickerActive();
             syncLensSlider();
+            try { syncCamStrip(); } catch (_) { }
         }
+
+        // ── Camera strip (see the CSS). Body-type icons are 16×12 pixel grids drawn as
+        // crisp SVG squares in currentColor, so they invert with the selected chip.
+        const CAM_ICONS = {
+            slr: ['......####......', '.....######.....', '################', '#..............#', '#....######....#', '#...##....##...#', '#...#......#...#', '#...##....##...#', '#....######....#', '#..............#', '#..............#', '################'],
+            compact: ['................', '................', '.##.............', '################', '#.##.......###.#', '#.##.......###.#', '#.....####.....#', '#....##..##....#', '#....#....#....#', '#....##..##....#', '#.....####.....#', '################'],
+            disposable: ['................', '...........###.', '################', '#.##...........#', '#.##..###..##..#', '#....#...#.##..#', '#....#...#.....#', '#.....###......#', '#..............#', '#.############.#', '#..............#', '################'],
+            instant: ['...##########...', '...#........#...', '################', '#..........##..#', '#.....####.....#', '#....#....#....#', '#...#......#...#', '#...#......#...#', '#....#....#....#', '#.....####.....#', '#..............#', '################'],
+            digicam: ['................', '..###...........', '################', '#..............#', '#.########..##.#', '#.#......#.....#', '#.#......#..##.#', '#.#......#.....#', '#.#......#..##.#', '#.########.....#', '#..............#', '################'],
+            floppy: ['..############..', '..#.#######.##..', '..#.#######..#..', '..#.#######..#..', '..#..........#..', '..#.########.#..', '..#.#......#.#..', '..#.#......#.#..', '..#.#......#.#..', '..#.#......#.#..', '..############..', '................'],
+            camcorder: ['................', '..####..........', '..####..........', '#############...', '#...........#...', '#...........####', '#...........#..#', '#...........#..#', '#...........####', '#...........#...', '#############...', '................'],
+            cassette: ['................', '################', '#..............#', '#.############.#', '#.#..######..#.#', '#.#.#......#.#.#', '#.#..######..#.#', '#.############.#', '#..............#', '#...########...#', '#..#........#..#', '################'],
+            dv: ['................', '.......###......', '.......###......', '..###########...', '..#.........#...', '###.........####', '###.........#..#', '###.........#..#', '###.........####', '..#.........#...', '..###########...', '................'],
+            cine: ['....###.........', '#############...', '#...........#...', '#...........####', '#...........#..#', '#...........#..#', '#...........####', '#############...', '...####.........', '...####.........', '...####.........', '................'],
+        };
+        const CAM_ICON_OF = {
+            f90: 'slr', eos5: 'slr', eos500: 'slr', contaxg1: 'compact', minilux: 'compact', mju2: 'compact',
+            gold200: 'compact', funsaver: 'disposable', instax: 'instant', dc25: 'digicam', mavica: 'floppy', dc290: 'digicam',
+            tr2000: 'camcorder', ucx10: 'camcorder', trv87: 'camcorder', video8: 'camcorder', hi8: 'camcorder', nightshot: 'camcorder',
+            grsz7: 'cassette', pvl859: 'cassette', vhs92: 'cassette', vhsslp: 'cassette', vhsworn: 'cassette',
+            vx1000: 'dv', grdv1: 'dv', pc1: 'dv', xl1: 'dv', trv900: 'dv', gl1: 'dv', trv110: 'dv', minidv: 'dv',
+            super8: 'cine',
+        };
+        // Groups per list, in row order (the row follows these, not CAMERA_LISTS' order).
+        const CAM_GROUPS = {
+            photo: [
+                ['FILM', ['f90', 'eos5', 'eos500', 'contaxg1', 'minilux', 'mju2', 'gold200', 'funsaver']],
+                ['INSTANT', ['instax']],
+                ['DIGITAL', ['dc25', 'mavica', 'dc290']],
+            ],
+            video: [
+                ['8MM', ['tr2000', 'ucx10', 'trv87', 'video8', 'hi8', 'nightshot']],
+                ['VHS', ['grsz7', 'pvl859', 'vhs92', 'vhsslp', 'vhsworn']],
+                ['DV', ['vx1000', 'grdv1', 'pc1', 'xl1', 'trv900', 'gl1', 'trv110', 'minidv']],
+                ['CINE', ['super8']],
+            ],
+        };
+        const __camIconCache = {};
+        function camIconSvg(key) {
+            const name = CAM_ICON_OF[key] || 'compact';
+            if (__camIconCache[name]) return __camIconCache[name];
+            let d = '';
+            CAM_ICONS[name].forEach((row, y) => {
+                for (let x = 0; x < row.length; x++) if (row[x] === '#') d += 'M' + x + ' ' + y + 'h1v1h-1z';
+            });
+            return (__camIconCache[name] = '<svg viewBox="0 0 16 12" aria-hidden="true"><path fill="currentColor" d="' + d + '"/></svg>');
+        }
+        function camStripGroups() {
+            const list = activeCameraList();
+            const groups = (CAM_GROUPS[list] || []).map(([name, keys]) => [name, keys.filter((k) => CAMERAS[k])]);
+            // Any camera of the list a group forgot still shows, at the end of the last group.
+            const seen = new Set(groups.flatMap((g) => g[1]));
+            const rest = CAMERA_LISTS[list].filter((k) => !seen.has(k) && CAMERAS[k]);
+            if (rest.length && groups.length) groups[groups.length - 1][1].push(...rest);
+            return groups.filter((g) => g[1].length);
+        }
+        let __camStripList = null;
+        function renderCamStrip() {
+            const row = document.getElementById('cam-row'), tabs = document.getElementById('cam-groups');
+            if (!row || !tabs) return;
+            __camStripList = activeCameraList();
+            row.innerHTML = ''; tabs.innerHTML = '';
+            camStripGroups().forEach(([name, keys], gi) => {
+                const t = document.createElement('button');
+                t.type = 'button'; t.className = 'cam-group'; t.dataset.group = name; t.textContent = name;
+                tabs.appendChild(t);
+                if (gi) { const sep = document.createElement('span'); sep.className = 'cam-sep'; row.appendChild(sep); }
+                keys.forEach((key) => {
+                    const b = document.createElement('button');
+                    b.type = 'button'; b.className = 'cam-item'; b.dataset.cam = key; b.dataset.group = name;
+                    b.title = CAMERAS[key].name;
+                    b.setAttribute('aria-label', CAMERAS[key].name);
+                    b.innerHTML = camIconSvg(key) + '<span>' + CAMERAS[key].label + '</span>';
+                    row.appendChild(b);
+                });
+            });
+            syncCamStrip(true);
+        }
+        function camStripScrollTo(el, smooth) {
+            const row = document.getElementById('cam-row');
+            if (!row || !el) return;
+            const left = el.offsetLeft - row.offsetLeft - (row.clientWidth - el.offsetWidth) / 2;
+            row.scrollTo({ left: Math.max(0, left), behavior: smooth ? 'smooth' : 'auto' });
+        }
+        function setCamGroupActive(name) {
+            document.querySelectorAll('#cam-groups .cam-group').forEach((t) => t.classList.toggle('active', t.dataset.group === name));
+        }
+        function syncCamStrip(jump) {
+            const row = document.getElementById('cam-row');
+            if (!row) return;
+            if (__camStripList !== activeCameraList()) { renderCamStrip(); return; }
+            let act = null;
+            row.querySelectorAll('.cam-item').forEach((b) => {
+                const on = b.dataset.cam === ACTIVE_CAMERA_KEY;
+                b.classList.toggle('active', on);
+                b.setAttribute('aria-pressed', on ? 'true' : 'false');
+                if (on) act = b;
+            });
+            if (act) { setCamGroupActive(act.dataset.group); camStripScrollTo(act, !jump); }
+        }
+        (function initCamStrip() {
+            const row = document.getElementById('cam-row'), tabs = document.getElementById('cam-groups');
+            if (!row || !tabs) return;
+            row.addEventListener('click', (e) => {
+                const b = e.target.closest('.cam-item');
+                if (b && b.dataset.cam !== ACTIVE_CAMERA_KEY) setActiveCamera(b.dataset.cam);
+            });
+            // A tab jumps the row to its group (it doesn't change the camera).
+            tabs.addEventListener('click', (e) => {
+                const t = e.target.closest('.cam-group');
+                if (!t) return;
+                const first = row.querySelector('.cam-item[data-group="' + t.dataset.group + '"]');
+                if (first) row.scrollTo({ left: Math.max(0, first.offsetLeft - row.offsetLeft - 16), behavior: 'smooth' });
+                setCamGroupActive(t.dataset.group);
+            });
+            // While swiping, the tab follows the group under the row's center.
+            let raf = 0;
+            row.addEventListener('scroll', () => {
+                if (raf) return;
+                raf = requestAnimationFrame(() => {
+                    raf = 0;
+                    const mid = row.scrollLeft + row.clientWidth / 2 + row.offsetLeft;
+                    let best = null, bd = 1e9;
+                    row.querySelectorAll('.cam-item').forEach((b) => {
+                        const d = Math.abs(b.offsetLeft + b.offsetWidth / 2 - mid);
+                        if (d < bd) { bd = d; best = b; }
+                    });
+                    if (best) setCamGroupActive(best.dataset.group);
+                });
+            }, { passive: true });
+            window.addEventListener('resize', () => syncCamStrip(true));
+        })();
 
         function setActiveCamera(key) {
             if (!CAMERAS[key]) return;
@@ -6585,6 +6855,7 @@ void main() {
             var zoomPresets = document.getElementById('mob-zoom-presets');
             var sideSliderWrap = document.getElementById('mob-side-slider-wrap');
             var filmBadge = document.getElementById('mob-film-badge');
+            document.body.classList.toggle('cam-strip-on', isSmall);
             if (!isSmall) {
                 mobShutter.style.display = 'none';
                 if (mobUploadMore) mobUploadMore.style.display = 'none';
@@ -7928,7 +8199,7 @@ void main() {
         // PWA: register service worker for installability + reliable updates
         (function () {
             if (!('serviceWorker' in navigator)) return;
-            const __BUILD = 'v23';
+            const __BUILD = 'v24';
             try {
                 const bt = document.getElementById('build-tag');
                 if (bt) bt.textContent = __BUILD;
@@ -7962,7 +8233,7 @@ void main() {
             window.forceAppUpdate = resetServiceWorkerAndReload;
 
             // Versioned SW URL forces Safari to re-fetch updated sw.js
-            const __SW_URL = 'sw.js?v=23';
+            const __SW_URL = 'sw.js?v=24';
             navigator.serviceWorker.register(__SW_URL).then((reg) => {
                 function trySkipWaiting() {
                     if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
