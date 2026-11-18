@@ -3231,6 +3231,46 @@
         body.booth-run #cam-strip,
         body.booth-run #mob-capture-mode { visibility: hidden; }
 
+        /* Booth frame count 2/3/4 (+ PHOTOS in Upload): top left, only with a booth camera. */
+        #booth-frames {
+            position: fixed;
+            top: 12px;
+            left: 16px;
+            z-index: 86;
+            display: none;
+            align-items: center;
+            gap: 4px;
+            font-family: var(--font-ui);
+        }
+
+        body.booth-on.cam-strip-on #booth-frames { display: flex; }
+        body.booth-run #booth-frames { visibility: hidden; }
+        body:not(.mode-upload) #booth-frames .bf-add { display: none; }
+
+        #booth-frames .bf-name { font-size: 16px; letter-spacing: .1em; color: var(--hud-mid); margin-right: 4px; }
+
+        #booth-frames button {
+            min-width: 36px;
+            height: 36px;
+            padding: 0 8px;
+            border: 1px solid var(--hud-dim);
+            background: rgba(3, 5, 3, .55);
+            color: var(--hud);
+            -webkit-text-fill-color: var(--hud);
+            font-family: var(--font-ui);
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        #booth-frames button.active {
+            background: var(--hud);
+            border-color: var(--hud);
+            color: var(--void);
+            -webkit-text-fill-color: var(--void);
+        }
+
+        #booth-frames .bf-add { margin-left: 6px; letter-spacing: .06em; }
+
         /* Lens slider removed (user, 2026-11-18). Zoom (presets + pinch dial) stays. */
         #mob-side-slider-wrap { display: none !important; }
 </style>
@@ -3319,6 +3359,11 @@
     </div>
     <!-- Camera strip: group tabs + a scrolling row of cameras with pixel icons (one tap). -->
     <div id="booth-count" aria-live="assertive"></div>
+    <!-- Booth: how many frames on the strip (2–4); in Upload also "+ PHOTOS" (pick up to 4). -->
+    <div id="booth-frames" aria-label="Frames on the strip">
+        <button type="button" data-frames="2">2</button><button type="button" data-frames="3">3</button><button type="button" data-frames="4">4</button>
+        <button type="button" class="bf-add" id="booth-add">+ PHOTOS</button>
+    </div>
     <div id="cam-strip" aria-label="Camera type">
         <div id="cam-groups"></div>
         <div id="cam-row"></div>
@@ -3411,7 +3456,7 @@
             <!-- Upload (Image mode): tap/drop anywhere on the canvas to choose a photo -->
             <div id="upload-zone" style="display:none">
                 <div id="drop-zone">
-                    <input type="file" id="file-input" accept="image/*,video/*" class="dz-input" />
+                    <input type="file" id="file-input" accept="image/*,video/*" class="dz-input" multiple />
                     <div class="dz-text">Drop photo or video here<br />or click to browse</div>
                     <div id="file-name"></div>
                 </div>
@@ -5474,9 +5519,29 @@ void main() {
             const land = src.width > src.height;
             return Object.assign(cameraDims(cam, !!state.srcVideo, land), { aspect: cameraAspect(cam, land) });
         }
+        // The booth strip from the uploaded photo(s): each frame rendered upright through the
+        // booth camera at scale k of its native size, then laid on the paper.
+        function boothUploadFrames(k) {
+            const s = activeFilmSettings(), cam = s.camera;
+            const imgs = (state.boothImages && state.boothImages.length) ? state.boothImages : [state.srcImage];
+            const n = state.boothFrames || 4;
+            const d = Object.assign(cameraDims(cam, false, false), { aspect: cameraAspect(cam, false) });
+            const outW = Math.max(2, Math.round(d.w * k)), outH = Math.max(2, Math.round(d.h * k));
+            const done = new Map(), frames = [];
+            for (let i = 0; i < n; i++) {
+                const img = imgs[i % imgs.length];
+                if (!done.has(img)) {
+                    film.render(img, { outW, outH, native: d, aspect: d.aspect, crop: uploadLensCrop(img, d.aspect), mirror: false, settings: s, time: state.uploadSeed + i, still: true });
+                    done.set(img, composeWithOverlays(document.createElement('canvas'), film.canvas, s));
+                }
+                frames.push(done.get(img));
+            }
+            return frames;
+        }
         function renderUpload() {
             const src = state.srcImage;
             if (!src) { state.uploadRect = null; renderView(); return; }
+            if (activeFilmSettings().camera.booth && !state.srcVideo) { renderUploadBooth(); return; }
             const m = document.getElementById('main');
             const W = Math.max(1, m.clientWidth), H = Math.max(1, m.clientHeight);
             const pad = isMobileLayout() ? 16 : 32;
@@ -5516,6 +5581,24 @@ void main() {
             });
         }
 
+        function renderUploadBooth() {
+            const m = document.getElementById('main');
+            const W = Math.max(1, m.clientWidth), H = Math.max(1, m.clientHeight);
+            const pad = isMobileLayout() ? 16 : 32;
+            const top = isMobileLayout() ? LIVE_FRAME_TOP : pad, bot = isMobileLayout() ? UPLOAD_FRAME_BOTTOM : pad;
+            const availH = Math.max(2, H - top - bot);
+            const strip = boothStrip(boothUploadFrames(Math.min(1, (availH * viewDpr()) / ((state.boothFrames || 4) * 1200))), state.uploadSeed);
+            const ar = strip.width / strip.height;
+            const sc = Math.min((W - pad * 2) / ar, availH);
+            const w = Math.max(2, Math.round(ar * sc)), h = Math.max(2, Math.round(sc));
+            state.uploadRect = { x: Math.round((W - w) / 2), y: Math.round(top + (availH - h) / 2), w, h };
+            uploadPreview.width = strip.width; uploadPreview.height = strip.height;
+            uploadPreview.getContext('2d').drawImage(strip, 0, 0);
+            ++__uploadJpegSeq;
+            if (uploadJpeg && uploadJpeg.close) uploadJpeg.close();
+            uploadJpeg = null;
+            renderView();
+        }
         function uploadLensCrop(src, aspect) {
             return coverCrop(src.width, src.height, aspect * 1000, 1000, lensCropZoom(activeFilmSettings().lens, PHONE_MAIN_FOCAL));
         }
@@ -5748,9 +5831,16 @@ void main() {
             __lensToastTimer = setTimeout(() => el.classList.remove('show'), 1100);
         }
 
+        function syncBoothFrames() {
+            const on = !!(CAMERAS[ACTIVE_CAMERA_KEY] && CAMERAS[ACTIVE_CAMERA_KEY].booth) && !(state.mode !== 'live' && state.srcVideo);
+            document.body.classList.toggle('booth-on', on);
+            if (!state.boothFrames) state.boothFrames = 4;
+            document.querySelectorAll('#booth-frames [data-frames]').forEach((b) => b.classList.toggle('active', +b.dataset.frames === state.boothFrames));
+        }
         function syncFilmUI() {
             syncPickerActive();
             syncLensSlider();
+            try { syncBoothFrames(); } catch (_) { }
             try { syncCamStrip(); } catch (_) { }
         }
 
@@ -5850,6 +5940,17 @@ void main() {
             if (act) { setCamGroupActive(act.dataset.group); camStripScrollTo(act, !jump); }
         }
 
+        (function initBoothFrames() {
+            const el = document.getElementById('booth-frames');
+            if (!el) return;
+            el.addEventListener('click', (e) => {
+                const b = e.target.closest('button'); if (!b) return;
+                if (b.id === 'booth-add') { document.getElementById('file-input').click(); return; }
+                state.boothFrames = +b.dataset.frames;
+                syncBoothFrames();
+                refreshView();
+            });
+        })();
         (function initCamStrip() {
             const row = document.getElementById('cam-row'), tabs = document.getElementById('cam-groups');
             if (!row || !tabs) return;
@@ -5941,7 +6042,13 @@ void main() {
 
         // Image upload
         const dropZone = document.getElementById('drop-zone');
-        on('file-input', 'change', e => loadFile(e.target.files[0]));
+        // Several photos at once → the booth strip's frames (up to 4); otherwise the first.
+        on('file-input', 'change', (e) => {
+            const files = Array.from(e.target.files || []);
+            const imgs = files.filter((f) => f.type.startsWith('image/'));
+            if (imgs.length > 1) loadBoothFiles(imgs.slice(0, 4)); else loadFile(files[0]);
+            e.target.value = '';
+        });
         // Upload's persistent "add/replace image" button — opens the same file picker
         // the drop-zone uses, so it works whether or not an image is already loaded.
         on('mob-upload-more', 'click', () => document.getElementById('file-input').click());
@@ -5957,8 +6064,47 @@ void main() {
         // Decodes the photo onto a canvas capped to the GPU's texture limit (and 4096 — more
         // than any export needs), so every later render is a plain texture upload.
         const UPLOAD_MAX_SIDE = 4096;
+        function fileToCanvas(file) {
+            return new Promise((res) => {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const cap = Math.min(UPLOAD_MAX_SIDE, film.maxTex || 4096);
+                        const sc = Math.min(1, cap / Math.max(img.width, img.height));
+                        const c = document.createElement('canvas');
+                        c.width = Math.max(2, Math.round(img.width * sc));
+                        c.height = Math.max(2, Math.round(img.height * sc));
+                        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+                        res(c);
+                    };
+                    img.onerror = () => res(null);
+                    img.src = ev.target.result;
+                };
+                reader.onerror = () => res(null);
+                reader.readAsDataURL(file);
+            });
+        }
+        // Photo booth from the gallery (user, 2026-11-18): pick 2–4 photos; they fill the
+        // strip's frames in order (repeating when the strip has more frames than photos).
+        async function loadBoothFiles(files) {
+            clearUploadVideo();
+            const cs = (await Promise.all(files.map(fileToCanvas))).filter(Boolean);
+            if (!cs.length) return;
+            state.boothImages = cs;
+            state.boothFrames = Math.max(2, Math.min(4, cs.length));
+            state.srcImage = cs[0];
+            state.uploadSeed = Math.random() * 100;
+            document.getElementById('file-name').textContent = cs.length + ' photos';
+            // Several photos only make sense as a strip: switch to the booth if needed.
+            if (!activeFilmSettings().camera.booth) { setActiveCamera(ACTIVE_IN_LIST.photo && CAMERAS[ACTIVE_IN_LIST.photo].booth ? ACTIVE_IN_LIST.photo : 'booth'); }
+            updateUploadZoneVisibility();
+            syncBoothFrames();
+            renderUpload();
+        }
         function loadFile(file) {
             if (!file) return;
+            state.boothImages = null;
             if (file.type.startsWith('video/')) { loadVideoFile(file); return; }
             if (!file.type.startsWith('image/')) return;
             clearUploadVideo();
@@ -6404,6 +6550,7 @@ void main() {
             if (state.mode === 'live' && liveCoverCanvas && liveCoverCanvas.width > 2) return printFrame(squarePixels(composeWithOverlays(cnv, liveCoverCanvas, s), getLiveTargetRatioValue()));
             const src = state.srcImage;
             if (!src) { cnv.width = 2; cnv.height = 2; return cnv; }
+            if (s.camera.booth && !state.srcVideo) return boothStrip(boothUploadFrames(1), state.uploadSeed);
             const d = uploadFrame(src);
             film.render(src, { outW: d.w, outH: d.h, native: d, aspect: d.aspect, crop: uploadLensCrop(src, d.aspect), mirror: false, settings: s, time: state.uploadSeed, still: true });
             // film.canvas now holds the export render; the preview copy (uploadPreview) is
@@ -7222,6 +7369,7 @@ void main() {
             var sideSliderWrap = document.getElementById('mob-side-slider-wrap');
             var filmBadge = document.getElementById('mob-film-badge');
             document.body.classList.toggle('cam-strip-on', isSmall);
+            try { syncBoothFrames(); } catch (_) { }
             if (!isSmall) {
                 mobShutter.style.display = 'none';
                 if (mobUploadMore) mobUploadMore.style.display = 'none';
@@ -8555,15 +8703,16 @@ void main() {
             const frames = [];
             try {
                 for (const n of [3, 2, 1]) { if (!alive()) return; boothShow(n, 'LOOK AT THE LENS'); await wait(800); }
-                for (let i = 0; i < 4; i++) {
+                const n = state.boothFrames || 4;
+                for (let i = 0; i < n; i++) {
                     if (!alive()) return;
-                    if (i) { boothShow(i + 1 + '/4', 'NEXT'); await wait(1200); }
+                    if (i) { boothShow(i + 1 + '/' + n, 'NEXT'); await wait(1200); }
                     boothShow(null);
                     const cnv = await new Promise((res) => fireAndCapture(res));
                     if (cnv) frames.push(cnv);
                     await wait(500);
                 }
-                if (frames.length === 4) {
+                if (frames.length === n) {
                     boothShow('', 'DEVELOPING…');
                     await wait(500);
                     addToGallery({ type: 'image', canvas: boothStrip(frames), jpegQ: 0.9, fileName: filmFileName('booth', 'jpg') });
@@ -8577,18 +8726,18 @@ void main() {
         }
         // Four frames stacked on booth paper: thin even sides, small gaps, a blank strip at
         // the bottom; each frame lands a hair off-square, as the machine fed the paper.
-        function boothStrip(frames) {
+        function boothStrip(frames, seed) {
             const fw = frames[0].width, fh = frames[0].height;
             const side = Math.round(fw * 0.07), gap = Math.round(fw * 0.045), bottom = Math.round(fw * 0.2);
             const out = document.createElement('canvas');
             out.width = fw + side * 2;
-            out.height = side + fh * 4 + gap * 3 + bottom;
+            out.height = side + fh * frames.length + gap * (frames.length - 1) + bottom;
             const x = out.getContext('2d');
             const mono = activeFilmSettings().camera.look.mono;
             const g = x.createLinearGradient(0, 0, out.width, out.height);
             g.addColorStop(0, mono ? '#f3f1ea' : '#f6f2e6'); g.addColorStop(1, mono ? '#ebe8df' : '#efe9da');
             x.fillStyle = g; x.fillRect(0, 0, out.width, out.height);
-            const rnd = texRng((Math.random() * 1e9) | 0);
+            const rnd = texRng(seed != null ? Math.round(seed * 1000) : (Math.random() * 1e9) | 0);
             frames.forEach((f, i) => {
                 const y = side + i * (fh + gap);
                 x.save();
@@ -8645,7 +8794,7 @@ void main() {
         // PWA: register service worker for installability + reliable updates
         (function () {
             if (!('serviceWorker' in navigator)) return;
-            const __BUILD = 'v27';
+            const __BUILD = 'v28';
             try {
                 const bt = document.getElementById('build-tag');
                 if (bt) bt.textContent = __BUILD;
@@ -8679,7 +8828,7 @@ void main() {
             window.forceAppUpdate = resetServiceWorkerAndReload;
 
             // Versioned SW URL forces Safari to re-fetch updated sw.js
-            const __SW_URL = 'sw.js?v=27';
+            const __SW_URL = 'sw.js?v=28';
             navigator.serviceWorker.register(__SW_URL).then((reg) => {
                 function trySkipWaiting() {
                     if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });

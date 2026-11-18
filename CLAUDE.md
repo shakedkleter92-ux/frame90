@@ -313,8 +313,10 @@ aperture grille + damping wires) / `crt-sm` (shadow mask) for digicams and all v
 at h/240, glass vignette + reflection), `cine` (Super 8 gate dirt, 5 variants cycling ≈6/s).
 This reverses "no scanlines / no scratches". **Photo booth**: cameras `booth` (B&W direct
 positive look) and `boothc` (faded colour) in group BOOTH; the shutter runs `runPhotoBooth()`
-(3-2-1, four flashes, `boothStrip()` = 4 frames on paper → one gallery image). In Upload a booth
-camera gives a single frame. **Lens slider removed** (looked like a crop); the lens is fixed at `26` (= phone,
+(3-2-1, four flashes, `boothStrip()` = 4 frames on paper → one gallery image). Frames per strip 2/3/4 (`state.boothFrames`, top-left `#booth-frames`, used by Live too).
+In Upload the file input is `multiple`: picking 2–4 photos (`loadBoothFiles()`) fills the frames in
+order (repeating if fewer), a single photo repeats; the preview *is* the strip (`renderUploadBooth()`)
+and the save is the full-size strip. **Lens slider removed** (looked like a crop); the lens is fixed at `26` (= phone,
 no crop); zoom presets / pinch dial stay. Frame band: `LIVE_FRAME_TOP` 56, `LIVE_FRAME_BOTTOM`
 256 (Live and Upload). Photobooth mode is next.
 
