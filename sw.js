@@ -1,11 +1,11 @@
 // Minimal service worker so the app can be installed (PWA)
-const CACHE = '90frame-v31';
+const CACHE = '90frame-v32';
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE).then((cache) => {
       // Use relative URLs so this works on GitHub Pages subpaths too
-      return cache.addAll(['./', './index.html', './frame.html', './manifest.json', './fonts/DSEG14Classic-Bold.woff2', './fonts/VT323-Regular.woff2', './icon.svg', './icon-180.png', './icon-512.png']);
+      return cache.addAll(['./', './index.html', './frame.html', './manifest.json', './fonts/DSEG14Classic-Bold.woff2', './fonts/VT323-Regular.woff2', './fonts/SpecialElite-Regular.woff2', './icon.svg', './icon-180.png', './icon-512.png']);
     }).then(() => self.skipWaiting())
   );
 });

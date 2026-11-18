@@ -52,6 +52,14 @@
         /* VT323 (SIL OFL, Peter Hull) — the UI / OSD face, bundled locally like DSEG14 so
            the installed PWA keeps it offline (it used to come from Google Fonts, and the
            service worker never cached that, so offline it fell back to a system mono). */
+        /* Special Elite (Apache 2.0, Astigmatic) — typewriter type for the Instax caption. */
+        @font-face {
+            font-family: 'Special Elite';
+            src: url('fonts/SpecialElite-Regular.woff2') format('woff2');
+            font-weight: 400;
+            font-display: swap;
+        }
+
         @font-face {
             font-family: 'VT323';
             src: url('fonts/VT323-Regular.woff2') format('woff2');
@@ -3231,6 +3239,35 @@
         body.booth-run #cam-strip,
         body.booth-run #mob-capture-mode { visibility: hidden; }
 
+        /* Instax caption: a toggle top-left and a small HUD box for the text. */
+        #caption-btn {
+            position: fixed; top: 12px; left: 16px; z-index: 86; display: none;
+            height: 36px; padding: 0 10px;
+            border: 1px solid var(--hud-dim); background: rgba(3, 5, 3, .55);
+            color: var(--hud); -webkit-text-fill-color: var(--hud);
+            font-family: var(--font-ui); font-size: 18px; letter-spacing: .06em; cursor: pointer;
+        }
+        body.instax-on.cam-strip-on #caption-btn { display: block; }
+        body.recording #caption-btn { display: none !important; }
+        #caption-btn.on { background: var(--hud); color: var(--void); -webkit-text-fill-color: var(--void); border-color: var(--hud); }
+        #caption-box {
+            position: fixed; top: 56px; left: 16px; right: 16px; z-index: 92;
+            display: flex; gap: 6px; padding: 8px;
+            background: rgba(3, 5, 3, .94); border: var(--line) solid var(--hud-mid);
+        }
+        #caption-box[hidden] { display: none; }
+        #caption-input {
+            flex: 1; min-width: 0; height: 36px; padding: 0 8px;
+            background: transparent; border: 1px solid var(--hud-dim); color: var(--hud);
+            font-family: 'Special Elite', 'Courier New', monospace; font-size: 16px; outline: none; border-radius: 0;
+        }
+        #caption-input:focus { border-color: var(--hud); }
+        #caption-box button {
+            height: 36px; padding: 0 10px; border: 1px solid var(--hud-dim); background: transparent;
+            color: var(--hud); -webkit-text-fill-color: var(--hud); font-family: var(--font-ui); font-size: 18px; cursor: pointer;
+        }
+        #caption-box button.on { background: var(--hud); color: var(--void); -webkit-text-fill-color: var(--void); }
+
         /* Booth frame count 2/3/4 (+ PHOTOS in Upload): top left, only with a booth camera. */
         #booth-frames {
             position: fixed;
@@ -3270,6 +3307,8 @@
         }
 
         #booth-frames .bf-add { margin-left: 6px; letter-spacing: .06em; }
+        #booth-frames .bf-clear { margin-left: 0; min-width: 32px; }
+        #booth-frames button:disabled { opacity: .35; }
 
         /* Lens slider removed (user, 2026-11-18). Zoom (presets + pinch dial) stays. */
         #mob-side-slider-wrap { display: none !important; }
@@ -3359,10 +3398,18 @@
     </div>
     <!-- Camera strip: group tabs + a scrolling row of cameras with pixel icons (one tap). -->
     <div id="booth-count" aria-live="assertive"></div>
+    <!-- Instax: a typed caption + date/time on the card's white strip (optional). -->
+    <button id="caption-btn" type="button" aria-label="Caption on the card">Aa TEXT</button>
+    <div id="caption-box" hidden>
+        <input id="caption-input" type="text" maxlength="36" placeholder="write on the card…" autocomplete="off" />
+        <button type="button" id="caption-date">DATE</button>
+        <button type="button" id="caption-ok">OK</button>
+    </div>
     <!-- Booth: how many frames on the strip (2–4); in Upload also "+ PHOTOS" (pick up to 4). -->
     <div id="booth-frames" aria-label="Frames on the strip">
         <button type="button" data-frames="2">2</button><button type="button" data-frames="3">3</button><button type="button" data-frames="4">4</button>
-        <button type="button" class="bf-add" id="booth-add">+ PHOTOS</button>
+        <button type="button" class="bf-add" id="booth-add">+ PHOTO <span id="booth-count-n">1/4</span></button>
+        <button type="button" class="bf-add bf-clear" id="booth-clear" aria-label="Start over with one photo">×</button>
     </div>
     <div id="cam-strip" aria-label="Camera type">
         <div id="cam-groups"></div>
@@ -3485,6 +3532,7 @@
         if (document.fonts && document.fonts.load) {
             document.fonts.load("20px 'VT323'").catch(() => {});
             document.fonts.load("700 20px 'DSEG14'").catch(() => {});
+            document.fonts.load("20px 'Special Elite'").catch(() => {});
         }
         // Surface runtime errors (helps when something stops all buttons)
         (function () {
@@ -5544,10 +5592,8 @@ void main() {
                     // 2026-11-18). Card 54×86 mm, image 46×62 mm, 4 mm sides, 6 mm top.
                     const k = Math.min(r.cw / 54, r.ch / 86);
                     const cw = 54 * k, ch = 86 * k, cx = r.dx + (r.cw - cw) / 2, cy = r.dy + (r.ch - ch) / 2;
-                    const g = gctx.createLinearGradient(0, cy, 0, cy + ch);
-                    g.addColorStop(0, '#f7f6f1'); g.addColorStop(1, '#efeee8');
-                    gctx.fillStyle = g; gctx.fillRect(cx, cy, cw, ch);
                     gctx.drawImage(livePreviewFrame(), cx + 4 * k, cy + 6 * k, 46 * k, 62 * k);
+                    drawInstaxCard(gctx, cx, cy, cw, ch, k, { x: cx + 4 * k, y: cy + 6 * k, w: 46 * k, h: 62 * k }, false, null);
                 } else if (liveComposite.width > 2) {
                     gctx.drawImage(livePreviewFrame(), r.dx, r.dy, r.cw, r.ch);
                 } else {
@@ -5904,11 +5950,37 @@ void main() {
             __lensToastTimer = setTimeout(() => el.classList.remove('show'), 1100);
         }
 
+        function syncCaptionUI() {
+            const on = !!(CAMERAS[ACTIVE_CAMERA_KEY] && CAMERAS[ACTIVE_CAMERA_KEY].frame === 'instaxMini');
+            document.body.classList.toggle('instax-on', on);
+            if (!on) { const b = document.getElementById('caption-box'); if (b) b.hidden = true; }
+            const c = instaxCaption();
+            const btn = document.getElementById('caption-btn'); if (btn) btn.classList.toggle('on', !!(c.text || c.date));
+            const d = document.getElementById('caption-date'); if (d) d.classList.toggle('on', INSTAX_CAPTION.date !== false);
+        }
+        (function initCaption() {
+            const btn = document.getElementById('caption-btn'), box = document.getElementById('caption-box'), inp = document.getElementById('caption-input');
+            if (!btn) return;
+            const save = () => { try { localStorage.setItem('90frame_caption', JSON.stringify(INSTAX_CAPTION)); } catch (_) { } syncCaptionUI(); refreshView(); };
+            btn.addEventListener('click', () => {
+                box.hidden = !box.hidden;
+                if (!box.hidden) { INSTAX_CAPTION.on = true; inp.value = INSTAX_CAPTION.text || ''; save(); setTimeout(() => inp.focus(), 50); }
+            });
+            inp.addEventListener('input', () => { INSTAX_CAPTION.text = inp.value; INSTAX_CAPTION.on = true; save(); });
+            inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { box.hidden = true; inp.blur(); } });
+            document.getElementById('caption-date').addEventListener('click', () => { INSTAX_CAPTION.date = INSTAX_CAPTION.date === false; INSTAX_CAPTION.on = true; save(); });
+            document.getElementById('caption-ok').addEventListener('click', () => { box.hidden = true; inp.blur(); });
+        })();
         function syncBoothFrames() {
+            try { syncCaptionUI(); } catch (_) { }
             const on = !!(CAMERAS[ACTIVE_CAMERA_KEY] && CAMERAS[ACTIVE_CAMERA_KEY].booth) && !(state.mode !== 'live' && state.srcVideo);
             document.body.classList.toggle('booth-on', on);
             if (!state.boothFrames) state.boothFrames = 4;
             document.querySelectorAll('#booth-frames [data-frames]').forEach((b) => b.classList.toggle('active', +b.dataset.frames === state.boothFrames));
+            const n = (state.boothImages && state.boothImages.length) || (state.srcImage ? 1 : 0);
+            const c = document.getElementById('booth-count-n'); if (c) c.textContent = n + '/4';
+            const add = document.getElementById('booth-add'); if (add) add.disabled = n >= 4;
+            const clr = document.getElementById('booth-clear'); if (clr) clr.style.display = n > 1 ? '' : 'none';
         }
         function syncFilmUI() {
             syncPickerActive();
@@ -6019,6 +6091,12 @@ void main() {
             el.addEventListener('click', (e) => {
                 const b = e.target.closest('button'); if (!b) return;
                 if (b.id === 'booth-add') { document.getElementById('file-input').click(); return; }
+                if (b.id === 'booth-clear') {
+                    // keep only the newest photo
+                    if (state.boothImages && state.boothImages.length) state.srcImage = state.boothImages[state.boothImages.length - 1];
+                    state.boothImages = null;
+                    syncBoothFrames(); refreshView(); return;
+                }
                 state.boothFrames = +b.dataset.frames;
                 syncBoothFrames();
                 refreshView();
@@ -6119,7 +6197,9 @@ void main() {
         on('file-input', 'change', (e) => {
             const files = Array.from(e.target.files || []);
             const imgs = files.filter((f) => f.type.startsWith('image/'));
-            if (imgs.length > 1) loadBoothFiles(imgs.slice(0, 4)); else loadFile(files[0]);
+            // Photo booth in Upload: every pick ADDS to the strip (user, 2026-11-18), up to 4.
+            const boothAdd = state.mode !== 'live' && activeFilmSettings().camera.booth && state.srcImage && !state.srcVideo;
+            if (imgs.length && (boothAdd || imgs.length > 1)) loadBoothFiles(imgs, boothAdd); else loadFile(files[0]);
             e.target.value = '';
         });
         // Upload's persistent "add/replace image" button — opens the same file picker
@@ -6128,7 +6208,11 @@ void main() {
         if (dropZone) {
             dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
             dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-            dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); loadFile(e.dataTransfer.files[0]); });
+            dropZone.addEventListener('drop', e => {
+                e.preventDefault(); dropZone.classList.remove('drag-over');
+                const imgs = Array.from(e.dataTransfer.files || []).filter((f) => f.type.startsWith('image/'));
+                if (imgs.length > 1) loadBoothFiles(imgs); else loadFile(e.dataTransfer.files[0]);
+            });
         }
         function updateUploadZoneVisibility() {
             const uz = document.getElementById('upload-zone');
@@ -6160,15 +6244,18 @@ void main() {
         }
         // Photo booth from the gallery (user, 2026-11-18): pick 2–4 photos; they fill the
         // strip's frames in order (repeating when the strip has more frames than photos).
-        async function loadBoothFiles(files) {
+        async function loadBoothFiles(files, append) {
             clearUploadVideo();
-            const cs = (await Promise.all(files.map(fileToCanvas))).filter(Boolean);
-            if (!cs.length) return;
+            const fresh = (await Promise.all(files.map(fileToCanvas))).filter(Boolean);
+            if (!fresh.length) return;
+            const prev = append ? ((state.boothImages && state.boothImages.length) ? state.boothImages : (state.srcImage ? [state.srcImage] : [])) : [];
+            const cs = prev.concat(fresh).slice(-4);             // keep the latest four
             state.boothImages = cs;
-            state.boothFrames = Math.max(2, Math.min(4, cs.length));
+            state.boothFrames = Math.max(state.boothFrames && append ? state.boothFrames : 2, Math.min(4, Math.max(2, cs.length)));
             state.srcImage = cs[0];
             state.uploadSeed = Math.random() * 100;
             document.getElementById('file-name').textContent = cs.length + ' photos';
+            try { syncBoothFrames(); } catch (_) { }
             // Several photos only make sense as a strip: switch to the booth if needed.
             if (!activeFilmSettings().camera.booth) { setActiveCamera(ACTIVE_IN_LIST.photo && CAMERAS[ACTIVE_IN_LIST.photo].booth ? ACTIVE_IN_LIST.photo : 'booth'); }
             updateUploadZoneVisibility();
@@ -6192,6 +6279,7 @@ void main() {
                     c.height = Math.max(2, Math.round(img.height * sc));
                     c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
                     state.srcImage = c;
+                    state.uploadDate = file.lastModified ? new Date(file.lastModified) : null;
                     state.uploadSeed = Math.random() * 100;
                     document.getElementById('file-name').textContent = file.name;
                     updateUploadZoneVisibility();
@@ -7262,7 +7350,66 @@ void main() {
         // photo (the viewfinder shows only the picture, like the real camera). Instax Mini:
         // a 54×86 mm card around a 46×62 mm image — 4 mm sides, a thin top and the thick
         // bottom strip (≈6 / ≈18 mm). A landscape shot sits in the card held sideways.
-        function printFrame(cnv) {
+        // Instax card surface + optional typewriter caption (user, 2026-11-18). The card is
+        // drawn at k px per mm; (wx, wy, ww, wh) is the image window; land = held sideways
+        // (thick strip on the right). Paper relief + a faint edge wear give it a real surface;
+        // the caption and the date/time sit in the thick strip like typed-on ink.
+        const INSTAX_CAPTION = (() => { try { return JSON.parse(localStorage.getItem('90frame_caption') || '{}'); } catch (_) { return {}; } })();
+        function instaxCaption() { return { text: INSTAX_CAPTION.text || '', date: INSTAX_CAPTION.date !== false && !!(INSTAX_CAPTION.on) }; }
+        function drawInstaxCard(x, cx, cy, cw, ch, k, win, land, when) {
+            x.save();
+            x.beginPath(); x.rect(cx, cy, cw, ch); x.rect(win.x, win.y, win.w, win.h); x.clip('evenodd');
+            const g = x.createLinearGradient(cx, cy, cx + cw * 0.3, cy + ch);
+            g.addColorStop(0, '#f8f7f2'); g.addColorStop(.55, '#f1f0ea'); g.addColorStop(1, '#ebe9e2');
+            x.fillStyle = g; x.fillRect(cx, cy, cw, ch);
+            const paper = texImage('paper');
+            if (paper) {
+                x.globalCompositeOperation = 'overlay'; x.globalAlpha = 0.55;
+                const s2 = Math.max(cw / paper.width, ch / paper.height);
+                x.drawImage(paper, cx, cy, paper.width * s2, paper.height * s2);
+                x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1;
+            }
+            // edges a touch darker where the card was handled
+            const e = x.createRadialGradient(cx + cw / 2, cy + ch / 2, Math.min(cw, ch) * 0.45, cx + cw / 2, cy + ch / 2, Math.hypot(cw, ch) * 0.55);
+            e.addColorStop(0, 'rgba(120,110,95,0)'); e.addColorStop(1, 'rgba(120,110,95,.10)');
+            x.fillStyle = e; x.fillRect(cx, cy, cw, ch);
+            x.restore();
+            // the image window's raised lip
+            x.strokeStyle = 'rgba(0,0,0,.12)'; x.lineWidth = Math.max(1, k * 0.15);
+            x.strokeRect(win.x, win.y, win.w, win.h);
+            x.strokeStyle = 'rgba(255,255,255,.6)'; x.lineWidth = Math.max(1, k * 0.1);
+            x.strokeRect(win.x - k * 0.2, win.y - k * 0.2, win.w + k * 0.4, win.h + k * 0.4);
+            // caption
+            const cap = instaxCaption();
+            if (!cap.text && !cap.date) return;
+            const d = when || new Date(), p2 = (n) => String(n).padStart(2, '0');
+            const stamp = p2(d.getDate()) + '.' + p2(d.getMonth() + 1) + '.' + d.getFullYear() + '  ' + p2(d.getHours()) + ':' + p2(d.getMinutes());
+            x.save();
+            // strip: below the window (upright) / right of it (sideways, text turned)
+            const stripLen = land ? ch : cw, stripTop = land ? (win.x + win.w) : (win.y + win.h), stripEnd = land ? cx + cw : cy + ch;
+            const mid = (stripTop + stripEnd) / 2;
+            if (land) { x.translate(mid, cy + ch / 2); x.rotate(-Math.PI / 2); } else x.translate(cx + cw / 2, mid);
+            x.textAlign = 'center'; x.textBaseline = 'middle';
+            x.fillStyle = 'rgba(46,42,38,.78)';
+            const big = k * 2.7, small = k * 1.9;
+            const lines = [];
+            if (cap.text) lines.push([cap.text, big]);
+            if (cap.date) lines.push([stamp, small]);
+            const total = lines.reduce((a, l) => a + l[1] * 1.45, 0);
+            let y = -total / 2;
+            lines.forEach(([t, fs]) => {
+                x.font = fs + "px 'Special Elite', 'Courier New', monospace";
+                // fit the strip's width
+                while (x.measureText(t).width > stripLen * 0.84 && fs > k) { fs *= 0.92; x.font = fs + "px 'Special Elite', 'Courier New', monospace"; }
+                y += fs * 1.45 / 2;
+                x.globalAlpha = 0.9; x.fillText(t, 0, y);
+                x.globalAlpha = 0.25; x.fillText(t, k * 0.06, y + k * 0.05);   // ink spread
+                x.globalAlpha = 1;
+                y += fs * 1.45 / 2;
+            });
+            x.restore();
+        }
+        function printFrame(cnv, when) {
             const cam = activeFilmSettings().camera;
             if (cam.frame !== 'instaxMini' || !cnv) return cnv;
             const land = cnv.width > cnv.height;
@@ -7272,16 +7419,10 @@ void main() {
             const out = document.createElement('canvas');
             out.width = land ? ch : cw; out.height = land ? cw : ch;
             const x = out.getContext('2d');
-            // Card: glossy off-white with a faint top-to-bottom sheen.
-            const g = x.createLinearGradient(0, 0, 0, out.height);
-            g.addColorStop(0, '#f7f6f1'); g.addColorStop(1, '#efeee8');
-            x.fillStyle = g; x.fillRect(0, 0, out.width, out.height);
             // Held sideways, the thin top is on the left and the thick strip on the right.
             const ix = land ? top : side, iy = land ? side : top;
             x.drawImage(cnv, ix, iy);
-            // The image window's slightly raised edge.
-            x.strokeStyle = 'rgba(0,0,0,.10)'; x.lineWidth = Math.max(1, k * 0.15);
-            x.strokeRect(ix, iy, cnv.width, cnv.height);
+            drawInstaxCard(x, 0, 0, out.width, out.height, k, { x: ix, y: iy, w: cnv.width, h: cnv.height }, land, when || (state.mode === 'live' ? new Date() : state.uploadDate));
             return out;
         }
 
@@ -8867,7 +9008,7 @@ void main() {
         // PWA: register service worker for installability + reliable updates
         (function () {
             if (!('serviceWorker' in navigator)) return;
-            const __BUILD = 'v31';
+            const __BUILD = 'v32';
             try {
                 const bt = document.getElementById('build-tag');
                 if (bt) bt.textContent = __BUILD;
@@ -8901,7 +9042,7 @@ void main() {
             window.forceAppUpdate = resetServiceWorkerAndReload;
 
             // Versioned SW URL forces Safari to re-fetch updated sw.js
-            const __SW_URL = 'sw.js?v=31';
+            const __SW_URL = 'sw.js?v=32';
             navigator.serviceWorker.register(__SW_URL).then((reg) => {
                 function trySkipWaiting() {
                     if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });

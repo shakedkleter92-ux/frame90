@@ -318,7 +318,7 @@ positive look) and `boothc` (faded colour) in group BOOTH; the shutter runs `run
 (3-2-1, four flashes, `boothStrip()` = 4 frames on paper → one gallery image). Frames per strip 2/3/4 (`state.boothFrames`, top-left `#booth-frames`, used by Live too).
 In Upload the file input is `multiple`: picking 2–4 photos (`loadBoothFiles()`) fills the frames in
 order (repeating if fewer), a single photo repeats; the preview *is* the strip (`renderUploadBooth()`)
-and the save is the full-size strip. **Lens slider removed** (looked like a crop); the lens is fixed at `26` (= phone,
+and the save is the full-size strip. Each pick in Upload with a booth camera ADDS a photo (`+ PHOTO n/4`, `×` = back to one). **Instax caption** (`Aa TEXT`, top-left with the Instax): typed text + date/time (photo's lastModified in Upload, now in Live) in Special Elite (bundled, Apache 2.0) on the card's thick strip, `drawInstaxCard()` also gives the card a paper relief + handled edges (Live preview and saved file). **Lens slider removed** (looked like a crop); the lens is fixed at `26` (= phone,
 no crop); zoom presets / pinch dial stay. Frame band: `LIVE_FRAME_TOP` 56, `LIVE_FRAME_BOTTOM`
 256 (Live and Upload). Photobooth mode is next.
 
