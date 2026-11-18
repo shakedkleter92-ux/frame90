@@ -7418,7 +7418,10 @@ void main() {
             const cap = instaxCaption();
             if (!cap.text && !cap.date) return;
             const d = when || new Date(), p2 = (n) => String(n).padStart(2, '0');
-            const stamp = p2(d.getDate()) + '.' + p2(d.getMonth() + 1) + '.' + d.getFullYear() + '  ' + p2(d.getHours()) + ':' + p2(d.getMinutes());
+            // US style, as the user asked: "June 16 2026 2 PM" (minutes only when not :00).
+            const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+            const h12 = d.getHours() % 12 || 12, mm = d.getMinutes();
+            const stamp = MONTHS[d.getMonth()] + ' ' + d.getDate() + ' ' + d.getFullYear() + '  ' + h12 + (mm ? ':' + p2(mm) : '') + ' ' + (d.getHours() < 12 ? 'AM' : 'PM');
             x.save();
             // strip: below the window (upright) / right of it (sideways, text turned)
             const stripLen = land ? ch : cw, stripTop = land ? (win.x + win.w) : (win.y + win.h), stripEnd = land ? cx + cw : cy + ch;
@@ -9043,7 +9046,7 @@ void main() {
         // PWA: register service worker for installability + reliable updates
         (function () {
             if (!('serviceWorker' in navigator)) return;
-            const __BUILD = 'v34';
+            const __BUILD = 'v35';
             try {
                 const bt = document.getElementById('build-tag');
                 if (bt) bt.textContent = __BUILD;
@@ -9077,7 +9080,7 @@ void main() {
             window.forceAppUpdate = resetServiceWorkerAndReload;
 
             // Versioned SW URL forces Safari to re-fetch updated sw.js
-            const __SW_URL = 'sw.js?v=34';
+            const __SW_URL = 'sw.js?v=35';
             navigator.serviceWorker.register(__SW_URL).then((reg) => {
                 function trySkipWaiting() {
                     if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
