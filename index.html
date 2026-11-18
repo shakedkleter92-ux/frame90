@@ -4286,31 +4286,51 @@
         // preset's own default until the user flips it); the rest apply to every preset.
         const CONTROLS = { intensity: 100, grain: 100, color: 100, wb: 'auto', tapeFx: false, sound: 'camera' };
         const PRESET_TOGGLES = {};
-        // Print / screen texture per camera (user, 2026-11-18: no controls — each filter
-        // carries the surface its pictures were really seen on; researched per format):
-        //  print    lab 6×4 from an SLR: smooth paper, a little dust from the scan
-        //  shoebox  compact / disposable prints kept loose: dust, a soft crease, worn corners
-        //  instant  Instax: glossy — dust, a light sheen, a faint fingerprint
-        //  booth    photo-booth paper: matte grain, a little uneven development, dust
-        //  crt-ag   watched on a Sony Trinitron (aperture grille: vertical RGB stripes)
-        //  crt-sm   watched on any other CRT (shadow mask: RGB dot triads) — scanlines + glass
-        //  cine     Super 8 projected: dust and hairs in the gate (more at the edges),
-        //           different every few frames
-        // [kind, amount 0..1]. Sony cameras get the Trinitron.
+        // Surface texture per camera (user, 2026-11-18: no controls — each filter carries
+        // the surface its pictures were really seen on). Prints use REAL paper scans
+        // (textures/*.jpg — from the user's Resource Boy kraft-paper pack, royalty-free for
+        // apps; high-passed to neutral gray so only the relief is left) laid over the whole
+        // picture with 'overlay': fold = a print folded into a wallet, crinkle = handled /
+        // crumpled, paper = the paper fibre, dust = specks from the scanner glass.
+        // Screens / projection stay procedural (buildTexture): crt-ag = Sony Trinitron
+        // aperture grille, crt-sm = shadow-mask CRT (digicams and all video), cine = Super 8
+        // gate dirt. Image layers: [file, strength].
+        // Film overlays (user, 2026-11-18: "overlay layers like these", references = scanned
+        // dust/scratch/haze sheets on black): free Unsplash-licensed scans, see
+        // textures/CREDITS.md — filmdust (dust + grain on black), scratches (fine scratches
+        // on black), smudge (inverted grime/streaks), leak-red / leak-gold (light leaks),
+        // all blended with 'screen' so only the light marks show.
+        // Layers: [file, strength, blend ('overlay' default | 'screen')].
         const CAM_TEXTURE = {
-            f90: ['print', 0.5], eos5: ['print', 0.5], eos500: ['print', 0.55], contaxg1: ['print', 0.45], minilux: ['print', 0.5],
-            mju2: ['shoebox', 0.45], gold200: ['shoebox', 0.55], funsaver: ['shoebox', 0.7], instax: ['instant', 0.7],
-            booth: ['booth', 0.75], boothc: ['booth', 0.7],
-            dc25: ['crt-sm', 0.6], mavica: ['crt-ag', 0.55], dc290: ['crt-sm', 0.45],
-            super8: ['cine', 0.7],
+            f90: [['paper', 0.35], ['filmdust', 0.35, 'screen'], ['scratches', 0.18, 'screen']],
+            eos5: [['paper', 0.35], ['filmdust', 0.35, 'screen'], ['scratches', 0.18, 'screen']],
+            eos500: [['paper', 0.4], ['filmdust', 0.4, 'screen'], ['scratches', 0.2, 'screen']],
+            contaxg1: [['paper', 0.3], ['filmdust', 0.3, 'screen'], ['scratches', 0.15, 'screen']],
+            minilux: [['paper', 0.35], ['filmdust', 0.35, 'screen'], ['scratches', 0.18, 'screen']],
+            mju2: [['fold', 0.35], ['filmdust', 0.45, 'screen'], ['scratches', 0.25, 'screen'], ['smudge', 0.15, 'screen'], ['leak-gold', 0.12, 'screen']],
+            gold200: [['fold', 0.45], ['paper', 0.3], ['filmdust', 0.5, 'screen'], ['scratches', 0.3, 'screen'], ['smudge', 0.2, 'screen'], ['leak-gold', 0.2, 'screen']],
+            funsaver: [['crinkle', 0.45], ['filmdust', 0.6, 'screen'], ['scratches', 0.35, 'screen'], ['smudge', 0.3, 'screen'], ['leak-red', 0.35, 'screen']],
+            instax: [['filmdust', 0.35, 'screen'], ['smudge', 0.1, 'screen']],
+            booth: [['paper', 0.9], ['filmdust', 0.3, 'screen']], boothc: [['paper', 0.8], ['filmdust', 0.3, 'screen']],
+            dc25: 'crt-sm', mavica: 'crt-ag', dc290: 'crt-sm',
+            super8: 'cine',
         };
+        const CRT_AMOUNT = { dc25: 0.6, mavica: 0.55, dc290: 0.45 };
+        const TEX_IMG = {};
+        ['fold', 'crinkle', 'paper', 'filmdust', 'scratches', 'smudge', 'leak-red', 'leak-gold'].forEach((n) => {
+            const im = new Image();
+            im.onload = () => { TEX_IMG[n] = im; try { refreshView(); } catch (_) { } };
+            im.src = 'textures/' + n + '.jpg?v=1';
+        });
         function cameraTexture(cam) {
             let t = CAM_TEXTURE[cam.key];
-            if (!t && cam.kind === 'video') {
+            if (Array.isArray(t)) return { layers: t };
+            if (t) return { kind: t, amount: t === 'cine' ? 0.7 : (CRT_AMOUNT[cam.key] || 0.5) };
+            if (cam.kind === 'video') {
                 const sony = /^Sony/.test(cam.name) || ['video8', 'hi8', 'minidv', 'nightshot'].indexOf(cam.key) >= 0;
-                t = [sony ? 'crt-ag' : 'crt-sm', cam.parts && /dv|minidv/i.test(cam.parts.video || '') ? 0.4 : 0.5];
+                return { kind: sony ? 'crt-ag' : 'crt-sm', amount: /dv/i.test((cam.parts && cam.parts.video) || '') ? 0.4 : 0.5 };
             }
-            return t ? { kind: t[0], amount: t[1] } : null;
+            return null;
         }
         function presetToggle(cam, k) {
             const o = PRESET_TOGGLES[cam.key];
@@ -5430,6 +5450,27 @@ void main() {
         const __texMap = new Map();
         function applyTexture(ctx, w, h, t) {
             if (!t || w < 8 || h < 8) return;
+            if (t.layers) {
+                // Real paper scans, cover-fit; flipped/rotated by TEX_SEED so prints differ.
+                const v = TEX_SEED >>> 0;
+                t.layers.forEach(([name, a, blend], li) => {
+                    const im = TEX_IMG[name];
+                    if (!im) return;
+                    const bits = (v >>> (li * 3)) & 7;
+                    const rot = (w > h) !== (im.width > im.height);    // match orientation
+                    const iw = rot ? im.height : im.width, ih = rot ? im.width : im.height;
+                    const k = Math.max(w / iw, h / ih) * (1 + (bits & 1) * 0.15);
+                    ctx.save();
+                    ctx.globalCompositeOperation = blend || 'overlay';
+                    ctx.globalAlpha = Math.min(1, a);
+                    ctx.translate(w / 2, h / 2);
+                    if (rot) ctx.rotate(Math.PI / 2);
+                    ctx.scale(bits & 2 ? -1 : 1, bits & 4 ? -1 : 1);
+                    ctx.drawImage(im, -im.width * k / 2, -im.height * k / 2, im.width * k, im.height * k);
+                    ctx.restore();
+                });
+                return;
+            }
             // Super 8: the gate dirt changes every few frames (5 looks cycled ≈6×/s).
             const variant = t.kind === 'cine' ? Math.floor(performance.now() / 1000 * 6) % 5 : 0;
             const key = t.kind + '|' + w + 'x' + h + '|' + TEX_SEED + '|' + variant;
@@ -5488,6 +5529,15 @@ void main() {
                     if (liveState.mirror) { gctx.translate(2 * r.dx + r.cw, 0); gctx.scale(-1, 1); }
                     gctx.drawImage(raw.el, c.x * raw.sw, c.y * raw.sh, c.w * raw.sw, c.h * raw.sh, r.dx, r.dy, r.cw, r.ch);
                     gctx.restore();
+                } else if (liveComposite.width > 2 && activeFilmSettings().camera.frame === 'instaxMini') {
+                    // Instax: the picture shown in its card, as it will come out (user,
+                    // 2026-11-18). Card 54×86 mm, image 46×62 mm, 4 mm sides, 6 mm top.
+                    const k = Math.min(r.cw / 54, r.ch / 86);
+                    const cw = 54 * k, ch = 86 * k, cx = r.dx + (r.cw - cw) / 2, cy = r.dy + (r.ch - ch) / 2;
+                    const g = gctx.createLinearGradient(0, cy, 0, cy + ch);
+                    g.addColorStop(0, '#f7f6f1'); g.addColorStop(1, '#efeee8');
+                    gctx.fillStyle = g; gctx.fillRect(cx, cy, cw, ch);
+                    gctx.drawImage(livePreviewFrame(), cx + 4 * k, cy + 6 * k, 46 * k, 62 * k);
                 } else if (liveComposite.width > 2) {
                     gctx.drawImage(livePreviewFrame(), r.dx, r.dy, r.cw, r.ch);
                 } else {
@@ -5558,6 +5608,19 @@ void main() {
             const v = state.srcVideo;
             film.render(src, { outW, outH, native: d, aspect: d.aspect, crop: uploadLensCrop(src, d.aspect), mirror: false, settings: s, time: state.uploadSeed + (v ? v.currentTime : 0), still: !v || v.paused }); // paused = one picture, no fields
             composeWithOverlays(uploadPreview, film.canvas, s);
+            if (s.camera.frame && !v) {
+                // A camera whose pictures came out as prints: show the print (Instax card).
+                const copy = document.createElement('canvas');
+                copy.width = uploadPreview.width; copy.height = uploadPreview.height;
+                copy.getContext('2d').drawImage(uploadPreview, 0, 0);
+                const f = printFrame(copy);
+                uploadPreview.width = f.width; uploadPreview.height = f.height;
+                uploadPreview.getContext('2d').drawImage(f, 0, 0);
+                const ar = f.width / f.height;
+                const sc2 = Math.min((W - pad * 2) / ar, availH);
+                const w2 = Math.max(2, Math.round(ar * sc2)), h2 = Math.max(2, Math.round(sc2));
+                state.uploadRect = { x: Math.round((W - w2) / 2), y: Math.round(top + (availH - h2) / 2), w: w2, h: h2 };
+            }
             renderView();
             if (v) {
                 // Video: like Live's preview — one JPEG in flight, the newest one shown.
@@ -8794,7 +8857,7 @@ void main() {
         // PWA: register service worker for installability + reliable updates
         (function () {
             if (!('serviceWorker' in navigator)) return;
-            const __BUILD = 'v28';
+            const __BUILD = 'v30';
             try {
                 const bt = document.getElementById('build-tag');
                 if (bt) bt.textContent = __BUILD;
@@ -8828,7 +8891,7 @@ void main() {
             window.forceAppUpdate = resetServiceWorkerAndReload;
 
             // Versioned SW URL forces Safari to re-fetch updated sw.js
-            const __SW_URL = 'sw.js?v=28';
+            const __SW_URL = 'sw.js?v=30';
             navigator.serviceWorker.register(__SW_URL).then((reg) => {
                 function trySkipWaiting() {
                     if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });

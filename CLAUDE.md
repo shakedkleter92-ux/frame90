@@ -304,14 +304,15 @@ User decisions that override older notes above: **camera strip** along the botto
 group tabs FILM/INSTANT/DIGITAL · 8MM/VHS/DV/CINE + a row of chips with thin line icons per body
 type, `CAM_ICONS`/`CAM_ICON_OF`/`CAM_GROUPS`) replaces the ☰ menu and the top camera-name badge
 (both hidden; full name shows as a toast on switching and atop the ADJ sheet). **No user controls** (an ADJ sheet with sliders was built and then removed on request: "too
-complicated"). Instead each camera carries a **built-in surface texture** (`CAM_TEXTURE` /
-`cameraTexture()`, procedural `buildTexture()`, applied in `composeWithOverlays()`, seeded by
-`TEX_SEED`, rolled after each Live shot): `print` (SLR lab prints: light dust), `shoebox`
-(compacts/disposables: dust, soft crease, worn corners), `instant` (Instax: dust, gloss sheen,
-faint fingerprint), `booth` (matte paper, uneven development), `crt-ag` (Sony = Trinitron
-aperture grille + damping wires) / `crt-sm` (shadow mask) for digicams and all video (scanlines
-at h/240, glass vignette + reflection), `cine` (Super 8 gate dirt, 5 variants cycling ≈6/s).
-This reverses "no scanlines / no scratches". **Photo booth**: cameras `booth` (B&W direct
+complicated"). Instead each camera carries a **built-in surface texture** (`CAM_TEXTURE` / `cameraTexture()` /
+`applyTexture()` in `composeWithOverlays()`). Film/print cameras use **real scans** in `textures/`
+(see `textures/CREDITS.md`: Resource Boy kraft paper → fold/crinkle/paper high-passed to gray,
+'overlay'; Unsplash → filmdust/scratches/smudge/leak-red/leak-gold, 'screen'), whole-frame,
+flipped per `TEX_SEED`; strengths per camera (SLRs light, disposable heaviest). The first
+procedural dirt was rejected ("unnatural, only on the border"). Screens stay procedural:
+`crt-ag` (Sony = Trinitron grille + damping wires) / `crt-sm` for digicams and all video;
+`cine` = Super 8 gate dirt (5 variants cycling). **Instax card shows in the preview** too
+(Live: drawn in renderView; Upload: printFrame on the preview). This reverses "no scanlines / no scratches". **Photo booth**: cameras `booth` (B&W direct
 positive look) and `boothc` (faded colour) in group BOOTH; the shutter runs `runPhotoBooth()`
 (3-2-1, four flashes, `boothStrip()` = 4 frames on paper → one gallery image). Frames per strip 2/3/4 (`state.boothFrames`, top-left `#booth-frames`, used by Live too).
 In Upload the file input is `multiple`: picking 2–4 photos (`loadBoothFiles()`) fills the frames in
