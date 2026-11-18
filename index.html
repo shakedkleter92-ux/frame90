@@ -3159,8 +3159,8 @@
         .cam-item svg {
             width: 32px;
             height: 24px;
-            shape-rendering: crispEdges;
-            filter: drop-shadow(0 0 3px rgba(70, 242, 122, .55));
+            overflow: visible;
+            filter: drop-shadow(0 0 2px rgba(70, 242, 122, .45));
         }
 
         .cam-item:active { border-color: var(--hud); }
@@ -3181,6 +3181,155 @@
             outline: var(--line) solid var(--hud);
             outline-offset: 2px;
         }
+
+        /* ═══ ADJUST SHEET — opens above the camera strip. Same HUD language: thin rules,
+           VT323 labels, square thumb, selected chip inverted. */
+        #adj-sheet {
+            position: fixed;
+            left: 10px;
+            right: 10px;
+            bottom: 252px;
+            z-index: 88;
+            padding: 10px 12px 8px;
+            background: rgba(3, 5, 3, .92);
+            border: var(--line) solid var(--hud-mid);
+            box-shadow: 0 0 10px rgba(70, 242, 122, .15);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        #adj-sheet[hidden] { display: none; }
+
+        body.zoom-dial-active #adj-sheet,
+        body.recording #adj-sheet,
+        body:not(.cam-strip-on) #adj-sheet { display: none; }
+
+        .adj-row {
+            display: grid;
+            grid-template-columns: 74px 1fr 40px;
+            align-items: center;
+            gap: 8px;
+            min-height: 32px;
+            font-family: var(--font-ui);
+            color: var(--hud);
+        }
+
+        .adj-tex { grid-template-columns: 74px 1fr; }
+
+        .adj-name {
+            font-size: 16px;
+            letter-spacing: .08em;
+            color: var(--hud-mid);
+        }
+
+        .adj-val {
+            font-size: 18px;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            text-shadow: var(--glow);
+        }
+
+        #tex-chips {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+
+        .tex-chip {
+            flex: 1 1 0;
+            min-width: 0;
+            height: 32px;
+            border: 1px solid var(--hud-dim);
+            background: transparent;
+            color: var(--hud);
+            -webkit-text-fill-color: var(--hud);
+            font-family: var(--font-ui);
+            font-size: 16px;
+            letter-spacing: .04em;
+            cursor: pointer;
+        }
+
+        .tex-chip.active {
+            background: var(--hud);
+            border-color: var(--hud);
+            color: var(--void);
+            -webkit-text-fill-color: var(--void);
+        }
+
+        #adj-sheet input[type=range] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 32px;
+            margin: 0;
+            background:
+                linear-gradient(var(--hud-mid), var(--hud-mid)) center / 100% 1.5px no-repeat,
+                repeating-linear-gradient(90deg, var(--hud-dim) 0 1px, transparent 1px 10%) center / 100% 9px no-repeat;
+            cursor: pointer;
+        }
+
+        #adj-sheet input[type=range]::-webkit-slider-thumb {
+            width: 12px;
+            height: 22px;
+        }
+
+        #adj-sheet input[type=range]:disabled { opacity: .3; }
+
+        .cam-group.adj-tab {
+            margin-left: 6px;
+            padding: 2px 6px 1px;
+            border: 1px solid var(--hud-dim);
+        }
+
+        .cam-group.adj-tab.open {
+            background: var(--hud);
+            border-color: var(--hud);
+            color: var(--void);
+            -webkit-text-fill-color: var(--void);
+            text-shadow: none;
+        }
+
+        /* ═══ No menu, no camera-name bar (user, 2026-11-18: "the row at the bottom is
+           enough — make the canvas bigger"). The ☰ panel only held the camera grid, which
+           the strip replaces; the full camera name now shows briefly on switching and at
+           the top of the ADJ sheet. Top row = format pill (centre) + flash (right). */
+        #panel-toggle-bar,
+        #mob-film-badge {
+            display: none !important;
+        }
+
+        #mob-flash {
+            top: 12px;
+            right: 16px;
+            height: 36px;
+        }
+
+        #mob-ratio { top: 12px; }
+
+        .adj-cam {
+            font-family: var(--font-ui);
+            font-size: 16px;
+            line-height: 1.15;
+            color: var(--hud);
+            text-shadow: 0 0 4px rgba(70, 242, 122, .35);
+            padding-bottom: 4px;
+            border-bottom: 1px solid var(--hud-dim);
+            text-wrap: balance;
+        }
+
+        .adj-cam span { color: var(--hud-mid); }
+
+        #lens-toast.cam-toast span {
+            font-size: 20px;
+            max-width: 300px;
+            text-align: center;
+            text-wrap: balance;
+            text-transform: none;
+        }
+
+        /* Lens slider removed (user, 2026-11-18). Zoom (presets + pinch dial) stays. */
+        #mob-side-slider-wrap { display: none !important; }
 </style>
 </head>
 
@@ -3266,6 +3415,14 @@
         <button type="button" class="mob-mode-label" data-app-mode="image">Upload</button>
     </div>
     <!-- Camera strip: group tabs + a scrolling row of cameras with pixel icons (one tap). -->
+    <!-- Adjust sheet: tap the selected camera again (or ADJ) — strength, grain, print texture. -->
+    <div id="adj-sheet" aria-label="Adjust" hidden>
+        <div class="adj-cam" id="adj-cam"></div>
+        <div class="adj-row adj-tex"><span class="adj-name">TEXTURE</span><div id="tex-chips"></div></div>
+        <label class="adj-row"><span class="adj-name">STRENGTH</span><input type="range" id="adj-strength" min="0" max="100" step="1"><span class="adj-val" id="adj-strength-v"></span></label>
+        <label class="adj-row"><span class="adj-name">GRAIN</span><input type="range" id="adj-grain" min="0" max="200" step="1"><span class="adj-val" id="adj-grain-v"></span></label>
+        <label class="adj-row"><span class="adj-name">TEX AMT</span><input type="range" id="adj-tex" min="0" max="100" step="1"><span class="adj-val" id="adj-tex-v"></span></label>
+    </div>
     <div id="cam-strip" aria-label="Camera type">
         <div id="cam-groups"></div>
         <div id="cam-row"></div>
@@ -4160,6 +4317,16 @@
         // preset's own default until the user flips it); the rest apply to every preset.
         const CONTROLS = { intensity: 100, grain: 100, color: 100, wb: 'auto', tapeFx: false, sound: 'camera' };
         const PRESET_TOGGLES = {};
+        // User adjustments (user, 2026-11-18 — reverses the earlier "no sliders" rule):
+        // per camera STRENGTH (mix with the original) and GRAIN (×), plus one global print
+        // TEXTURE (none/dust/fold/worn/paper) and its amount. Stills only for textures.
+        // Saved in localStorage so they survive a reload.
+        const USER_ADJ = (() => {
+            const d = { cams: {}, texture: 'none', texAmount: 60 };
+            try { return Object.assign(d, JSON.parse(localStorage.getItem('90frame_adj') || '{}')); } catch (_) { return d; }
+        })();
+        function camAdj(key) { return Object.assign({ strength: 100, grain: 100 }, USER_ADJ.cams[key] || {}); }
+        function saveUserAdj() { try { localStorage.setItem('90frame_adj', JSON.stringify(USER_ADJ)); } catch (_) { } }
         function presetToggle(cam, k) {
             const o = PRESET_TOGGLES[cam.key];
             return (o && o[k] != null) ? o[k] : cam[k + 'On'];
@@ -4180,6 +4347,9 @@
         const LENSES = [
             { key: 'globe', label: '8mm', name: 'Globe fisheye', feel: 'The whole world bent into a bubble', focal: 8, distort: 0, circle: 2, vignette: 16 },
             { key: 'fish', label: '10mm', name: 'Fisheye zoom', feel: 'Round, bulging center', focal: 10, distort: 1.4, circle: 1, vignette: 8 },
+            // The phone's own main lens (≈26mm equiv.): no crop. The only lens since the lens
+            // slider was removed (user, 2026-11-18: "it looks like cropping, not a lens").
+            { key: '26', label: '26mm', name: 'Phone lens', feel: 'The phone camera as it is', focal: 26, distort: 0, circle: 0, vignette: 0 },
             { key: '24', label: '24mm', name: 'Wide', feel: 'Wide field of view', focal: 24, distort: 0, circle: 0, vignette: 4 },
             { key: '28', label: '28mm', name: 'Wide-normal', feel: 'A little wider than the eye', focal: 28, distort: 0, circle: 0, vignette: 2 },
             { key: '35', label: '35mm', name: 'Classic compact', feel: 'The wide end of most old cameras', focal: 35, distort: 0, circle: 0, vignette: 0 },
@@ -4209,7 +4379,7 @@
         function cameraListOf(key) { return CAMERA_LISTS.video.indexOf(key) >= 0 ? 'video' : 'photo'; }
         // 28mm: about the phone's own view, slightly tighter. Only the lens slider changes
         // this — never the camera picker.
-        const DEFAULT_LENS_KEY = '28';
+        const DEFAULT_LENS_KEY = '26';
         let ACTIVE_LENS_KEY = DEFAULT_LENS_KEY;
         let __filmSettingsCache = null;
 
@@ -4253,12 +4423,16 @@
                 let v = (cam.adj[k] != null ? cam.adj[k] : LOOK_PARAMS[k]);
                 if (k === 'vignette') v += lens.vignette;
                 if (k === 'warmth') v += WB_WARMTH[CONTROLS.wb] || 0;
-                if (k === 'grain') v *= CONTROLS.grain / 100;
+                if (k === 'grain') v *= CONTROLS.grain / 100 * camAdj(cam.key).grain / 100;
                 const r = PARAM_RANGE[k] || [0, 100];
                 adj[k] = Math.max(r[0], Math.min(r[1], v));
             });
-            adj.intensity = CONTROLS.intensity;
+            adj.intensity = CONTROLS.intensity * camAdj(cam.key).strength / 100;
             const look = Object.assign({}, cam.look, { colorMul: CONTROLS.color / 100 });
+            // Print textures belong to photos (a fold on a video frame makes no sense).
+            const vidCtx = (typeof state !== 'undefined') && (state.mode === 'live' ? state.captureMode === 'video' : !!state.srcVideo);
+            const texture = (!vidCtx && USER_ADJ.texture !== 'none' && USER_ADJ.texAmount > 0)
+                ? { kind: USER_ADJ.texture, amount: USER_ADJ.texAmount / 100 } : null;
             const flashOn = !!cam.flash && presetToggle(cam, 'flash');
             return {
                 key: cam.key + '_' + lens.key, camera: cam, lens,
@@ -4266,6 +4440,7 @@
                 date: presetToggle(cam, 'date') ? cam.date : false,
                 flash: flashOn ? cam.flash : null,
                 tapeFx: cam.tapeFx && CONTROLS.tapeFx,
+                texture,
             };
         }
         // Read every frame by the Live loop, so cached — anything that changes the camera
@@ -4978,7 +5153,7 @@ void main() {
         // "the picture being full screen is weird".)
         // Bottom reserve = shutter row + mode labels + zoom presets + the camera strip
         // (was 184 before the strip, 2026-11-18).
-        const LIVE_FRAME_TOP = 72, LIVE_FRAME_BOTTOM = 256;
+        const LIVE_FRAME_TOP = 56, LIVE_FRAME_BOTTOM = 256;
         function getLiveFrameRect(W, H) {
             const ar = getLiveTargetRatioValue();
             const top = isMobileLayout() ? LIVE_FRAME_TOP : 0;
@@ -5051,6 +5226,170 @@ void main() {
             gctx.restore();
         }
 
+        // ═══ PRINT TEXTURES (2026-11-18): dust, folds, wear, paper — drawn procedurally
+        // from a seeded random generator, so nothing is downloaded and each photo gets its
+        // own marks (TEX_SEED rolls after every saved photo). Everything is placed in
+        // fractions of the frame, so the small live preview shows what the capture gets.
+        // Two layers: `relief` (gray 128 = no change, composited with 'overlay' — paper
+        // bends, crease shading, fibre) and `marks` (alpha — specks, hairs, cracks, chips).
+        let TEX_SEED = (Math.random() * 1e9) | 0;
+        const __texCache = { key: '', relief: null, marks: null };
+        function texRng(seed) {
+            let a = seed >>> 0;
+            return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+        }
+        function texNoiseCanvas(w, h, rnd, cell, lo, hi, warm) {
+            // Low-res random gray, smoothly enlarged = soft mottling / paper fibre.
+            const nw = Math.max(2, Math.round(w / cell)), nh = Math.max(2, Math.round(h / cell));
+            const c = document.createElement('canvas'); c.width = nw; c.height = nh;
+            const x = c.getContext('2d'), id = x.createImageData(nw, nh);
+            for (let i = 0; i < id.data.length; i += 4) {
+                const v = lo + (hi - lo) * rnd();
+                id.data[i] = v + (warm || 0); id.data[i + 1] = v; id.data[i + 2] = v - (warm || 0); id.data[i + 3] = 255;
+            }
+            x.putImageData(id, 0, 0);
+            return c;
+        }
+        function buildTexture(kind, w, h, seed) {
+            const rnd = texRng(seed * 31 + kind.length * 977);
+            const m = Math.min(w, h);
+            const relief = document.createElement('canvas'), marks = document.createElement('canvas');
+            relief.width = marks.width = w; relief.height = marks.height = h;
+            const r = relief.getContext('2d'), k = marks.getContext('2d');
+            r.fillStyle = 'rgb(128,128,128)'; r.fillRect(0, 0, w, h);
+            r.imageSmoothingEnabled = true;
+            const R = (a, b) => a + (b - a) * rnd();
+            const speck = (n, minR, maxR, light) => {
+                for (let i = 0; i < n; i++) {
+                    const rr = m * R(minR, maxR);
+                    k.fillStyle = light ? 'rgba(255,252,244,' + R(.35, .9).toFixed(2) + ')' : 'rgba(18,14,10,' + R(.25, .7).toFixed(2) + ')';
+                    k.beginPath(); k.ellipse(R(0, w), R(0, h), rr, rr * R(.5, 1), R(0, 3.14), 0, 6.283); k.fill();
+                }
+            };
+            const hair = (n, light) => {
+                for (let i = 0; i < n; i++) {
+                    let x = R(0, w), y = R(0, h), a = R(0, 6.28);
+                    const len = m * R(.03, .12), steps = 18;
+                    k.strokeStyle = light ? 'rgba(255,250,240,' + R(.3, .6).toFixed(2) + ')' : 'rgba(20,16,12,' + R(.3, .6).toFixed(2) + ')';
+                    k.lineWidth = Math.max(.6, m * R(.0007, .0016));
+                    k.beginPath(); k.moveTo(x, y);
+                    for (let s2 = 0; s2 < steps; s2++) { a += R(-.35, .35); x += Math.cos(a) * len / steps; y += Math.sin(a) * len / steps; k.lineTo(x, y); }
+                    k.stroke();
+                }
+            };
+            const scratch = (n) => {
+                for (let i = 0; i < n; i++) {
+                    const x0 = R(0, w), y0 = R(0, h), a = R(0, 6.28), len = m * R(.15, .6);
+                    k.strokeStyle = 'rgba(255,253,246,' + R(.18, .45).toFixed(2) + ')';
+                    k.lineWidth = Math.max(.5, m * R(.0005, .0012));
+                    k.beginPath(); k.moveTo(x0, y0);
+                    k.quadraticCurveTo(x0 + Math.cos(a) * len / 2 + R(-1, 1) * m * .03, y0 + Math.sin(a) * len / 2 + R(-1, 1) * m * .03, x0 + Math.cos(a) * len, y0 + Math.sin(a) * len);
+                    k.stroke();
+                }
+            };
+            const paper = (amt) => {
+                r.save(); r.globalAlpha = amt;
+                r.drawImage(texNoiseCanvas(w, h, rnd, Math.max(2, m / 400), 96, 160, 0), 0, 0, w, h);   // fibre
+                r.globalAlpha = amt * .8;
+                r.drawImage(texNoiseCanvas(w, h, rnd, Math.max(4, m / 14), 105, 150, 0), 0, 0, w, h);  // mottling
+                r.restore();
+            };
+            const crease = (vertical, pos, tilt) => {
+                // A fold line: a narrow dark/light ridge, a broad soft bend around it, and the
+                // emulsion cracked white along the ridge.
+                const len = Math.hypot(w, h);
+                const cx = vertical ? w * pos : w / 2, cy = vertical ? h / 2 : h * pos;
+                const ang = (vertical ? Math.PI / 2 : 0) + tilt;
+                const nx = -Math.sin(ang), ny = Math.cos(ang);
+                const band = (half, stops) => {
+                    const g = r.createLinearGradient(cx - nx * half, cy - ny * half, cx + nx * half, cy + ny * half);
+                    stops.forEach(([o, c]) => g.addColorStop(o, c));
+                    r.save(); r.translate(cx, cy); r.rotate(ang);
+                    r.fillStyle = g;
+                    r.setTransform(1, 0, 0, 1, 0, 0);
+                    r.beginPath();
+                    const ex = Math.cos(ang) * len, ey = Math.sin(ang) * len;
+                    r.moveTo(cx - ex - nx * half, cy - ey - ny * half); r.lineTo(cx + ex - nx * half, cy + ey - ny * half);
+                    r.lineTo(cx + ex + nx * half, cy + ey + ny * half); r.lineTo(cx - ex + nx * half, cy - ey + ny * half);
+                    r.closePath(); r.fill(); r.restore();
+                };
+                band(m * .09, [[0, 'rgba(128,128,128,0)'], [.47, 'rgba(110,110,110,.55)'], [.53, 'rgba(150,150,150,.55)'], [1, 'rgba(128,128,128,0)']]);
+                band(m * .006, [[0, 'rgba(128,128,128,0)'], [.35, 'rgba(70,70,70,.9)'], [.55, 'rgba(205,205,205,.95)'], [1, 'rgba(128,128,128,0)']]);
+                // cracks
+                const n = Math.round(len / (m * .012));
+                for (let i = 0; i < n; i++) {
+                    if (rnd() < .45) continue;
+                    const t = (i / n - .5) * 2 * len * .5;
+                    const px = cx + Math.cos(ang) * t + nx * R(-1, 1) * m * .0025, py = cy + Math.sin(ang) * t + ny * R(-1, 1) * m * .0025;
+                    const dl = m * R(.002, .009);
+                    k.strokeStyle = 'rgba(255,253,248,' + R(.4, .85).toFixed(2) + ')';
+                    k.lineWidth = Math.max(.6, m * R(.0008, .002));
+                    k.beginPath(); k.moveTo(px, py); k.lineTo(px + Math.cos(ang + R(-.5, .5)) * dl, py + Math.sin(ang + R(-.5, .5)) * dl); k.stroke();
+                }
+            };
+            const edges = () => {
+                // Worn border: chips and scuffs where the print rubbed (light), heavier at corners.
+                for (let i = 0; i < 220; i++) {
+                    const side = (rnd() * 4) | 0, t = rnd();
+                    const dep = m * Math.pow(rnd(), 3) * .03;
+                    const x = side === 0 ? t * w : side === 1 ? w - dep : side === 2 ? t * w : dep;
+                    const y = side === 0 ? dep : side === 1 ? t * h : side === 2 ? h - dep : t * h;
+                    k.fillStyle = 'rgba(250,247,238,' + R(.3, .85).toFixed(2) + ')';
+                    k.beginPath(); k.ellipse(x, y, m * R(.002, .008), m * R(.001, .004), R(0, 3.14), 0, 6.283); k.fill();
+                }
+                [[0, 0], [w, 0], [0, h], [w, h]].forEach(([x, y]) => {
+                    const g = k.createRadialGradient(x, y, 0, x, y, m * R(.05, .1));
+                    g.addColorStop(0, 'rgba(248,244,234,.55)'); g.addColorStop(1, 'rgba(248,244,234,0)');
+                    k.fillStyle = g; k.fillRect(0, 0, w, h);
+                });
+            };
+            const smudge = (n) => {
+                for (let i = 0; i < n; i++) {
+                    const x = R(0, w), y = R(0, h), rr = m * R(.04, .09);
+                    const g = r.createRadialGradient(x, y, 0, x, y, rr);
+                    g.addColorStop(0, 'rgba(150,150,150,.45)'); g.addColorStop(1, 'rgba(128,128,128,0)');
+                    r.fillStyle = g; r.fillRect(x - rr, y - rr, rr * 2, rr * 2);
+                }
+            };
+            if (kind === 'dust') {
+                speck(Math.round(R(140, 220)), .0006, .0018, true);
+                speck(Math.round(R(60, 110)), .0005, .0014, false);
+                speck(6, .002, .004, true);
+                hair(Math.round(R(3, 6)), true); hair(2, false);
+                paper(.25);
+            } else if (kind === 'fold') {
+                paper(.35);
+                crease(rnd() < .5, R(.38, .62), R(-.05, .05));
+                if (rnd() < .6) crease(rnd() < .5, R(.25, .75), R(-.08, .08));
+                speck(70, .0005, .0013, true);
+            } else if (kind === 'worn') {
+                paper(.45);
+                smudge(Math.round(R(2, 4)));
+                scratch(Math.round(R(6, 12)));
+                edges();
+                speck(120, .0005, .0016, true); speck(40, .0005, .0012, false);
+                hair(2, true);
+            } else { // paper
+                paper(1);
+            }
+            return { relief, marks };
+        }
+        function applyTexture(ctx, w, h, t) {
+            if (!t || w < 8 || h < 8) return;
+            const key = t.kind + '|' + w + 'x' + h + '|' + TEX_SEED;
+            if (__texCache.key !== key) Object.assign(__texCache, { key }, buildTexture(t.kind, w, h, TEX_SEED));
+            ctx.save();
+            ctx.globalAlpha = Math.min(1, t.amount * 1.2);
+            ctx.globalCompositeOperation = 'overlay';
+            ctx.drawImage(__texCache.relief, 0, 0);
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.globalAlpha = t.amount;
+            ctx.drawImage(__texCache.marks, 0, 0);
+            ctx.restore();
+        }
+        // After a photo is saved the next one gets different dust / folds.
+        function rollTextureSeed() { TEX_SEED = (Math.random() * 1e9) | 0; }
+
         // A film render + its date/OSD at the render's own size (so the text is as coarse,
         // and as compressed, as the picture — it's burned in, like on the real camera).
         function composeWithOverlays(dst, srcCanvas, s) {
@@ -5059,6 +5398,7 @@ void main() {
             const ctx = dst.getContext('2d');
             ctx.drawImage(srcCanvas, 0, 0);
             drawFilmOverlays(ctx, 0, 0, dst.width, dst.height, s);
+            if (s.texture) applyTexture(ctx, dst.width, dst.height, s.texture);
             return dst;
         }
 
@@ -5371,9 +5711,21 @@ void main() {
         // Big centered "85mm · Portrait" label while the lens changes, so the change in
         // spatial feel is explained, then fades.
         let __lensToastTimer = null;
+        // Camera switched from the strip: its full name, briefly (the old top badge / menu
+        // used to carry it).
+        function showCamToast(cam) {
+            const el = document.getElementById('lens-toast');
+            if (!el || !cam) return;
+            el.classList.add('cam-toast');
+            el.innerHTML = '<span>' + cam.name + '</span>';
+            el.classList.add('show');
+            clearTimeout(__lensToastTimer);
+            __lensToastTimer = setTimeout(() => el.classList.remove('show'), 1400);
+        }
         function showLensToast(lens) {
             const el = document.getElementById('lens-toast');
             if (!el) return;
+            el.classList.remove('cam-toast');
             el.innerHTML = '<b>' + lens.label + '</b><span>' + lens.name + ' · ' + lens.feel + '</span>';
             el.classList.add('show');
             clearTimeout(__lensToastTimer);
@@ -5386,19 +5738,20 @@ void main() {
             try { syncCamStrip(); } catch (_) { }
         }
 
-        // ── Camera strip (see the CSS). Body-type icons are 16×12 pixel grids drawn as
-        // crisp SVG squares in currentColor, so they invert with the selected chip.
+        // ── Camera strip (see the CSS). Body-type icons: thin line drawings (user,
+        // 2026-11-18: the first pixel-block icons were too heavy / crowded) in a 32×24 box,
+        // stroked in currentColor at the HUD's hairline weight, so they invert with the chip.
         const CAM_ICONS = {
-            slr: ['......####......', '.....######.....', '################', '#..............#', '#....######....#', '#...##....##...#', '#...#......#...#', '#...##....##...#', '#....######....#', '#..............#', '#..............#', '################'],
-            compact: ['................', '................', '.##.............', '################', '#.##.......###.#', '#.##.......###.#', '#.....####.....#', '#....##..##....#', '#....#....#....#', '#....##..##....#', '#.....####.....#', '################'],
-            disposable: ['................', '...........###.', '################', '#.##...........#', '#.##..###..##..#', '#....#...#.##..#', '#....#...#.....#', '#.....###......#', '#..............#', '#.############.#', '#..............#', '################'],
-            instant: ['...##########...', '...#........#...', '################', '#..........##..#', '#.....####.....#', '#....#....#....#', '#...#......#...#', '#...#......#...#', '#....#....#....#', '#.....####.....#', '#..............#', '################'],
-            digicam: ['................', '..###...........', '################', '#..............#', '#.########..##.#', '#.#......#.....#', '#.#......#..##.#', '#.#......#.....#', '#.#......#..##.#', '#.########.....#', '#..............#', '################'],
-            floppy: ['..############..', '..#.#######.##..', '..#.#######..#..', '..#.#######..#..', '..#..........#..', '..#.########.#..', '..#.#......#.#..', '..#.#......#.#..', '..#.#......#.#..', '..#.#......#.#..', '..############..', '................'],
-            camcorder: ['................', '..####..........', '..####..........', '#############...', '#...........#...', '#...........####', '#...........#..#', '#...........#..#', '#...........####', '#...........#...', '#############...', '................'],
-            cassette: ['................', '################', '#..............#', '#.############.#', '#.#..######..#.#', '#.#.#......#.#.#', '#.#..######..#.#', '#.############.#', '#..............#', '#...########...#', '#..#........#..#', '################'],
-            dv: ['................', '.......###......', '.......###......', '..###########...', '..#.........#...', '###.........####', '###.........#..#', '###.........#..#', '###.........####', '..#.........#...', '..###########...', '................'],
-            cine: ['....###.........', '#############...', '#...........#...', '#...........####', '#...........#..#', '#...........#..#', '#...........####', '#############...', '...####.........', '...####.........', '...####.........', '................'],
+            slr: '<rect x="2.5" y="8.5" width="27" height="12.5"/><path d="M10.5 8.5 12.5 4.5h7l2 4"/><circle cx="16" cy="14.5" r="4.5"/><circle cx="16" cy="14.5" r="2"/><path d="M5 8.5V6.5h3v2"/>',
+            compact: '<rect x="2.5" y="6.5" width="27" height="14"/><circle cx="13" cy="13.5" r="4.5"/><circle cx="13" cy="13.5" r="2"/><rect x="21.5" y="9" width="5" height="3"/><rect x="5" y="9" width="3" height="2"/>',
+            disposable: '<rect x="2.5" y="7.5" width="27" height="13"/><path d="M21.5 7.5v-3h5v3M23 4.5v3M25 4.5v3"/><circle cx="11.5" cy="13" r="3.5"/><rect x="18.5" y="10" width="7" height="3"/><path d="M5 17.5h22"/>',
+            instant: '<rect x="4.5" y="3.5" width="23" height="18" rx="3"/><circle cx="16" cy="13" r="5.5"/><circle cx="16" cy="13" r="2.5"/><rect x="21" y="6" width="4" height="2.5"/><rect x="7" y="6" width="3" height="2"/>',
+            digicam: '<rect x="2.5" y="6.5" width="27" height="14"/><rect x="5.5" y="9.5" width="13" height="8"/><circle cx="23.5" cy="10.5" r="1.3"/><circle cx="23.5" cy="16" r="1.3"/><path d="M4.5 6.5v-2h4v2"/>',
+            floppy: '<path d="M7.5 2.5h15l2 2v17h-17z"/><rect x="11" y="2.5" width="9" height="6"/><path d="M17.5 3.5v4"/><rect x="10.5" y="13.5" width="11" height="8"/>',
+            camcorder: '<rect x="3.5" y="8.5" width="19" height="11"/><rect x="22.5" y="10.5" width="5" height="7"/><path d="M28.5 9v10"/><rect x="4.5" y="4.5" width="8" height="4"/><path d="M8 19.5v2h10v-2"/>',
+            cassette: '<rect x="2.5" y="4.5" width="27" height="16"/><rect x="6.5" y="7.5" width="19" height="6"/><circle cx="11" cy="10.5" r="1.8"/><circle cx="21" cy="10.5" r="1.8"/><path d="M8.5 20.5l2-3.5h11l2 3.5"/>',
+            dv: '<rect x="7.5" y="7.5" width="14" height="12"/><rect x="21.5" y="9.5" width="5" height="8"/><path d="M27.5 8.5v10"/><rect x="2.5" y="9.5" width="5" height="7"/><path d="M10 7.5v-2.5h9v2.5"/>',
+            cine: '<rect x="3.5" y="5.5" width="20" height="10"/><rect x="23.5" y="7.5" width="4" height="6"/><path d="M28.5 6.5v8M10.5 15.5v6h4l1-6"/><circle cx="8.5" cy="10.5" r="2"/>',
         };
         const CAM_ICON_OF = {
             f90: 'slr', eos5: 'slr', eos500: 'slr', contaxg1: 'compact', minilux: 'compact', mju2: 'compact',
@@ -5422,15 +5775,8 @@ void main() {
                 ['CINE', ['super8']],
             ],
         };
-        const __camIconCache = {};
         function camIconSvg(key) {
-            const name = CAM_ICON_OF[key] || 'compact';
-            if (__camIconCache[name]) return __camIconCache[name];
-            let d = '';
-            CAM_ICONS[name].forEach((row, y) => {
-                for (let x = 0; x < row.length; x++) if (row[x] === '#') d += 'M' + x + ' ' + y + 'h1v1h-1z';
-            });
-            return (__camIconCache[name] = '<svg viewBox="0 0 16 12" aria-hidden="true"><path fill="currentColor" d="' + d + '"/></svg>');
+            return '<svg viewBox="0 0 32 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linejoin="miter">' + CAM_ICONS[CAM_ICON_OF[key] || 'compact'] + '</svg>';
         }
         function camStripGroups() {
             const list = activeCameraList();
@@ -5461,7 +5807,13 @@ void main() {
                     row.appendChild(b);
                 });
             });
+            const adj = document.createElement('button');
+            adj.type = 'button'; adj.className = 'cam-group adj-tab'; adj.textContent = 'ADJ';
+            adj.setAttribute('aria-label', 'Adjust strength, grain and texture');
+            if (!document.getElementById('adj-sheet').hidden) adj.classList.add('open');
+            tabs.appendChild(adj);
             syncCamStrip(true);
+            if (!document.getElementById('adj-sheet').hidden) syncAdjSheet();
         }
         function camStripScrollTo(el, smooth) {
             const row = document.getElementById('cam-row');
@@ -5485,17 +5837,78 @@ void main() {
             });
             if (act) { setCamGroupActive(act.dataset.group); camStripScrollTo(act, !jump); }
         }
+
+        // ── Adjust sheet ──
+        const TEX_KINDS = [['none', 'NONE'], ['dust', 'DUST'], ['fold', 'FOLD'], ['worn', 'WORN'], ['paper', 'PAPER']];
+        function syncAdjSheet() {
+            const a = camAdj(ACTIVE_CAMERA_KEY);
+            const cam = CAMERAS[ACTIVE_CAMERA_KEY], head = document.getElementById('adj-cam');
+            if (head) head.innerHTML = cam.name + '<br><span>' + cam.desc + '</span>';
+            const set = (id, v, txt) => { const e = document.getElementById(id); if (e && document.activeElement !== e) e.value = v; const t = document.getElementById(id + '-v'); if (t) t.textContent = txt; };
+            set('adj-strength', a.strength, a.strength + '%');
+            set('adj-grain', a.grain, a.grain + '%');
+            set('adj-tex', USER_ADJ.texAmount, USER_ADJ.texAmount + '%');
+            const vidCtx = state.mode === 'live' ? state.captureMode === 'video' : !!state.srcVideo;
+            const texOff = vidCtx || USER_ADJ.texture === 'none';
+            const tex = document.getElementById('adj-tex'); if (tex) tex.disabled = texOff;
+            const row = document.querySelector('#adj-sheet .adj-tex'); if (row) row.style.display = vidCtx ? 'none' : '';
+            document.querySelectorAll('#tex-chips .tex-chip').forEach((b) => b.classList.toggle('active', b.dataset.tex === USER_ADJ.texture));
+        }
+        function toggleAdjSheet(force) {
+            const el = document.getElementById('adj-sheet');
+            if (!el) return;
+            const open = force != null ? force : el.hidden;
+            el.hidden = !open;
+            const tab = document.querySelector('#cam-groups .adj-tab'); if (tab) tab.classList.toggle('open', open);
+            if (open) syncAdjSheet();
+        }
+        function adjChanged() {
+            saveUserAdj();
+            __filmSettingsCache = null;
+            syncAdjSheet();
+            refreshView();
+        }
+        (function initAdjSheet() {
+            const chips = document.getElementById('tex-chips');
+            if (!chips) return;
+            TEX_KINDS.forEach(([k, label]) => {
+                const b = document.createElement('button');
+                b.type = 'button'; b.className = 'tex-chip'; b.dataset.tex = k; b.textContent = label;
+                chips.appendChild(b);
+            });
+            chips.addEventListener('click', (e) => {
+                const b = e.target.closest('.tex-chip'); if (!b) return;
+                USER_ADJ.texture = b.dataset.tex; adjChanged();
+            });
+            const camSet = (field) => (e) => {
+                const k = ACTIVE_CAMERA_KEY;
+                USER_ADJ.cams[k] = Object.assign(camAdj(k), { [field]: +e.target.value });
+                adjChanged();
+            };
+            document.getElementById('adj-strength').addEventListener('input', camSet('strength'));
+            document.getElementById('adj-grain').addEventListener('input', camSet('grain'));
+            document.getElementById('adj-tex').addEventListener('input', (e) => { USER_ADJ.texAmount = +e.target.value; adjChanged(); });
+            // Double-tap a value to reset it.
+            ['adj-strength', 'adj-grain'].forEach((id) => document.getElementById(id).addEventListener('dblclick', (e) => { e.target.value = 100; e.target.dispatchEvent(new Event('input')); }));
+        })();
         (function initCamStrip() {
             const row = document.getElementById('cam-row'), tabs = document.getElementById('cam-groups');
             if (!row || !tabs) return;
             row.addEventListener('click', (e) => {
                 const b = e.target.closest('.cam-item');
-                if (b && b.dataset.cam !== ACTIVE_CAMERA_KEY) setActiveCamera(b.dataset.cam);
+                if (!b) return;
+                if (b.dataset.cam === ACTIVE_CAMERA_KEY) toggleAdjSheet();
+                else {
+                    setActiveCamera(b.dataset.cam);
+                    if (!document.getElementById('adj-sheet').hidden) syncAdjSheet();
+                    else showCamToast(CAMERAS[b.dataset.cam]);
+                }
             });
             // A tab jumps the row to its group (it doesn't change the camera).
             tabs.addEventListener('click', (e) => {
                 const t = e.target.closest('.cam-group');
                 if (!t) return;
+                if (t.classList.contains('adj-tab')) { toggleAdjSheet(); return; }
                 const first = row.querySelector('.cam-item[data-group="' + t.dataset.group + '"]');
                 if (first) row.scrollTo({ left: Math.max(0, first.offsetLeft - row.offsetLeft - 16), behavior: 'smooth' });
                 setCamGroupActive(t.dataset.group);
@@ -8139,6 +8552,7 @@ void main() {
                 shutterSound.play(ACTIVE_CAMERA_KEY);
                 flashShutter();
                 addToGallery({ type: 'image', canvas: cnv, jpegQ: activeFilmSettings().camera.jpegQ, fileName: filmFileName('shot', 'jpg') });
+                if (activeFilmSettings().texture) rollTextureSeed();
             };
             // Flash on: fire the phone's light too (where possible) and give the sensor a
             // moment to expose for it before taking the frame.
@@ -8199,7 +8613,7 @@ void main() {
         // PWA: register service worker for installability + reliable updates
         (function () {
             if (!('serviceWorker' in navigator)) return;
-            const __BUILD = 'v24';
+            const __BUILD = 'v26';
             try {
                 const bt = document.getElementById('build-tag');
                 if (bt) bt.textContent = __BUILD;
@@ -8233,7 +8647,7 @@ void main() {
             window.forceAppUpdate = resetServiceWorkerAndReload;
 
             // Versioned SW URL forces Safari to re-fetch updated sw.js
-            const __SW_URL = 'sw.js?v=24';
+            const __SW_URL = 'sw.js?v=26';
             navigator.serviceWorker.register(__SW_URL).then((reg) => {
                 function trySkipWaiting() {
                     if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });

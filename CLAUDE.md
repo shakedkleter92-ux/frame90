@@ -298,6 +298,19 @@ Bump `CACHE` in `sw.js` (`90frame-vN`) **and** `__BUILD` / `__SW_URL`'s `?v=` ne
   from the last recorded frame in `toggleVideoRecording()`) used by the FAB and the grid —
   a `<video>` element as a thumbnail shows black on iOS until played.
 
+## 2026-11-18 redesign (after comparing with the Tezza app)
+
+User decisions that override older notes above: **camera strip** along the bottom (`#cam-strip`:
+group tabs FILM/INSTANT/DIGITAL · 8MM/VHS/DV/CINE + a row of chips with thin line icons per body
+type, `CAM_ICONS`/`CAM_ICON_OF`/`CAM_GROUPS`) replaces the ☰ menu and the top camera-name badge
+(both hidden; full name shows as a toast on switching and atop the ADJ sheet). **ADJ sheet**
+(tap the selected chip or ADJ): per-camera STRENGTH and GRAIN, global print TEXTURE
+none/dust/fold/worn/paper + amount (`USER_ADJ`, localStorage `90frame_adj`; procedural,
+seeded by `TEX_SEED`, stills only, default none) — this reverses "no intensity slider" and
+"no scratches". **Lens slider removed** (looked like a crop); the lens is fixed at `26` (= phone,
+no crop); zoom presets / pinch dial stay. Frame band: `LIVE_FRAME_TOP` 56, `LIVE_FRAME_BOTTOM`
+256 (Live and Upload). Photobooth mode is next.
+
 ## Campaign content (`campaign/`, 2026-11-12)
 
 The user runs an Instagram campaign from `90FRAME_BRAND_GUIDELINES.md`; a GPT agent makes
