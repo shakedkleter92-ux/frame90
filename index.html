@@ -3328,6 +3328,9 @@
             text-transform: none;
         }
 
+        body.mode-upload #cam-strip { bottom: 126px; }
+        body.mode-upload #adj-sheet { bottom: 218px; }
+
         /* Lens slider removed (user, 2026-11-18). Zoom (presets + pinch dial) stays. */
         #mob-side-slider-wrap { display: none !important; }
 </style>
@@ -5154,6 +5157,8 @@ void main() {
         // Bottom reserve = shutter row + mode labels + zoom presets + the camera strip
         // (was 184 before the strip, 2026-11-18).
         const LIVE_FRAME_TOP = 56, LIVE_FRAME_BOTTOM = 256;
+        // Upload has no zoom presets, so the strip sits lower and the picture gets the room.
+        const UPLOAD_FRAME_BOTTOM = 222;
         function getLiveFrameRect(W, H) {
             const ar = getLiveTargetRatioValue();
             const top = isMobileLayout() ? LIVE_FRAME_TOP : 0;
@@ -5465,7 +5470,7 @@ void main() {
             const W = Math.max(1, m.clientWidth), H = Math.max(1, m.clientHeight);
             const pad = isMobileLayout() ? 16 : 32;
             // Same band as Live's frame: between the top buttons and the camera strip.
-            const top = isMobileLayout() ? LIVE_FRAME_TOP : pad, bot = isMobileLayout() ? LIVE_FRAME_BOTTOM : pad;
+            const top = isMobileLayout() ? LIVE_FRAME_TOP : pad, bot = isMobileLayout() ? UPLOAD_FRAME_BOTTOM : pad;
             const d = uploadFrame(src);
             const availH = Math.max(2, H - top - bot);
             const sc = Math.min((W - pad * 2) / d.aspect, availH);
