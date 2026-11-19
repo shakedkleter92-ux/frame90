@@ -7468,41 +7468,54 @@ void main() {
         function drawInstaxCard(x, cx, cy, cw, ch, k, win, land, when) {
             x.save();
             x.beginPath(); x.rect(cx, cy, cw, ch); x.rect(win.x, win.y, win.w, win.h); x.clip('evenodd');
-            // Aged Instax border: a faded cream that yellows from the edges inward (instant
-            // borders yellow / brown from the outside in), subtle — not a new-white card.
-            const g = x.createRadialGradient(cx + cw * .45, cy + ch * .42, Math.min(cw, ch) * .2, cx + cw / 2, cy + ch / 2, Math.hypot(cw, ch) * .58);
-            g.addColorStop(0, '#f3efe2'); g.addColorStop(.7, '#eee7d5'); g.addColorStop(1, '#e3d8bd');
+            // Instax Mini card (2026-11-18, matched to the user's reference prints): a clean,
+            // slightly cool white plastic with a satin sheen — not aged cream. Soft light falls
+            // across it (brighter top-left), the surface has only a very fine satin texture,
+            // a little dust, and a lit/shaded edge.
+            const g = x.createLinearGradient(cx, cy, cx + cw * .55, cy + ch);
+            g.addColorStop(0, '#f3f8f6'); g.addColorStop(.55, '#eaf1ee'); g.addColorStop(1, '#dfe8e5');
             x.fillStyle = g; x.fillRect(cx, cy, cw, ch);
-            // real surface: paper fibre + a mottled, slightly uneven tone (scans, 'overlay')
-            [['paper', .7], ['grain-wall', .35], ['blotch', .08, 'multiply-inv']].forEach(([n, a, mode]) => {
+            // satin sheen: a broad soft highlight band
+            const sh = x.createRadialGradient(cx + cw * .3, cy + ch * .25, 0, cx + cw * .3, cy + ch * .25, Math.hypot(cw, ch) * .7);
+            sh.addColorStop(0, 'rgba(255,255,255,.35)'); sh.addColorStop(1, 'rgba(255,255,255,0)');
+            x.fillStyle = sh; x.fillRect(cx, cy, cw, ch);
+            // fine satin texture (scan, very faint)
+            [['paper', .14], ['grain-wall', .1]].forEach(([n, a]) => {
                 const im = texImage(n);
                 if (!im) return;
                 const s2 = Math.max(cw / im.width, ch / im.height);
-                if (mode === 'multiply-inv') {
-                    // the blotch scan is light-on-black: as 'soft-light' it gives faint stains
-                    x.globalCompositeOperation = 'soft-light';
-                } else x.globalCompositeOperation = 'overlay';
-                x.globalAlpha = a;
+                x.globalCompositeOperation = 'overlay'; x.globalAlpha = a;
                 x.drawImage(im, cx, cy, im.width * s2, im.height * s2);
             });
             x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1;
-            // a few specks caught in the surface
+            // a little dust on the surface
             const rnd = texRng(Math.round((cw + ch) * 7) + (TEX_SEED & 1023));
-            for (let i2 = 0; i2 < 26; i2++) {
-                x.fillStyle = 'rgba(70,60,45,' + (0.12 + rnd() * 0.25).toFixed(2) + ')';
-                x.beginPath(); x.arc(cx + rnd() * cw, cy + rnd() * ch, k * (0.04 + rnd() * 0.09), 0, 6.283); x.fill();
+            for (let i2 = 0; i2 < 10; i2++) {
+                x.fillStyle = 'rgba(70,72,72,' + (0.08 + rnd() * 0.16).toFixed(2) + ')';
+                x.beginPath(); x.arc(cx + rnd() * cw, cy + rnd() * ch, k * (0.03 + rnd() * 0.06), 0, 6.283); x.fill();
             }
             // the card's edge: lit on top/left, a hint of shade bottom/right
             x.lineWidth = Math.max(1, k * 0.25);
-            x.strokeStyle = 'rgba(255,255,250,.55)'; x.beginPath(); x.moveTo(cx, cy + ch); x.lineTo(cx, cy); x.lineTo(cx + cw, cy); x.stroke();
-            x.strokeStyle = 'rgba(90,75,50,.22)'; x.beginPath(); x.moveTo(cx + cw, cy); x.lineTo(cx + cw, cy + ch); x.lineTo(cx, cy + ch); x.stroke();
+            x.strokeStyle = 'rgba(255,255,255,.7)'; x.beginPath(); x.moveTo(cx, cy + ch); x.lineTo(cx, cy); x.lineTo(cx + cw, cy); x.stroke();
+            x.strokeStyle = 'rgba(60,72,70,.2)'; x.beginPath(); x.moveTo(cx + cw, cy); x.lineTo(cx + cw, cy + ch); x.lineTo(cx, cy + ch); x.stroke();
             x.restore();
-            // the image window: recessed, a thin shadow on its top/left edge
+            // the image window: the card's mask sits a hair above the picture — a soft inner
+            // shadow on the picture's edges, a crisp dark rim and a light bevel on the card.
             x.save();
-            x.strokeStyle = 'rgba(40,32,20,.28)'; x.lineWidth = Math.max(1, k * 0.18);
-            x.beginPath(); x.moveTo(win.x, win.y + win.h); x.lineTo(win.x, win.y); x.lineTo(win.x + win.w, win.y); x.stroke();
-            x.strokeStyle = 'rgba(255,255,248,.6)'; x.lineWidth = Math.max(1, k * 0.14);
-            x.beginPath(); x.moveTo(win.x + win.w, win.y); x.lineTo(win.x + win.w, win.y + win.h); x.lineTo(win.x, win.y + win.h); x.stroke();
+            x.beginPath(); x.rect(win.x, win.y, win.w, win.h); x.clip();
+            const iw2 = Math.max(2, k * 0.9);
+            [[win.x, win.y, win.w, iw2, 0, 1], [win.x, win.y + win.h - iw2, win.w, iw2, 0, -1], [win.x, win.y, iw2, win.h, 1, 0], [win.x + win.w - iw2, win.y, iw2, win.h, -1, 0]].forEach(([rx, ry, rw, rh, dx, dy]) => {
+                const lg = dx ? x.createLinearGradient(dx > 0 ? rx : rx + rw, 0, dx > 0 ? rx + rw : rx, 0) : x.createLinearGradient(0, dy > 0 ? ry : ry + rh, 0, dy > 0 ? ry + rh : ry);
+                lg.addColorStop(0, 'rgba(20,24,24,.22)'); lg.addColorStop(1, 'rgba(20,24,24,0)');
+                x.fillStyle = lg; x.fillRect(rx, ry, rw, rh);
+            });
+            x.restore();
+            x.save();
+            x.strokeStyle = 'rgba(30,36,36,.35)'; x.lineWidth = Math.max(1, k * 0.12);
+            x.strokeRect(win.x, win.y, win.w, win.h);
+            x.strokeStyle = 'rgba(255,255,255,.75)'; x.lineWidth = Math.max(1, k * 0.14);
+            const o = Math.max(1, k * 0.2);
+            x.beginPath(); x.moveTo(win.x + win.w + o, win.y - o); x.lineTo(win.x + win.w + o, win.y + win.h + o); x.lineTo(win.x - o, win.y + win.h + o); x.stroke();
             x.restore();
             // caption
             const cap = instaxCaption();
@@ -7521,7 +7534,7 @@ void main() {
             const align = INSTAX_CAPTION.align || 'center';
             const ax = align === 'left' ? -stripLen * 0.4 : align === 'right' ? stripLen * 0.4 : 0;
             x.textAlign = align; x.textBaseline = 'middle';
-            x.fillStyle = 'rgba(46,42,38,.78)';
+            x.fillStyle = 'rgba(38,40,42,.8)';
             const big = k * 2.3, small = k * 1.5;
             const lines = [];
             if (cap.text) lines.push([cap.text, big]);
@@ -9139,7 +9152,7 @@ void main() {
         // PWA: register service worker for installability + reliable updates
         (function () {
             if (!('serviceWorker' in navigator)) return;
-            const __BUILD = 'v39';
+            const __BUILD = 'v40';
             try {
                 const bt = document.getElementById('build-tag');
                 if (bt) bt.textContent = __BUILD;
